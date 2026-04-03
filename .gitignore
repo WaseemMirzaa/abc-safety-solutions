@@ -1,0 +1,15 @@
+.DS_Store
+*.zip
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+*.log
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.idea/
+.vscode/*
+!.vscode/extensions.json

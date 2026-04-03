@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+/* Design language: crisp SaaS typography (Outfit + DM Sans), depth like Stripe/Vercel, restraint like Linear */
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-950: #030712;
+  --color-brand-900: #0a0f1c;
+  --color-brand-800: #111827;
+  --color-brand-700: #1e293b;
+  --color-accent: #f59e0b;
+  --color-accent-soft: #fcd34d;
+  --color-teal: #0ea5e9;
+  --color-surface: #f1f5f9;
+}
+
+@keyframes shimmer-slide {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+    overflow-x: clip;
+  }
+  body {
+    @apply bg-slate-50 font-sans text-slate-800;
+    overflow-x: clip;
+  }
+  ::selection {
+    @apply bg-amber-200/80 text-brand-950;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
+
+@layer components {
+  .input-pro {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition;
+    @apply placeholder:text-slate-400 focus:border-sky-400/90 focus:ring-4 focus:ring-sky-500/15;
+  }
+  .card-elevated {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_48px_-24px_rgba(15,23,42,0.18)];
+  }
+  /* Light shell: sky blue + amber + navy — aligned with abcsafetysolutions.com */
+  .mesh-hero {
+    background-color: #f0f9ff;
+    background-image:
+      radial-gradient(ellipse 100% 80% at 0% 0%, rgba(245, 158, 11, 0.12), transparent 55%),
+      radial-gradient(ellipse 80% 60% at 100% 18%, rgba(56, 189, 248, 0.18), transparent 50%),
+      radial-gradient(ellipse 60% 45% at 50% 100%, rgba(14, 165, 233, 0.08), transparent 45%);
+  }
+  /** Richer blue wash for marketing hero (home only). */
+  .hero-sky {
+    background-color: #dbeafe;
+    background-image:
+      linear-gradient(165deg, #eff6ff 0%, #e0f2fe 38%, #f0f9ff 72%, #f8fafc 100%),
+      radial-gradient(ellipse 100% 85% at 95% 15%, rgba(14, 165, 233, 0.28), transparent 52%),
+      radial-gradient(ellipse 80% 70% at 5% 85%, rgba(56, 189, 248, 0.22), transparent 55%),
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(125, 211, 252, 0.35), transparent 48%),
+      radial-gradient(ellipse 50% 40% at 0% 10%, rgba(245, 158, 11, 0.09), transparent 50%);
+  }
+  .hero-sky-grid {
+    background-image:
+      linear-gradient(rgba(14, 165, 233, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(14, 165, 233, 0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  /** Login / register left column — deeper sky wash than generic mesh-hero */
+  .auth-brand-panel {
+    background-color: #dbeafe;
+    background-image:
+      linear-gradient(168deg, #eff6ff 0%, #e0f2fe 42%, #f0f9ff 78%, #f8fafc 100%),
+      radial-gradient(ellipse 90% 75% at 100% 18%, rgba(14, 165, 233, 0.26), transparent 54%),
+      radial-gradient(ellipse 70% 55% at 8% 88%, rgba(56, 189, 248, 0.2), transparent 52%),
+      radial-gradient(ellipse 55% 40% at 50% 0%, rgba(125, 211, 252, 0.28), transparent 48%);
+  }
+  .grid-pattern {
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+  .font-cert-serif {
+    font-family: "Cormorant Garamond", ui-serif, Georgia, serif;
+  }
+  .font-cert-script {
+    font-family: "Great Vibes", cursive;
+  }
+  .certificate-paper {
+    background:
+      radial-gradient(ellipse 100% 70% at 0% 0%, rgba(245, 158, 11, 0.1), transparent 52%),
+      radial-gradient(ellipse 90% 60% at 100% 15%, rgba(56, 189, 248, 0.12), transparent 48%),
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(10, 15, 28, 0.035), transparent 45%),
+      linear-gradient(180deg, #f8fafc 0%, #f0f9ff 42%, #f8fafc 100%);
+  }
+  .skeleton-bar {
+    border-radius: 0.5rem;
+    background: linear-gradient(90deg, rgb(226 232 240 / 0.95), rgb(241 245 249), rgb(226 232 240 / 0.95));
+    background-size: 200% 100%;
+    animation: shimmer-slide 1.75s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-bar {
+      animation: none;
+      background: rgb(226 232 240 / 0.95);
+    }
+  }
+  .animate-breathe {
+    animation: breathe 2.8s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-breathe {
+      animation: none;
+    }
+  }
+}
