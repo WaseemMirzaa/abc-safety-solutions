@@ -1,0 +1,4 @@
+# Cloudflare Pages — dashboard: Root directory = frontend, Build = npm run build, Output = dist
+name = "abc-safety-solutions"
+compatibility_date = "2025-04-03"
+pages_build_output_dir = "dist"
