@@ -1,0 +1,7 @@
+{
+  "name": "abc-safety-solutions",
+  "private": true,
+  "engines": {
+    "node": "20.x"
+  }
+}
