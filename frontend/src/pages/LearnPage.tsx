@@ -7,6 +7,7 @@ import { CertificateVisual } from '@/components/CertificateVisual'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { fetchAllCoursesAdmin } from '@/api/localData'
+import { getCategoryById } from '@/data/catalog'
 import { qk } from '@/api/queryKeys'
 import { getCourseSlideCount } from '@/lib/courseSlides'
 import { localCache } from '@/lib/localCache'
@@ -118,12 +119,15 @@ export function LearnPage() {
 
   const issueCertIfNeeded = () => {
     if (hasCert) return
+    const cat = getCategoryById(course.categoryId)
+    const certificationText = cat?.certificationText?.trim() || undefined
     localCache.addCertificate({
       id: `CERT-${Date.now()}`,
       courseId: course.id,
       courseName: course.title,
       userName: user.name,
       issuedAt: new Date().toISOString(),
+      ...(certificationText ? { certificationText } : {}),
     })
   }
 

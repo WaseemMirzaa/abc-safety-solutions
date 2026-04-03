@@ -3,6 +3,8 @@ export type Category = {
   name: string
   slug: string
   parentId: string | null
+  /** Shown on completion certificates for courses in this category. */
+  certificationText: string
 }
 
 export type Course = {
@@ -49,6 +51,8 @@ export type Certificate = {
   courseName: string
   userName: string
   issuedAt: string
+  /** Snapshot of category certification line at issue time. */
+  certificationText?: string
 }
 
 export type MediaAsset = {

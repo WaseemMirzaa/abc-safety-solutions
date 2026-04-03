@@ -1,6 +1,10 @@
 import { clsx } from 'clsx'
 import { Award, ShieldCheck } from 'lucide-react'
+import { resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
 import type { Certificate } from '@/types'
+
+const CERT_LOGO_URL =
+  'https://abcsafetysolutions.com/wp-content/uploads/2019/05/cropped-logo-square-social-32x32.jpg'
 
 type Props = {
   cert: Certificate
@@ -39,6 +43,7 @@ function CornerFlourish({ className }: { className?: string }) {
 export function CertificateVisual({ cert, variant = 'full', sampleWatermark, className }: Props) {
   const issued = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(cert.issuedAt))
   const compact = variant === 'compact'
+  const categoryLine = resolveCertificateCategoryLine(cert)
 
   return (
     <div
@@ -79,6 +84,11 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
         <div className="relative min-w-0 text-center">
           <div className="mx-auto flex justify-center px-1">
             <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full border border-sky-300/60 bg-gradient-to-r from-sky-50/95 to-sky-100/50 px-2.5 py-1 shadow-sm ring-1 ring-sky-700/10 sm:gap-2 sm:px-3">
+              <img
+                src={CERT_LOGO_URL}
+                alt="ABC Safety Solutions logo"
+                className="h-4 w-4 shrink-0 rounded-full border border-sky-300/70 object-cover sm:h-5 sm:w-5"
+              />
               <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-sky-600 sm:h-4 sm:w-4" aria-hidden />
               <span className="font-display text-[9px] font-semibold uppercase tracking-[0.12em] text-brand-900 sm:text-[10px] sm:tracking-[0.22em] md:tracking-[0.28em]">
                 ABC Safety Solutions
@@ -139,6 +149,17 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
           >
             {cert.courseName}
           </p>
+
+          {categoryLine ? (
+            <p
+              className={clsx(
+                'font-cert-serif mx-auto mt-3 max-w-xl px-px italic leading-snug text-slate-700 [overflow-wrap:anywhere]',
+                compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm',
+              )}
+            >
+              {categoryLine}
+            </p>
+          ) : null}
 
           <p
             className={clsx(
@@ -209,4 +230,6 @@ export const SAMPLE_CERTIFICATE: Certificate = {
   courseName: 'Workplace Safety Fundamentals',
   userName: 'Alexandra M. Rivera',
   issuedAt: new Date().toISOString(),
+  certificationText:
+    'Occupational health & safety training program completed in accordance with applicable workplace safety standards.',
 }

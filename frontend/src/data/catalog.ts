@@ -4,13 +4,56 @@ import { localCache } from '@/lib/localCache'
 const BASE = 'https://abcsafetysolutions.com/wp-content/uploads'
 
 export const categories: Category[] = [
-  { id: 'cat-ohs', name: 'Occupational Health & Safety', slug: 'occupational-health-safety', parentId: null },
-  { id: 'cat-dot', name: 'Department of Transportation (DOT)', slug: 'dot', parentId: null },
-  { id: 'cat-me', name: 'Major Emergency Training', slug: 'major-emergency', parentId: null },
-  { id: 'cat-fire', name: 'Fire Training', slug: 'fire', parentId: null },
-  { id: 'cat-surv', name: 'Survival Training', slug: 'survival', parentId: null },
-  { id: 'cat-bop', name: 'BOP Controls Training', slug: 'bop-controls', parentId: null },
-  { id: 'cat-epa', name: 'EPA Lead-Safe Training', slug: 'epa-lead-safe', parentId: null },
+  {
+    id: 'cat-ohs',
+    name: 'Occupational Health & Safety',
+    slug: 'occupational-health-safety',
+    parentId: null,
+    certificationText:
+      'Occupational health & safety training program completed in accordance with applicable workplace safety standards.',
+  },
+  {
+    id: 'cat-dot',
+    name: 'Department of Transportation (DOT)',
+    slug: 'dot',
+    parentId: null,
+    certificationText: 'Department of Transportation (DOT) training completed for regulated hazardous materials and fleet safety topics.',
+  },
+  {
+    id: 'cat-me',
+    name: 'Major Emergency Training',
+    slug: 'major-emergency',
+    parentId: null,
+    certificationText: 'Major emergency preparedness training completed for industrial emergency response and incident coordination.',
+  },
+  {
+    id: 'cat-fire',
+    name: 'Fire Training',
+    slug: 'fire',
+    parentId: null,
+    certificationText: 'Fire prevention and response training completed for workplace fire safety and emergency action.',
+  },
+  {
+    id: 'cat-surv',
+    name: 'Survival Training',
+    slug: 'survival',
+    parentId: null,
+    certificationText: 'Survival and offshore safety training completed for marine and aviation travel environments.',
+  },
+  {
+    id: 'cat-bop',
+    name: 'BOP Controls Training',
+    slug: 'bop-controls',
+    parentId: null,
+    certificationText: 'Well control and blowout prevention awareness training completed for oilfield operations.',
+  },
+  {
+    id: 'cat-epa',
+    name: 'EPA Lead-Safe Training',
+    slug: 'epa-lead-safe',
+    parentId: null,
+    certificationText: 'EPA lead-safe renovation, repair, and painting training completed in accordance with RRP requirements.',
+  },
 ]
 
 function c(
@@ -73,9 +116,18 @@ export function isSeedCategoryId(id: string) {
   return SEED_CATEGORY_IDS.has(id)
 }
 
+function mergeCategoryFields(c: Category): Category {
+  const base = c.certificationText ?? ''
+  if (!isSeedCategoryId(c.id)) {
+    return { ...c, certificationText: base || '' }
+  }
+  const o = localCache.getCategoryFieldOverrides()[c.id]
+  return { ...c, certificationText: (o?.certificationText ?? base) || '' }
+}
+
 /** Seed + admin-created categories from local storage. */
 export function getAllCategories(): Category[] {
-  return [...categories, ...localCache.getCustomCategories()]
+  return [...categories.map(mergeCategoryFields), ...localCache.getCustomCategories().map(mergeCategoryFields)]
 }
 
 export function getCategoryBySlug(slug: string) {

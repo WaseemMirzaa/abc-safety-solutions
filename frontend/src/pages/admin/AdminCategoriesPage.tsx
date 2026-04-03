@@ -37,6 +37,7 @@ export function AdminCategoriesPage() {
       name: '',
       slug: '',
       parentId: null,
+      certificationText: '',
     })
     setErr('')
     setModal('create')
@@ -73,7 +74,14 @@ export function AdminCategoriesPage() {
       setErr('Slug already used.')
       return
     }
-    const next: Category = { ...draft, name, slug, parentId: null }
+    const certText = (draft.certificationText ?? '').trim()
+    if (modal === 'edit' && isSeedCategoryId(draft.id)) {
+      localCache.patchCategoryFieldOverride(draft.id, { certificationText: certText })
+      invalidate()
+      close()
+      return
+    }
+    const next: Category = { ...draft, name, slug, parentId: null, certificationText: certText }
     if (modal === 'create') {
       localCache.addCustomCategory(next)
     } else if (!isSeedCategoryId(next.id)) {
@@ -117,6 +125,7 @@ export function AdminCategoriesPage() {
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Slug</th>
+              <th className="min-w-[12rem] px-4 py-3">Certificate text</th>
               <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -124,7 +133,7 @@ export function AdminCategoriesPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={4} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
                   Loading…
                 </td>
               </tr>
@@ -133,6 +142,16 @@ export function AdminCategoriesPage() {
                 <tr key={c.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80">
                   <td className="px-4 py-3 font-medium text-brand-900">{c.name}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{c.slug}</td>
+                  <td
+                    className="max-w-xs px-4 py-3 text-xs text-slate-600"
+                    title={c.certificationText || undefined}
+                  >
+                    {c.certificationText ? (
+                      <span className="line-clamp-2">{c.certificationText}</span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{isSeedCategoryId(c.id) ? 'Seed' : 'Custom'}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
@@ -141,8 +160,7 @@ export function AdminCategoriesPage() {
                         variant="secondary"
                         className="!rounded-lg !py-1.5 !text-xs"
                         onClick={() => openEdit(c)}
-                        disabled={isSeedCategoryId(c.id)}
-                        title={isSeedCategoryId(c.id) ? 'Seed categories: edit name/slug in code' : 'Edit'}
+                        title="Edit category"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -175,15 +193,34 @@ export function AdminCategoriesPage() {
           <div className="space-y-4">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Display name</label>
-              <input className="input-pro mt-1.5 w-full" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              <input
+                className="input-pro mt-1.5 w-full"
+                value={draft.name}
+                disabled={modal === 'edit' && isSeedCategoryId(draft.id)}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+              {modal === 'edit' && isSeedCategoryId(draft.id) ? (
+                <p className="mt-1 text-[11px] text-slate-500">Seed category name is defined in code; edit certificate text below.</p>
+              ) : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">URL slug</label>
               <input
                 className="input-pro mt-1.5 w-full font-mono text-sm"
                 value={draft.slug}
+                disabled={modal === 'edit' && isSeedCategoryId(draft.id)}
                 onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
                 placeholder="auto from name if empty"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Certificate text</label>
+              <p className="mt-0.5 text-[11px] text-slate-500">Shown on completion certificates for courses in this category.</p>
+              <textarea
+                className="input-pro mt-1.5 min-h-[88px] w-full resize-y"
+                value={draft.certificationText ?? ''}
+                onChange={(e) => setDraft({ ...draft, certificationText: e.target.value })}
+                placeholder="e.g. Program completed in accordance with…"
               />
             </div>
             {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}

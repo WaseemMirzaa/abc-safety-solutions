@@ -127,6 +127,18 @@ export const localCache = {
       'custom_categories',
       this.getCustomCategories().filter((c) => c.id !== id),
     )
+    const o = this.getCategoryFieldOverrides()
+    delete o[id]
+    save('category_field_overrides', o)
+  },
+
+  getCategoryFieldOverrides(): Record<string, Partial<Pick<Category, 'certificationText'>>> {
+    return load<Record<string, Partial<Pick<Category, 'certificationText'>>>>('category_field_overrides', {})
+  },
+  patchCategoryFieldOverride(categoryId: string, patch: Partial<Pick<Category, 'certificationText'>>) {
+    const cur = this.getCategoryFieldOverrides()
+    cur[categoryId] = { ...cur[categoryId], ...patch }
+    save('category_field_overrides', cur)
   },
 
   getCustomCourses(): Course[] {
