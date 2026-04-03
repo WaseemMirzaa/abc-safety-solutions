@@ -82,15 +82,27 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
         <div className="pointer-events-none absolute inset-1.5 border border-sky-600/[0.18] sm:inset-2" aria-hidden />
 
         <div className="relative min-w-0 text-center">
-          <div className="mx-auto flex justify-center px-1">
-            <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 rounded-full border border-sky-300/60 bg-gradient-to-r from-sky-50/95 to-sky-100/50 px-2.5 py-1 shadow-sm ring-1 ring-sky-700/10 sm:gap-2 sm:px-3">
+          <div className="mx-auto flex flex-col items-center gap-3 px-1 sm:gap-4">
+            <div
+              className={clsx(
+                'relative shrink-0 rounded-2xl border-2 border-sky-500/50 bg-gradient-to-b from-white to-sky-50/90 shadow-[0_8px_30px_-8px_rgba(2,132,199,0.35),0_2px_8px_-2px_rgba(15,23,42,0.12)] ring-2 ring-sky-300/60',
+                compact ? 'p-2.5' : 'p-3 sm:p-4',
+              )}
+            >
               <img
                 src={CERT_LOGO_URL}
                 alt="ABC Safety Solutions logo"
-                className="h-4 w-4 shrink-0 rounded-full border border-sky-300/70 object-cover sm:h-5 sm:w-5"
+                className={clsx(
+                  'mx-auto block rounded-xl object-cover object-center',
+                  compact
+                    ? 'h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]'
+                    : 'h-[4.5rem] w-[4.5rem] sm:h-24 sm:w-24 md:h-28 md:w-28',
+                )}
               />
-              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-sky-600 sm:h-4 sm:w-4" aria-hidden />
-              <span className="font-display text-[9px] font-semibold uppercase tracking-[0.12em] text-brand-900 sm:text-[10px] sm:tracking-[0.22em] md:tracking-[0.28em]">
+            </div>
+            <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-sky-300/60 bg-gradient-to-r from-sky-50/95 to-sky-100/50 px-3 py-1.5 shadow-sm ring-1 ring-sky-700/10 sm:gap-2.5 sm:px-4 sm:py-2">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-sky-600 sm:h-5 sm:w-5" aria-hidden />
+              <span className="font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-900 sm:text-[11px] sm:tracking-[0.22em] md:text-xs md:tracking-[0.28em]">
                 ABC Safety Solutions
               </span>
             </div>
