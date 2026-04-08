@@ -72,7 +72,7 @@ export function LoginPage() {
   const aside = (
     <div className="relative z-10 flex h-full min-h-0 w-full flex-col justify-between p-6 lg:p-8 xl:p-10">
       <div className="shrink-0">
-        <AuthLogo className="brightness-0 invert drop-shadow-md" />
+        <AuthLogo className="drop-shadow-md" />
         <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/25 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-100/95 backdrop-blur-md">
           <BookOpen className="h-3.5 w-3.5 text-amber-400" aria-hidden />
           {t('ui_login_learning_hub')}

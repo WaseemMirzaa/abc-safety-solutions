@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { easeOut } from '@/lib/motionPresets'
 import { t } from '@/i18n/t'
+import { brandLogoLight } from '@/config/brandAssets'
 
 const side = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -50,7 +51,14 @@ export function AdminLayout() {
           }}
         />
         <div className="relative flex items-center justify-between gap-2 p-5 lg:flex-col lg:items-stretch">
-          <p className="font-display text-sm font-bold tracking-tight text-brand-900">{t('AdminLayout_52_admin_b0cb29e234')}</p>
+          <Link to="/" className="block shrink-0 rounded-lg bg-slate-50/90 px-2 py-1.5 ring-1 ring-slate-200/80 transition hover:ring-[color:var(--color-abc-blue)]/30">
+            <img
+              src={brandLogoLight}
+              alt={t('ui_brand_logo_alt')}
+              className="h-10 w-auto max-w-[10rem] object-contain object-left sm:h-11 sm:max-w-[11rem]"
+            />
+          </Link>
+          <p className="font-display text-sm font-bold tracking-tight text-brand-900 lg:mt-1">{t('AdminLayout_52_admin_b0cb29e234')}</p>
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 transition hover:text-sky-800 lg:mt-3"
@@ -69,7 +77,7 @@ export function AdminLayout() {
                 clsx(
                   'flex items-center gap-2.5 rounded-xl px-3.5 py-3 text-sm font-semibold whitespace-nowrap transition',
                   isActive
-                    ? 'bg-sky-600/10 text-sky-900 shadow-inner shadow-sky-900/5 ring-1 ring-sky-600/15'
+                    ? 'bg-[color:var(--color-abc-blue)]/10 text-sky-900 shadow-inner shadow-sky-900/5 ring-1 ring-[color:var(--color-abc-blue)]/25'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-brand-900',
                 )
               }

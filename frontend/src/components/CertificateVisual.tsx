@@ -5,9 +5,7 @@ import { mergeCourses } from '@/api/localData'
 import { resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
 import { localizedCategoryCertLine } from '@/lib/catalogLocale'
 import type { Certificate } from '@/types'
-
-const CERT_LOGO_URL =
-  'https://abcsafetysolutions.com/wp-content/uploads/2019/05/cropped-logo-square-social-32x32.jpg'
+import { brandLogoLight } from '@/config/brandAssets'
 
 type Props = {
   cert: Certificate
@@ -100,10 +98,10 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               )}
             >
               <img
-                src={CERT_LOGO_URL}
+                src={brandLogoLight}
                 alt={t('ui_cert_logo_alt')}
                 className={clsx(
-                  'mx-auto block rounded-xl object-cover object-center',
+                  'mx-auto block rounded-xl object-contain object-center p-1',
                   compact
                     ? 'h-16 w-16 sm:h-[4.5rem] sm:w-[4.5rem]'
                     : 'h-[4.5rem] w-[4.5rem] sm:h-24 sm:w-24 md:h-28 md:w-28',

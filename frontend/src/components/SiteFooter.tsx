@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom'
 import { Container } from '@/components/Container'
 import { Phone, Mail, MapPin, ArrowUpRight } from 'lucide-react'
 import { t } from '@/i18n/t'
-
-const LOGO = 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
+import { brandLogoLight } from '@/config/brandAssets'
 
 export function SiteFooter() {
   return (
@@ -18,7 +17,11 @@ export function SiteFooter() {
       <Container className="relative py-16">
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-5">
-            <img src={LOGO} alt="" className="h-10 w-auto object-contain object-left brightness-0 opacity-90" />
+            <img
+              src={brandLogoLight}
+              alt=""
+              className="h-12 w-auto max-w-[13rem] object-contain object-left opacity-95 sm:h-14 sm:max-w-[15rem]"
+            />
             <p className="mt-6 max-w-md font-display text-lg font-medium leading-snug text-brand-900">
               {t('ui_site_footer_tagline')}
             </p>

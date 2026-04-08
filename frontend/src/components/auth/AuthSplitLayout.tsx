@@ -1,21 +1,20 @@
 import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
-
-const LOGO_LIGHT = 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
+import { brandLogoLight } from '@/config/brandAssets'
 
 export function AuthLogo({ variant = 'light', className }: { variant?: 'light' | 'dark'; className?: string }) {
   return (
     <img
-      src={LOGO_LIGHT}
+      src={brandLogoLight}
       alt={t('ui_brand_logo_alt')}
       className={clsx(
-        'block h-10 w-auto max-w-[11rem] object-contain object-left brightness-0 sm:h-11',
-        variant === 'light' && 'opacity-95',
+        'block h-12 w-auto max-w-[13rem] object-contain object-left sm:h-14 sm:max-w-[15rem] md:h-[3.75rem] md:max-w-[17rem]',
+        variant === 'light' && 'opacity-95 drop-shadow-sm',
         variant === 'dark' && 'opacity-100',
         className,
       )}
-      width={176}
-      height={44}
+      width={220}
+      height={56}
     />
   )
 }
@@ -33,10 +32,10 @@ export function AuthSplitLayout({ aside, children, asideBackgroundImage, asideIm
   const photoAside = Boolean(asideBackgroundImage)
 
   return (
-    <div className="min-h-[calc(100svh-4.25rem)] lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
+    <div className="min-h-[calc(100svh-5.25rem)] sm:min-h-[calc(100svh-5.75rem)] lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.08fr)]">
       <aside
         className={clsx(
-          'relative hidden min-h-[calc(100svh-4.25rem)] flex-col overflow-hidden lg:flex lg:flex-col',
+          'relative hidden min-h-[calc(100svh-5.25rem)] flex-col overflow-hidden sm:min-h-[calc(100svh-5.75rem)] lg:flex lg:flex-col',
           !photoAside && 'auth-brand-panel',
           photoAside && 'bg-slate-950',
         )}

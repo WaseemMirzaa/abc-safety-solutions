@@ -33,7 +33,7 @@ export function RegisterPage() {
   const aside = (
     <div className="relative z-10 flex h-full min-h-0 w-full flex-col justify-between p-6 lg:p-8 xl:p-10">
       <div className="shrink-0">
-        <AuthLogo className="brightness-0 invert drop-shadow-md" />
+        <AuthLogo className="drop-shadow-md" />
         <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-400/35 bg-black/25 px-3 py-1.5 text-[11px] font-medium text-amber-100 shadow-sm backdrop-blur-md ring-1 ring-white/10">
           <UserPlus className="h-3.5 w-3.5 text-amber-400" aria-hidden />
           {t('ui_register_badge_new')}

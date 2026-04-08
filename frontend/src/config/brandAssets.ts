@@ -1,3 +1,6 @@
+/** Primary wordmark — matches client site colors (sky blue #0099FF). Served locally for reliability. */
+export const brandLogoLight = '/brand/logo-light.png'
+
 /** Imagery from [ABC Safety Solutions](https://abcsafetysolutions.com/training-certification/) (client site). */
 const B = 'https://abcsafetysolutions.com/wp-content/uploads'
 
