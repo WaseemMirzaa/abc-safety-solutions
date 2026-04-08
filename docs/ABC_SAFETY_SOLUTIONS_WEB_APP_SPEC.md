@@ -1,7 +1,7 @@
 # ABC Safety Solutions — Online Training Platform
 
 **Document type:** Requirements review, gap analysis, and technical specification  
-**Stakeholders:** ABC Safety Solutions, Inc. (client) · Development (Waseem Mirza)  
+**Stakeholders:** ABC Safety Solutions, Inc. (client) · Development (WaseemMirzaa)  
 **Context:** Transcript review + prior technical discussions (categories, tests, certificates)
 
 ---
