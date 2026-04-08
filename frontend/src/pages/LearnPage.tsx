@@ -47,6 +47,11 @@ export function LearnPage() {
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
 
+  const publishedTest = useMemo(() => {
+    if (!course) return undefined
+    return localCache.getPublishedTestForCourse(course.id)
+  }, [course?.id, showTest])
+
   const totalSlides = course ? getCourseSlideCount(course) : 1
   const slideUrls = course?.slideImageUrls?.filter(Boolean) ?? []
 
@@ -110,7 +115,6 @@ export function LearnPage() {
   }
 
   const hasCert = localCache.getCertificates().some((c) => c.courseId === course.id)
-  const publishedTest = useMemo(() => localCache.getPublishedTestForCourse(course.id), [course.id, showTest])
 
   const openTest = () => {
     setMcAnswers({})

@@ -23,9 +23,10 @@ import { AdminAnnouncementsPage } from '@/pages/admin/AdminAnnouncementsPage'
 import { AdminMediaPage } from '@/pages/admin/AdminMediaPage'
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
 
-export default function App() {
+/** Router content only — wrap with `BrowserRouter` (app) or `MemoryRouter` (tests). */
+export function AppRoutes() {
   return (
-    <BrowserRouter>
+    <>
       <ScrollToTop />
       <Routes>
         <Route element={<PublicLayout />}>
@@ -54,6 +55,14 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   )
 }
