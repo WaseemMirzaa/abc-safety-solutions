@@ -3,6 +3,7 @@ import { AuthLogo, AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { Button } from '@/components/Button'
 import { loginPanelImage } from '@/config/brandAssets'
 import { KeyRound, Mail } from 'lucide-react'
+import { t } from '@/i18n/t'
 
 /** Stub — NestJS will send reset links via transactional email. */
 export function ForgotPasswordPage() {
@@ -25,7 +26,7 @@ export function ForgotPasswordPage() {
         Same training platform account as sign in—one email, one profile.
       </p>
       <div className="mt-auto rounded-xl border border-white/15 bg-slate-950/45 p-3 text-[12px] leading-snug text-slate-300 backdrop-blur-md ring-1 ring-white/10 sm:text-[13px]">
-        <span className="font-medium text-white">Coming soon:</span> transactional email via NestJS.
+        <span className="font-medium text-white">{t('ForgotPasswordPage_28_coming_soon_73096ff4cd')}</span> transactional email via NestJS.
       </div>
     </div>
   )
@@ -39,7 +40,7 @@ export function ForgotPasswordPage() {
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-700 ring-1 ring-sky-500/20">
         <Mail className="h-6 w-6" />
       </div>
-      <h1 className="mt-6 font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">Reset password</h1>
+      <h1 className="mt-6 font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">{t('ForgotPasswordPage_42_reset_password_9182f380f6')}</h1>
       <p className="mt-3 text-sm leading-relaxed text-slate-600">
         This flow is not wired yet. With the API, you will enter your email and receive a secure link to set a new password.
       </p>
@@ -48,7 +49,7 @@ export function ForgotPasswordPage() {
       </Button>
       <p className="mt-8 text-center text-sm text-slate-600">
         <Link to="/login" className="font-semibold text-amber-700 hover:text-amber-600">
-          ← Back to sign in
+          {t('ui_forgot_back_signin')}
         </Link>
       </p>
     </AuthSplitLayout>

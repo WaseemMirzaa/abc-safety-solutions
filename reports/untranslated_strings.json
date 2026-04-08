@@ -1,0 +1,8 @@
+{
+  "description": "Likely user-facing strings not passed as t('...') first arg, or raw jsx_text without t() on line.",
+  "root": "/Users/macuser/Documents/projects/abc_safety_solutions/frontend/src",
+  "files_scanned": 51,
+  "total_hits_raw": 2103,
+  "count_untranslated": 0,
+  "strings": []
+}

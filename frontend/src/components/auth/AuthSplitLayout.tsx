@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { t } from '@/i18n/t'
 
 const LOGO_LIGHT = 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
 
@@ -6,7 +7,7 @@ export function AuthLogo({ variant = 'light', className }: { variant?: 'light' |
   return (
     <img
       src={LOGO_LIGHT}
-      alt="ABC Safety Solutions"
+      alt={t('ui_brand_logo_alt')}
       className={clsx(
         'block h-10 w-auto max-w-[11rem] object-contain object-left brightness-0 sm:h-11',
         variant === 'light' && 'opacity-95',

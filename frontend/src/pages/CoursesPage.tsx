@@ -10,6 +10,8 @@ import { fetchCategories, fetchPublishedCourses } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { clsx } from 'clsx'
 import { GraduationCap } from 'lucide-react'
+import { t } from '@/i18n/t'
+import { localizedCategoryName } from '@/lib/catalogLocale'
 
 export function CoursesPage() {
   const { data: courses = [], isPending, isFetching } = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
@@ -30,9 +32,9 @@ export function CoursesPage() {
               <GraduationCap className="h-3.5 w-3.5" />
               Catalog
             </div>
-            <h1 className="mt-4 font-display text-4xl font-bold tracking-tight text-brand-900 sm:text-5xl">All courses</h1>
+            <h1 className="mt-4 font-display text-4xl font-bold tracking-tight text-brand-900 sm:text-5xl">{t('CoursesPage_33_all_courses_ab9eb6baba')}</h1>
             <p className="mt-4 text-base leading-relaxed text-slate-600">
-              Filter by category. After checkout, courses appear in <strong className="font-medium text-brand-800">My learning</strong> with progress saved on this device.
+              Filter by category. After checkout, courses appear in <strong className="font-medium text-brand-800">{t('CoursesPage_35_my_learning_112e75f946')}</strong> with progress saved on this device.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -58,7 +60,7 @@ export function CoursesPage() {
                 : 'border border-slate-200/90 bg-white text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50',
             )}
           >
-            All
+            {t('ui_courses_filter_all')}
           </button>
           {categoryList.map((c) => (
             <button
@@ -72,14 +74,14 @@ export function CoursesPage() {
                   : 'border border-slate-200/90 bg-white text-slate-700 shadow-sm hover:border-slate-300 hover:bg-slate-50',
               )}
             >
-              {c.name.replace('Department of Transportation (DOT)', 'DOT')}
+              {localizedCategoryName(c.id, c.name).replace('Department of Transportation (DOT)', 'DOT')}
             </button>
           ))}
         </div>
 
         {isPending ? (
           <div className="mt-12">
-            <PageLoader message="Loading catalog" minHeight="min-h-[28vh]" />
+            <PageLoader message={t('ui_page_loader_catalog')} minHeight="min-h-[28vh]" />
             <motion.div
               key="catalog-skeleton"
               className="grid w-full gap-10 sm:grid-cols-2 xl:grid-cols-3"
@@ -111,7 +113,7 @@ export function CoursesPage() {
         )}
 
         {!isPending && filtered.length === 0 ? (
-          <p className="mt-20 text-center font-medium text-slate-500">No courses in this category.</p>
+          <p className="mt-20 text-center font-medium text-slate-500">{t('CoursesPage_114_no_courses_in_this_category_02447b00f4')}</p>
         ) : null}
       </Container>
     </div>

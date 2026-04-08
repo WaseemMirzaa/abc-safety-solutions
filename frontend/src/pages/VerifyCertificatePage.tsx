@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { Search, ShieldCheck } from 'lucide-react'
+import { t } from '@/i18n/t'
 
 /** Public verify stub — backend will expose GET /certificates/verify/:id */
 export function VerifyCertificatePage() {
@@ -13,24 +14,22 @@ export function VerifyCertificatePage() {
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-800 ring-1 ring-amber-500/25">
           <ShieldCheck className="h-6 w-6" />
         </div>
-        <h1 className="mt-8 font-display text-3xl font-bold text-brand-900">Verify certificate</h1>
-        <p className="mt-3 text-sm text-slate-600">
-          Enter a certificate ID to confirm validity. This will call the API once deployed.
-        </p>
+        <h1 className="mt-8 font-display text-3xl font-bold text-brand-900">{t('VerifyCertificatePage_16_verify_certificate_fb6cf45582')}</h1>
+        <p className="mt-3 text-sm text-slate-600">{t('ui_verify_intro')}</p>
         <div className="card-elevated mt-8 p-6">
           <label htmlFor="cert-id" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Certificate ID
+            {t('ui_verify_label_id')}
           </label>
           <input
             id="cert-id"
             className="input-pro mt-2 font-mono text-sm"
-            placeholder="e.g. CERT-1730000000000"
+            placeholder={t('ui_verify_cert_placeholder')}
             value={id}
             onChange={(e) => setId(e.target.value)}
           />
           <Button className="mt-6 w-full gap-2" disabled>
             <Search className="h-4 w-4" />
-            Verify (API)
+            {t('ui_verify_btn')}
           </Button>
         </div>
       </Container>

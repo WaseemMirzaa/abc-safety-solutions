@@ -14,6 +14,7 @@ import {
   Users,
 } from 'lucide-react'
 import { easeOut } from '@/lib/motionPresets'
+import { t } from '@/i18n/t'
 
 const side = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -49,7 +50,7 @@ export function AdminLayout() {
           }}
         />
         <div className="relative flex items-center justify-between gap-2 p-5 lg:flex-col lg:items-stretch">
-          <p className="font-display text-sm font-bold tracking-tight text-brand-900">Admin</p>
+          <p className="font-display text-sm font-bold tracking-tight text-brand-900">{t('AdminLayout_52_admin_b0cb29e234')}</p>
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 transition hover:text-sky-800 lg:mt-3"

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react'
+import { t } from '@/i18n/t'
 import type { UserSession } from '@/types'
 import { localCache } from '@/lib/localCache'
 
@@ -46,6 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  if (!ctx) throw new Error(t('ui_error_auth_provider'))
   return ctx
 }

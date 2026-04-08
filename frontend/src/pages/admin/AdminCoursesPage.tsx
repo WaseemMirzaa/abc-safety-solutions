@@ -11,6 +11,7 @@ import { localCache } from '@/lib/localCache'
 import { readFileAsDataUrl } from '@/lib/readFileAsDataUrl'
 import type { Course } from '@/types'
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
+import { t } from '@/i18n/t'
 
 const MAX_SLIDE_BYTES = 2 * 1024 * 1024
 const MAX_SLIDES = 30
@@ -181,7 +182,7 @@ export function AdminCoursesPage() {
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-brand-900">Courses</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-brand-900">{t('AdminCoursesPage_184_courses_03efa4826a')}</h1>
           <p className="mt-2 text-sm text-slate-600">
             Publish catalog entries, edit seed metadata via overrides, or add custom courses (stored in this browser).
           </p>
@@ -209,12 +210,12 @@ export function AdminCoursesPage() {
           <table className="min-w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                <th className="px-4 py-3">Course</th>
-                <th className="px-4 py-3">Source</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3">{t('AdminCoursesPage_212_course_643487d5fc')}</th>
+                <th className="px-4 py-3">{t('AdminCoursesPage_213_source_c12d345808')}</th>
+                <th className="px-4 py-3">{t('AdminCoursesPage_214_category_2b504ab8de')}</th>
+                <th className="px-4 py-3">{t('AdminCoursesPage_215_price_cfe1c6373b')}</th>
+                <th className="px-4 py-3">{t('AdminCoursesPage_216_status_7f2ee9e47f')}</th>
+                <th className="px-4 py-3 text-right">{t('AdminCoursesPage_217_actions_4ea6e66f10')}</th>
               </tr>
             </thead>
             <tbody>
@@ -224,8 +225,10 @@ export function AdminCoursesPage() {
                 return (
                   <tr key={c.id} className="border-b border-slate-100 transition last:border-0 hover:bg-slate-50/80">
                     <td className="px-4 py-4 font-medium text-brand-900">{c.title}</td>
-                    <td className="px-4 py-4 text-slate-600">{fromSeed ? 'Seed' : 'Custom'}</td>
-                    <td className="px-4 py-4 text-slate-600">{cat?.name ?? '—'}</td>
+                    <td className="px-4 py-4 text-slate-600">
+                      {fromSeed ? t('ui_courses_source_seed') : t('ui_courses_source_custom')}
+                    </td>
+                    <td className="px-4 py-4 text-slate-600">{cat?.name ?? t('ui_em_dash')}</td>
                     <td className="px-4 py-4 font-medium">{formatPrice(c.priceCents)}</td>
                     <td className="px-4 py-4">
                       <span
@@ -235,7 +238,7 @@ export function AdminCoursesPage() {
                             : 'rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700'
                         }
                       >
-                        {c.published ? 'Published' : 'Draft'}
+                        {c.published ? t('ui_courses_status_published') : t('ui_courses_status_draft')}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-right">
@@ -245,7 +248,7 @@ export function AdminCoursesPage() {
                           className="!rounded-lg !py-2 !text-xs"
                           onClick={() => toggle(c.id, c.published)}
                         >
-                          {c.published ? 'Unpublish' : 'Publish'}
+                          {c.published ? t('ui_courses_unpublish') : t('ui_courses_publish')}
                         </Button>
                         <Button
                           variant="secondary"
@@ -253,7 +256,7 @@ export function AdminCoursesPage() {
                           onClick={() => openEdit(c)}
                         >
                           <Pencil className="mr-1 inline h-3.5 w-3.5" />
-                          Edit
+                          {t('ui_courses_edit')}
                         </Button>
                         {!fromSeed ? (
                           <Button
@@ -262,7 +265,7 @@ export function AdminCoursesPage() {
                             onClick={() => removeCustom(c)}
                           >
                             <Trash2 className="mr-1 inline h-3.5 w-3.5" />
-                            Delete
+                            {t('ui_courses_delete')}
                           </Button>
                         ) : null}
                       </div>
@@ -277,18 +280,18 @@ export function AdminCoursesPage() {
 
       {modal !== 'closed' && draft ? (
         <AdminModal
-          title={modal === 'create' ? 'Add course' : 'Edit course'}
+          title={modal === 'create' ? t('ui_courses_modal_add') : t('ui_courses_modal_edit')}
           wide
           onClose={closeModal}
         >
           {seed ? (
             <p className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs text-amber-950">
-              Seed course: ID and slug stay fixed; other fields save as overrides until the API ships.
+              {t('ui_courses_seed_banner')}
             </p>
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Title</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_291_title_0bea3ec844')}</label>
               <input
                 className="input-pro mt-1.5 w-full"
                 value={draft.title}
@@ -296,7 +299,7 @@ export function AdminCoursesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Slug (URL)</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_299_slug_url_c745b6cc61')}</label>
               <input
                 className="input-pro mt-1.5 w-full"
                 value={draft.slug}
@@ -305,7 +308,7 @@ export function AdminCoursesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Category</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_308_category_75270fc1ad')}</label>
               <select
                 className="input-pro mt-1.5 w-full"
                 value={draft.categoryId}
@@ -319,7 +322,7 @@ export function AdminCoursesPage() {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Summary</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_322_summary_3f66b35883')}</label>
               <input
                 className="input-pro mt-1.5 w-full"
                 value={draft.summary}
@@ -327,7 +330,7 @@ export function AdminCoursesPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Description</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_330_description_49dc831b7d')}</label>
               <textarea
                 className="input-pro mt-1.5 min-h-[88px] w-full resize-y"
                 value={draft.description}
@@ -335,7 +338,7 @@ export function AdminCoursesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Price (USD cents)</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_338_price_usd_cents_16bc7ab177')}</label>
               <input
                 type="number"
                 className="input-pro mt-1.5 w-full"
@@ -344,7 +347,7 @@ export function AdminCoursesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Duration (minutes)</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_347_duration_minutes_8e1195fdec')}</label>
               <input
                 type="number"
                 className="input-pro mt-1.5 w-full"
@@ -353,7 +356,7 @@ export function AdminCoursesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Slide count</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_356_slide_count_491e07694f')}</label>
               <input
                 type="number"
                 className="input-pro mt-1.5 w-full"
@@ -362,11 +365,11 @@ export function AdminCoursesPage() {
                 onChange={(e) => setDraft({ ...draft, slideCount: Number(e.target.value) })}
               />
               {slideList.length > 0 ? (
-                <p className="mt-1 text-[11px] text-slate-500">Matches uploaded slides. Clear deck below to edit manually.</p>
+                <p className="mt-1 text-[11px] text-slate-500">{t('AdminCoursesPage_365_matches_uploaded_slides_clear_deck_below_to_edit_7f83c6e815')}</p>
               ) : null}
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Published</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_369_published_9748b31e49')}</label>
               <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
@@ -378,7 +381,7 @@ export function AdminCoursesPage() {
               </label>
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Image URL</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_381_image_url_7a3e5b90a0')}</label>
               <input
                 className="input-pro mt-1.5 w-full font-mono text-xs"
                 value={draft.imageUrl}
@@ -388,7 +391,7 @@ export function AdminCoursesPage() {
             <div className="sm:col-span-2 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Slide images</label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_391_slide_images_7ff457e52d')}</label>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-500">
                     Optional. Up to {MAX_SLIDES} images (~2 MB each), shown in order in the learner player. Stored as data URLs in this browser.
                   </p>
@@ -427,7 +430,9 @@ export function AdminCoursesPage() {
                       className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2 pr-3"
                     >
                       <img src={src} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
-                      <span className="min-w-0 flex-1 text-xs font-medium text-slate-600">Slide {i + 1}</span>
+                      <span className="min-w-0 flex-1 text-xs font-medium text-slate-600">
+                        {t('ui_courses_slide_label', { n: i + 1 })}
+                      </span>
                       <div className="flex shrink-0 gap-1">
                         <Button
                           type="button"

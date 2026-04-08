@@ -7,6 +7,7 @@ import { fetchAdminTests, mergeCourses } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { localCache } from '@/lib/localCache'
 import type { AdminTest, TestAnswerOption, TestQuestion } from '@/types'
+import { t } from '@/i18n/t'
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -37,12 +38,12 @@ function emptyTest(courseId: string): AdminTest {
   }
 }
 
-function validateTest(t: AdminTest): string | null {
-  if (!t.title.trim()) return 'Enter a test title.'
-  if (!t.courseId) return 'Select a course.'
-  if (t.questions.length < 1) return 'Add at least one question.'
-  for (let i = 0; i < t.questions.length; i++) {
-    const q = t.questions[i]
+function validateTest(test: AdminTest): string | null {
+  if (!test.title.trim()) return 'Enter a test title.'
+  if (!test.courseId) return 'Select a course.'
+  if (test.questions.length < 1) return 'Add at least one question.'
+  for (let i = 0; i < test.questions.length; i++) {
+    const q = test.questions[i]
     if (!q.prompt.trim()) return `Question ${i + 1}: enter the prompt.`
     if (q.options.length < 2) return `Question ${i + 1}: add at least two answer choices.`
     const correct = q.options.filter((o) => o.isCorrect)
@@ -71,8 +72,8 @@ export function AdminTestsPage() {
     setModal('create')
   }
 
-  const openEdit = (t: AdminTest) => {
-    setDraft(JSON.parse(JSON.stringify(t)) as AdminTest)
+  const openEdit = (row: AdminTest) => {
+    setDraft(JSON.parse(JSON.stringify(row)) as AdminTest)
     setErr('')
     setModal('edit')
   }
@@ -184,7 +185,7 @@ export function AdminTestsPage() {
             <ClipboardList className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-brand-900">Tests & questions</h1>
+            <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminTestsPage_187_tests_questions_9e54625be0')}</h1>
             <p className="mt-1 text-sm text-slate-600">
               Each test belongs to one course. Add separate questions; each question has its own multiple-choice answers and one correct option. Pass % is the share of questions the learner must answer correctly.
             </p>
@@ -200,12 +201,12 @@ export function AdminTestsPage() {
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              <th className="px-4 py-3">Test</th>
-              <th className="px-4 py-3">Course</th>
-              <th className="px-4 py-3">Pass %</th>
-              <th className="px-4 py-3">Questions</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3">{t('AdminTestsPage_203_test_3dea4b6c14')}</th>
+              <th className="px-4 py-3">{t('AdminTestsPage_204_course_72d8afd16e')}</th>
+              <th className="px-4 py-3">{t('AdminTestsPage_205_pass_ac67fa1740')}</th>
+              <th className="px-4 py-3">{t('AdminTestsPage_206_questions_3619dca933')}</th>
+              <th className="px-4 py-3">{t('AdminTestsPage_207_status_fef601f192')}</th>
+              <th className="px-4 py-3 text-right">{t('AdminTestsPage_208_actions_0d1e9ef6f2')}</th>
             </tr>
           </thead>
           <tbody>
@@ -222,33 +223,33 @@ export function AdminTestsPage() {
                 </td>
               </tr>
             ) : (
-              tests.map((t) => (
-                <tr key={t.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80">
-                  <td className="px-4 py-3 font-medium text-brand-900">{t.title || '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{courseTitle(t.courseId)}</td>
-                  <td className="px-4 py-3">{t.passPercent}%</td>
-                  <td className="px-4 py-3">{t.questions?.length ?? 0}</td>
+              tests.map((row) => (
+                <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80">
+                  <td className="px-4 py-3 font-medium text-brand-900">{row.title || t('ui_em_dash')}</td>
+                  <td className="px-4 py-3 text-slate-600">{courseTitle(row.courseId)}</td>
+                  <td className="px-4 py-3">{row.passPercent}%</td>
+                  <td className="px-4 py-3">{row.questions?.length ?? 0}</td>
                   <td className="px-4 py-3">
                     <span
                       className={
-                        t.published
+                        row.published
                           ? 'rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800'
                           : 'rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700'
                       }
                     >
-                      {t.published ? 'Live' : 'Draft'}
+                      {row.published ? t('ui_tests_status_live') : t('ui_tests_status_draft')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
-                      <Button type="button" variant="secondary" className="!rounded-lg !py-1.5 !text-xs" onClick={() => openEdit(t)}>
+                      <Button type="button" variant="secondary" className="!rounded-lg !py-1.5 !text-xs" onClick={() => openEdit(row)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         type="button"
                         variant="secondary"
                         className="!rounded-lg !border-red-200 !py-1.5 !text-xs !text-red-800"
-                        onClick={() => remove(t.id)}
+                        onClick={() => remove(row.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -262,11 +263,11 @@ export function AdminTestsPage() {
       </div>
 
       {modal !== 'closed' && draft ? (
-        <AdminModal title={modal === 'create' ? 'Build test' : 'Edit test'} wide onClose={close}>
+        <AdminModal title={modal === 'create' ? t('ui_tests_modal_build') : t('ui_tests_modal_edit')} wide onClose={close}>
           <div className="max-h-[min(70vh,560px)] space-y-6 overflow-y-auto pr-1">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Test title</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminTestsPage_269_test_title_58d6c63e4e')}</label>
                 <input
                   className="input-pro mt-1.5 w-full"
                   value={draft.title}
@@ -275,7 +276,7 @@ export function AdminTestsPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Course</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminTestsPage_278_course_2b2d4a1e7e')}</label>
                 <select
                   className="input-pro mt-1.5 w-full"
                   value={draft.courseId}
@@ -289,7 +290,7 @@ export function AdminTestsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Pass threshold (% correct)</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminTestsPage_292_pass_threshold_correct_2a30dfd467')}</label>
                 <input
                   type="number"
                   min={0}
@@ -298,15 +299,15 @@ export function AdminTestsPage() {
                   value={draft.passPercent}
                   onChange={(e) => setDraft({ ...draft, passPercent: Number(e.target.value) })}
                 />
-                <p className="mt-1 text-[11px] text-slate-500">e.g. 80 means at least 80% of questions must be answered correctly.</p>
+                <p className="mt-1 text-[11px] text-slate-500">{t('AdminTestsPage_301_e_g_80_means_at_least_80_of_questions_must_be_an_367de2b246')}</p>
               </div>
             </div>
 
             <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-              <p className="font-display text-sm font-semibold text-brand-900">Questions</p>
+              <p className="font-display text-sm font-semibold text-brand-900">{t('AdminTestsPage_306_questions_cba711c1bc')}</p>
               <Button type="button" variant="secondary" className="!gap-1.5 !py-2 !text-xs" onClick={addQuestion}>
                 <ListPlus className="h-4 w-4" />
-                Add question
+                {t('ui_tests_add_question')}
               </Button>
             </div>
 
@@ -314,7 +315,9 @@ export function AdminTestsPage() {
               {draft.questions.map((q, qi) => (
                 <div key={q.id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-sky-700">Question {qi + 1}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+                      {t('ui_tests_question_label', { n: qi + 1 })}
+                    </span>
                     {draft.questions.length > 1 ? (
                       <button
                         type="button"
@@ -326,14 +329,14 @@ export function AdminTestsPage() {
                       </button>
                     ) : null}
                   </div>
-                  <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-slate-500">Prompt</label>
+                  <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminTestsPage_329_prompt_747a61bfd4')}</label>
                   <textarea
                     className="input-pro mt-1.5 min-h-[72px] w-full resize-y text-sm"
                     value={q.prompt}
                     onChange={(e) => updatePrompt(q.id, e.target.value)}
                     placeholder="What should workers do before entering a confined space?"
                   />
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Answer choices (select the correct one)</p>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminTestsPage_336_answer_choices_select_the_correct_one_37e76a90e0')}</p>
                   <ul className="mt-2 space-y-2">
                     {q.options.map((o) => (
                       <li key={o.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-white bg-white p-2 shadow-sm sm:flex-nowrap">

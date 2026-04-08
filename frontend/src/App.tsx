@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { ScrollToTop } from '@/components/ScrollToTop'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { HomePage } from '@/pages/HomePage'
@@ -25,6 +26,7 @@ import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<HomePage />} />

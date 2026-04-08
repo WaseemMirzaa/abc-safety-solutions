@@ -8,6 +8,7 @@ import { qk } from '@/api/queryKeys'
 import { inferMediaKind, readFileAsDataUrl } from '@/lib/readFileAsDataUrl'
 import { localCache } from '@/lib/localCache'
 import type { MediaAsset } from '@/types'
+import { t } from '@/i18n/t'
 
 const kinds: MediaAsset['kind'][] = ['image', 'audio', 'document', 'other']
 
@@ -87,15 +88,13 @@ export function AdminMediaPage() {
             <ImageIcon className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-brand-900">Media library</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Upload files (stored as data URLs in this browser, max ~2 MB) or register external URLs. Production will use S3 + signed URLs.
-            </p>
+            <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminMediaPage_90_media_library_bb9853ccd1')}</h1>
+            <p className="mt-1 text-sm text-slate-600">{t('ui_media_intro')}</p>
           </div>
         </div>
         <Button type="button" className="gap-2 self-start" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" />
-          Add asset
+          {t('ui_media_add_asset')}
         </Button>
       </div>
 
@@ -104,12 +103,12 @@ export function AdminMediaPage() {
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               <th className="px-4 py-3 w-14"> </th>
-              <th className="px-4 py-3">Label</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3">Preview / URL</th>
-              <th className="px-4 py-3">Added</th>
-              <th className="px-4 py-3 text-right">Action</th>
+              <th className="px-4 py-3">{t('AdminMediaPage_107_label_f86046f746')}</th>
+              <th className="px-4 py-3">{t('AdminMediaPage_108_type_f2c290ddff')}</th>
+              <th className="px-4 py-3">{t('AdminMediaPage_109_source_5697c8134a')}</th>
+              <th className="px-4 py-3">{t('AdminMediaPage_110_preview_url_f84e5fe94e')}</th>
+              <th className="px-4 py-3">{t('AdminMediaPage_111_added_54c108b6a7')}</th>
+              <th className="px-4 py-3 text-right">{t('AdminMediaPage_112_action_870260a977')}</th>
             </tr>
           </thead>
           <tbody>
@@ -122,7 +121,7 @@ export function AdminMediaPage() {
             ) : assets.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                  No media yet. Upload an image or paste a CDN URL.
+                  {t('ui_media_empty')}
                 </td>
               </tr>
             ) : (
@@ -139,9 +138,11 @@ export function AdminMediaPage() {
                   </td>
                   <td className="px-4 py-3 font-medium text-brand-900">{a.label}</td>
                   <td className="px-4 py-3 capitalize text-slate-600">{a.kind}</td>
-                  <td className="px-4 py-3 text-slate-600">{a.source === 'upload' || a.url.startsWith('data:') ? 'Upload' : 'URL'}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {a.source === 'upload' || a.url.startsWith('data:') ? t('ui_media_upload') : t('ui_media_url')}
+                  </td>
                   <td className="max-w-[200px] truncate px-4 py-3 font-mono text-[10px] text-slate-500" title={a.fileName ?? a.url}>
-                    {a.fileName ?? (a.url.startsWith('data:') ? '(inline data)' : a.url)}
+                    {a.fileName ?? (a.url.startsWith('data:') ? t('ui_media_inline_data') : a.url)}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{new Date(a.createdAt).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right">
@@ -165,7 +166,7 @@ export function AdminMediaPage() {
         <AdminModal title="Add media asset" wide onClose={closeModal}>
           <div className="space-y-6">
             <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Upload file</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_168_upload_file_cd5a443e57')}</p>
               <input ref={fileRef} type="file" accept="image/*,audio/*,.pdf,.mp3,.wav,.m4a" className="sr-only" onChange={onPickFile} />
               <p className="mt-2 text-xs text-slate-500">
                 Images, audio, or PDF — max {(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)} MB (demo limit for localStorage).
@@ -178,17 +179,17 @@ export function AdminMediaPage() {
             </div>
 
             <div className="relative text-center text-xs font-medium text-slate-400">
-              <span className="relative z-10 bg-white px-2">or link externally</span>
+              <span className="relative z-10 bg-white px-2">{t('AdminMediaPage_181_or_link_externally_ffc16b91f5')}</span>
               <div className="absolute left-0 right-0 top-1/2 z-0 h-px bg-slate-200" />
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Label</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_187_label_ca62a379ec')}</label>
                 <input className="input-pro mt-1.5 w-full" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Hero image — OSHA module" />
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Asset type</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_191_asset_type_a556034dcf')}</label>
                 <select className="input-pro mt-1.5 w-full" value={kind} onChange={(e) => setKind(e.target.value as MediaAsset['kind'])}>
                   {kinds.map((k) => (
                     <option key={k} value={k}>
@@ -198,7 +199,7 @@ export function AdminMediaPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">URL (https or data from upload above)</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_201_url_https_or_data_from_upload_above_6226707a13')}</label>
                 <textarea
                   className="input-pro mt-1.5 min-h-[72px] w-full resize-y font-mono text-xs"
                   value={url}

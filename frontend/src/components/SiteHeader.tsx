@@ -5,17 +5,18 @@ import { clsx } from 'clsx'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
+import { t } from '@/i18n/t'
 
 const LOGO = 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
 
 const navPublic = [
-  { to: '/courses', label: 'Courses' },
-  { to: '/my-courses', label: 'My learning' },
-  { to: '/certificates', label: 'Certificates' },
-  { to: '/verify-certificate', label: 'Verify cert' },
-]
+  { to: '/courses', labelKey: 'ui_nav_courses' },
+  { to: '/my-courses', labelKey: 'ui_nav_my_learning' },
+  { to: '/certificates', labelKey: 'ui_nav_certificates' },
+  { to: '/verify-certificate', labelKey: 'ui_nav_verify_certificate' },
+] as const
 
-const navAuthed = [{ to: '/account', label: 'Account' }] as const
+const navAuthed = [{ to: '/account', labelKey: 'AccountPage_17_account_feb4b6fba4' }] as const
 
 function linkClass({ isActive }: { isActive: boolean }) {
   return clsx(
@@ -40,31 +41,31 @@ export function SiteHeader() {
           <span className="flex h-9 shrink-0 items-center rounded-lg bg-slate-50 px-1.5 sm:h-10 sm:px-2">
             <img
               src={LOGO}
-              alt="ABC Safety Solutions"
+              alt={t('ui_brand_logo_alt')}
               className="h-7 w-auto max-w-[7.5rem] object-contain object-left brightness-0 sm:h-8 sm:max-w-none"
             />
           </span>
           <span className="hidden font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:block">
-            Online
+            {t('ui_site_header_online')}
           </span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
           {navPublic.map((n) => (
             <NavLink key={n.to} to={n.to} className={linkClass}>
-              {n.label}
+              {t(n.labelKey)}
             </NavLink>
           ))}
           {user
             ? navAuthed.map((n) => (
                 <NavLink key={n.to} to={n.to} className={linkClass}>
-                  {n.label}
+                  {t(n.labelKey)}
                 </NavLink>
               ))
             : null}
           {user?.role === 'admin' ? (
             <NavLink to="/admin" className={linkClass}>
-              Admin
+              {t('ui_site_header_admin')}
             </NavLink>
           ) : null}
         </nav>
@@ -79,18 +80,18 @@ export function SiteHeader() {
                 {user.name}
               </span>
               <Button variant="secondary" className="!rounded-full !py-2 !text-xs !font-medium" onClick={() => logout()}>
-                Sign out
+                {t('ui_site_header_sign_out')}
               </Button>
             </>
           ) : (
             <>
               <Link to="/login">
                 <Button variant="ghost" className="!rounded-full !px-4">
-                  Sign in
+                  {t('ui_site_header_sign_in')}
                 </Button>
               </Link>
               <Link to="/register">
-                <Button className="!rounded-full !px-5 !py-2 !text-sm">Get started</Button>
+                <Button className="!rounded-full !px-5 !py-2 !text-sm">{t('SiteHeader_93_get_started_dc35ebe597')}</Button>
               </Link>
             </>
           )}
@@ -99,7 +100,7 @@ export function SiteHeader() {
         <button
           type="button"
           className="rounded-xl p-2.5 text-brand-900 ring-1 ring-slate-200/90 hover:bg-slate-50 md:hidden"
-          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-label={open ? t('ui_site_header_aria_close_menu') : t('ui_site_header_aria_open_menu')}
           onClick={() => setOpen((o) => !o)}
         >
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -116,7 +117,7 @@ export function SiteHeader() {
                 className="rounded-xl px-4 py-3.5 text-slate-800"
                 onClick={() => setOpen(false)}
               >
-                {n.label}
+                {t(n.labelKey)}
               </NavLink>
             ))}
             {user
@@ -127,13 +128,13 @@ export function SiteHeader() {
                     className="rounded-xl px-4 py-3.5 text-slate-800"
                     onClick={() => setOpen(false)}
                   >
-                    {n.label}
+                    {t(n.labelKey)}
                   </NavLink>
                 ))
               : null}
             {user?.role === 'admin' ? (
               <NavLink to="/admin" className="rounded-xl px-4 py-3.5 text-slate-800" onClick={() => setOpen(false)}>
-                Admin
+                {t('ui_site_header_admin')}
               </NavLink>
             ) : null}
             <hr className="my-2 border-slate-200" />
@@ -146,15 +147,15 @@ export function SiteHeader() {
                   setOpen(false)
                 }}
               >
-                Sign out
+                {t('ui_site_header_sign_out')}
               </button>
             ) : (
               <>
                 <Link to="/login" className="rounded-xl px-4 py-3.5 text-slate-800" onClick={() => setOpen(false)}>
-                  Sign in
+                  {t('ui_site_header_sign_in')}
                 </Link>
                 <Link to="/register" className="rounded-xl px-4 py-3.5 font-semibold text-sky-800" onClick={() => setOpen(false)}>
-                  Get started
+                  {t('ui_site_header_get_started_mobile')}
                 </Link>
               </>
             )}

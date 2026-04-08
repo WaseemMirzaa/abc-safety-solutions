@@ -8,6 +8,7 @@ import { qk } from '@/api/queryKeys'
 import { categories as seedCategories, isSeedCategoryId } from '@/data/catalog'
 import { localCache } from '@/lib/localCache'
 import type { Category } from '@/types'
+import { t } from '@/i18n/t'
 
 function slugify(input: string) {
   return input
@@ -107,7 +108,7 @@ export function AdminCategoriesPage() {
             <Tags className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-brand-900">Categories</h1>
+            <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminCategoriesPage_110_categories_3412a11c25')}</h1>
             <p className="mt-1 text-sm text-slate-600">
               Seed categories ship with the app; add custom ones for new disciplines (stored locally until the API ships).
             </p>
@@ -123,11 +124,11 @@ export function AdminCategoriesPage() {
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Slug</th>
-              <th className="min-w-[12rem] px-4 py-3">Certificate text</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-4 py-3">{t('AdminCategoriesPage_126_name_19761578a2')}</th>
+              <th className="px-4 py-3">{t('AdminCategoriesPage_127_slug_2f307c1ff1')}</th>
+              <th className="min-w-[12rem] px-4 py-3">{t('AdminCategoriesPage_128_certificate_text_138327c36a')}</th>
+              <th className="px-4 py-3">{t('AdminCategoriesPage_129_source_95d4e5b16d')}</th>
+              <th className="px-4 py-3 text-right">{t('AdminCategoriesPage_130_actions_ccd950f74d')}</th>
             </tr>
           </thead>
           <tbody>
@@ -192,7 +193,7 @@ export function AdminCategoriesPage() {
         <AdminModal title={modal === 'create' ? 'Add category' : 'Edit category'} onClose={close}>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Display name</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCategoriesPage_195_display_name_523033cfc2')}</label>
               <input
                 className="input-pro mt-1.5 w-full"
                 value={draft.name}
@@ -200,11 +201,11 @@ export function AdminCategoriesPage() {
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
               {modal === 'edit' && isSeedCategoryId(draft.id) ? (
-                <p className="mt-1 text-[11px] text-slate-500">Seed category name is defined in code; edit certificate text below.</p>
+                <p className="mt-1 text-[11px] text-slate-500">{t('AdminCategoriesPage_203_seed_category_name_is_defined_in_code_edit_certi_45b959c4cf')}</p>
               ) : null}
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">URL slug</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCategoriesPage_207_url_slug_aefe2a6105')}</label>
               <input
                 className="input-pro mt-1.5 w-full font-mono text-sm"
                 value={draft.slug}
@@ -214,8 +215,8 @@ export function AdminCategoriesPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Certificate text</label>
-              <p className="mt-0.5 text-[11px] text-slate-500">Shown on completion certificates for courses in this category.</p>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCategoriesPage_217_certificate_text_5c75771159')}</label>
+              <p className="mt-0.5 text-[11px] text-slate-500">{t('AdminCategoriesPage_218_shown_on_completion_certificates_for_courses_in_f035dae8dd')}</p>
               <textarea
                 className="input-pro mt-1.5 min-h-[88px] w-full resize-y"
                 value={draft.certificationText ?? ''}

@@ -10,15 +10,22 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "i18n:extract": "python3 ../scripts/extract_hardcoded_strings.py",
+    "i18n:build-en": "python3 ../scripts/i18n_convert.py",
+    "i18n:apply-jsx": "python3 ../scripts/i18n_convert.py --apply",
+    "i18n:verify": "python3 ../scripts/verify_i18n_coverage.py",
+    "i18n:report-untranslated": "python3 ../scripts/report_untranslated_strings.py"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.96.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
+    "i18next": "^26.0.4",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-i18next": "^17.0.2",
     "react-router-dom": "^7.14.0"
   },
   "devDependencies": {

@@ -5,6 +5,7 @@ import { Button } from '@/components/Button'
 import { fetchAdminOrders, type AdminOrderRow } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { localCache } from '@/lib/localCache'
+import { t } from '@/i18n/t'
 
 function formatPrice(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
@@ -30,7 +31,7 @@ export function AdminOrdersPage() {
           <ShoppingBag className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="font-display text-3xl font-bold text-brand-900">Orders</h1>
+          <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminOrdersPage_33_orders_8898490306')}</h1>
           <p className="mt-1 text-sm text-slate-600">
             Enrollments created on this device (demo). Stripe webhooks will populate real orders later.
           </p>
@@ -41,12 +42,12 @@ export function AdminOrdersPage() {
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              <th className="px-4 py-3">Order ID</th>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Course</th>
-              <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Detail</th>
+              <th className="px-4 py-3">{t('AdminOrdersPage_44_order_id_89623dd0a9')}</th>
+              <th className="px-4 py-3">{t('AdminOrdersPage_45_date_a4dc3d7517')}</th>
+              <th className="px-4 py-3">{t('AdminOrdersPage_46_course_6f94e4bfbe')}</th>
+              <th className="px-4 py-3">{t('AdminOrdersPage_47_amount_d6ae69df48')}</th>
+              <th className="px-4 py-3">{t('AdminOrdersPage_48_status_fe354faa98')}</th>
+              <th className="px-4 py-3 text-right">{t('AdminOrdersPage_49_detail_1cab9ee999')}</th>
             </tr>
           </thead>
           <tbody>
@@ -75,9 +76,9 @@ export function AdminOrdersPage() {
                   <td className="px-4 py-3">{formatPrice(r.amountCents)}</td>
                   <td className="px-4 py-3">
                     {r.refunded ? (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">Refunded</span>
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">{t('AdminOrdersPage_78_refunded_5bd11dd6a0')}</span>
                     ) : (
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Completed</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{t('AdminOrdersPage_80_completed_c674495f10')}</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -96,28 +97,28 @@ export function AdminOrdersPage() {
         <div className="card-elevated mt-8 p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">Order detail</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">{t('AdminOrdersPage_99_order_detail_3e4dcee601')}</p>
               <h2 className="mt-2 font-mono text-base font-bold text-brand-900">{selected.orderId}</h2>
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Purchased</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_103_purchased_1bed5d0c8a')}</dt>
                   <dd className="mt-1 text-slate-800">{new Date(selected.purchasedAt).toLocaleString()}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Course</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_107_course_cfaadefe5b')}</dt>
                   <dd className="mt-1 text-slate-800">{selected.courseTitle}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Course ID</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_111_course_id_284a6efaa0')}</dt>
                   <dd className="mt-1 font-mono text-xs text-slate-600">{selected.courseId}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Amount</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_115_amount_a43b1539c3')}</dt>
                   <dd className="mt-1 font-semibold text-brand-900">{formatPrice(selected.amountCents)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Fulfillment</dt>
-                  <dd className="mt-1 text-slate-800">Enrollment granted (local demo)</dd>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_119_fulfillment_b1c235d09c')}</dt>
+                  <dd className="mt-1 text-slate-800">{t('AdminOrdersPage_120_enrollment_granted_local_demo_5f8f4303c0')}</dd>
                 </div>
               </dl>
             </div>
@@ -128,10 +129,10 @@ export function AdminOrdersPage() {
                 className={selected.refunded ? '' : '!border-amber-300 !text-amber-900'}
                 onClick={() => toggleRefund(selected.orderId)}
               >
-                {selected.refunded ? 'Mark not refunded' : 'Mark refunded (demo)'}
+                {selected.refunded ? t('ui_orders_mark_not_refunded') : t('ui_orders_mark_refunded')}
               </Button>
               <Button type="button" variant="secondary" onClick={() => setSelected(null)}>
-                Close detail
+                {t('ui_orders_close_detail')}
               </Button>
             </div>
           </div>

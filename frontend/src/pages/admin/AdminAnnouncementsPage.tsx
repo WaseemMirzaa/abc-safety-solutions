@@ -7,6 +7,7 @@ import { fetchAnnouncements } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { localCache } from '@/lib/localCache'
 import type { Announcement } from '@/types'
+import { t } from '@/i18n/t'
 
 export function AdminAnnouncementsPage() {
   const qc = useQueryClient()
@@ -58,7 +59,7 @@ export function AdminAnnouncementsPage() {
             <Megaphone className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-brand-900">Announcements</h1>
+            <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminAnnouncementsPage_61_announcements_598d48da3e')}</h1>
             <p className="mt-1 text-sm text-slate-600">
               Draft messages locally; email/push dispatch will use a queue when NestJS is connected.
             </p>
@@ -72,7 +73,7 @@ export function AdminAnnouncementsPage() {
 
       <div className="mt-10 space-y-4">
         {isLoading ? (
-          <p className="text-center text-slate-500">Loading…</p>
+          <p className="text-center text-slate-500">{t('AdminAnnouncementsPage_75_loading_cc0712b7f6')}</p>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-14 text-center text-slate-600">
             No announcements yet. Create one to track future learner broadcasts.
@@ -128,11 +129,11 @@ export function AdminAnnouncementsPage() {
         <AdminModal title="New announcement" wide onClose={() => setOpen(false)}>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Title</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminAnnouncementsPage_131_title_62a72893b7')}</label>
               <input className="input-pro mt-1.5 w-full" value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Body</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminAnnouncementsPage_135_body_4e36c52487')}</label>
               <textarea className="input-pro mt-1.5 min-h-[140px] w-full resize-y" value={body} onChange={(e) => setBody(e.target.value)} />
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { X } from 'lucide-react'
+import { t } from '@/i18n/t'
 
 type Props = {
   title: string
@@ -30,7 +31,7 @@ export function AdminModal({ title, children, onClose, wide }: Props) {
           <button
             type="button"
             className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-brand-900"
-            aria-label="Close"
+            aria-label={t('ui_admin_modal_close')}
             onClick={onClose}
           >
             <X className="h-5 w-5" />

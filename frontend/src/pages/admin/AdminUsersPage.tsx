@@ -7,6 +7,7 @@ import { fetchAdminDirectory } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { localCache } from '@/lib/localCache'
 import type { AdminDirectoryUser } from '@/types'
+import { t } from '@/i18n/t'
 
 export function AdminUsersPage() {
   const qc = useQueryClient()
@@ -59,7 +60,7 @@ export function AdminUsersPage() {
             <Users className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-bold text-brand-900">Users</h1>
+            <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminUsersPage_62_users_b96cb62200')}</h1>
             <p className="mt-1 text-sm text-slate-600">
               Demo directory for support workflows; real users will sync from the API.
             </p>
@@ -75,11 +76,11 @@ export function AdminUsersPage() {
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3 text-right">Action</th>
+              <th className="px-4 py-3">{t('AdminUsersPage_78_name_c388acf2a2')}</th>
+              <th className="px-4 py-3">{t('AdminUsersPage_79_email_7a9442b0f2')}</th>
+              <th className="px-4 py-3">{t('AdminUsersPage_80_role_4bae14016e')}</th>
+              <th className="px-4 py-3">{t('AdminUsersPage_81_source_18c56e7cfc')}</th>
+              <th className="px-4 py-3 text-right">{t('AdminUsersPage_82_action_e2dbf7f5ad')}</th>
             </tr>
           </thead>
           <tbody>
@@ -95,7 +96,9 @@ export function AdminUsersPage() {
                   <td className="px-4 py-3 font-medium text-brand-900">{u.name}</td>
                   <td className="px-4 py-3 text-slate-600">{u.email}</td>
                   <td className="px-4 py-3 capitalize text-slate-600">{u.role}</td>
-                  <td className="px-4 py-3 text-slate-500">{isBuiltin(u.email) ? 'Built-in demo' : 'Added locally'}</td>
+                  <td className="px-4 py-3 text-slate-500">
+                    {isBuiltin(u.email) ? t('ui_users_builtin') : t('ui_users_added_local')}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     {isBuiltin(u.email) ? (
                       <span className="text-xs text-slate-400">—</span>
@@ -121,18 +124,18 @@ export function AdminUsersPage() {
         <AdminModal title="Add directory user" onClose={() => setOpen(false)}>
           <div className="space-y-4">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Email</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminUsersPage_124_email_8755edb8b6')}</label>
               <input className="input-pro mt-1.5 w-full" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Display name</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminUsersPage_128_display_name_64fcf60148')}</label>
               <input className="input-pro mt-1.5 w-full" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Role</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminUsersPage_132_role_789b86a640')}</label>
               <select className="input-pro mt-1.5 w-full" value={role} onChange={(e) => setRole(e.target.value as AdminDirectoryUser['role'])}>
-                <option value="learner">Learner</option>
-                <option value="admin">Admin</option>
+                <option value="learner">{t('AdminUsersPage_134_learner_a74ff939e6')}</option>
+                <option value="admin">{t('AdminUsersPage_135_admin_f20661fe44')}</option>
               </select>
             </div>
             {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}

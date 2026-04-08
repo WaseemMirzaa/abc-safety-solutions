@@ -1,6 +1,9 @@
 import { clsx } from 'clsx'
 import { Award, ShieldCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { mergeCourses } from '@/api/localData'
 import { resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
+import { localizedCategoryCertLine } from '@/lib/catalogLocale'
 import type { Certificate } from '@/types'
 
 const CERT_LOGO_URL =
@@ -41,9 +44,16 @@ function CornerFlourish({ className }: { className?: string }) {
 }
 
 export function CertificateVisual({ cert, variant = 'full', sampleWatermark, className }: Props) {
+  const { t } = useTranslation()
   const issued = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(cert.issuedAt))
   const compact = variant === 'compact'
-  const categoryLine = resolveCertificateCategoryLine(cert)
+  const rawLine = resolveCertificateCategoryLine(cert)
+  const course = mergeCourses().find((c) => c.id === cert.courseId)
+  const cid = course?.categoryId ?? 'cat-ohs'
+  const categoryLine = rawLine ? localizedCategoryCertLine(cid, rawLine) : undefined
+  const displayCourseName =
+    cert.id === 'DEMO-CERT-PREVIEW' ? t('ui_cert_sample_course') : cert.courseName
+  const displayUserName = cert.id === 'DEMO-CERT-PREVIEW' ? t('ui_cert_sample_user') : cert.userName
 
   return (
     <div
@@ -63,7 +73,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
             className="font-cert-serif text-[clamp(3rem,18vw,7rem)] font-bold uppercase tracking-[0.2em] text-sky-600/[0.1] rotate-[-18deg] select-none"
             style={{ fontFeatureSettings: '"smcp"' }}
           >
-            Sample
+            {t('ui_cert_sample_ribbon')}
           </span>
         </div>
       ) : null}
@@ -91,7 +101,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
             >
               <img
                 src={CERT_LOGO_URL}
-                alt="ABC Safety Solutions logo"
+                alt={t('ui_cert_logo_alt')}
                 className={clsx(
                   'mx-auto block rounded-xl object-cover object-center',
                   compact
@@ -103,7 +113,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
             <div className="flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-sky-300/60 bg-gradient-to-r from-sky-50/95 to-sky-100/50 px-3 py-1.5 shadow-sm ring-1 ring-sky-700/10 sm:gap-2.5 sm:px-4 sm:py-2">
               <ShieldCheck className="h-4 w-4 shrink-0 text-sky-600 sm:h-5 sm:w-5" aria-hidden />
               <span className="font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-900 sm:text-[11px] sm:tracking-[0.22em] md:text-xs md:tracking-[0.28em]">
-                ABC Safety Solutions
+                {t('ui_cert_badge_brand')}
               </span>
             </div>
           </div>
@@ -116,7 +126,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
                 : 'text-[10px] tracking-[0.22em] sm:text-xs sm:tracking-[0.32em] md:text-sm md:tracking-[0.42em]',
             )}
           >
-            Certificate of completion
+            {t('ui_cert_heading_completion')}
           </p>
 
           <p
@@ -125,7 +135,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               compact ? 'text-xs' : 'text-sm',
             )}
           >
-            This certifies that
+            {t('ui_cert_certifies_that')}
           </p>
 
           <p
@@ -134,7 +144,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               compact ? 'mt-2 text-[clamp(1.75rem,9vw,2.5rem)] sm:text-4xl' : 'mt-3 text-[clamp(2rem,10vw,3.75rem)] sm:text-5xl md:text-6xl',
             )}
           >
-            {cert.userName}
+            {displayUserName}
           </p>
 
           <div
@@ -150,7 +160,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               compact ? 'text-xs' : 'text-sm',
             )}
           >
-            has successfully completed
+            {t('ui_cert_has_completed')}
           </p>
 
           <p
@@ -159,7 +169,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               compact ? 'text-sm sm:text-base' : 'text-base sm:text-xl md:text-2xl',
             )}
           >
-            {cert.courseName}
+            {displayCourseName}
           </p>
 
           {categoryLine ? (
@@ -179,7 +189,8 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm',
             )}
           >
-            Issued on <span className="font-medium text-brand-800">{issued}</span>
+            {t('ui_cert_issued_on')}{' '}
+            <span className="font-medium text-brand-800">{issued}</span>
           </p>
 
           <div
@@ -196,7 +207,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
                 )}
               />
               <p className="font-cert-serif mt-2 text-[10px] uppercase tracking-wider text-brand-700/70 sm:text-[11px]">
-                Training program director
+                {t('ui_cert_training_director')}
               </p>
             </div>
 
@@ -209,7 +220,7 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
               >
                 <Award className={clsx('text-brand-950', compact ? 'h-7 w-7' : 'h-8 w-8 sm:h-10 sm:w-10')} />
                 <span className="font-display mt-0.5 text-[7px] font-bold uppercase tracking-[0.12em] text-brand-950/85 sm:text-[8px] sm:tracking-[0.15em]">
-                  Official
+                  {t('ui_cert_official')}
                 </span>
               </div>
             </div>
@@ -222,13 +233,13 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
                 )}
               />
               <p className="font-cert-serif mt-2 text-[10px] uppercase tracking-wider text-brand-700/70 sm:text-[11px]">
-                Credential record
+                {t('ui_cert_credential_record')}
               </p>
             </div>
           </div>
 
           <p className="mt-6 break-all px-1 font-mono text-[9px] text-sky-800/45 sm:mt-8 sm:text-[10px] md:text-[11px]">
-            Certificate ID · {cert.id}
+            {t('ui_cert_id_prefix')} {cert.id}
           </p>
         </div>
       </div>
@@ -236,12 +247,12 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
   )
 }
 
+/** Demo preview; display copy comes from locales (ui_cert_sample_*). */
 export const SAMPLE_CERTIFICATE: Certificate = {
   id: 'DEMO-CERT-PREVIEW',
   courseId: 'sample',
-  courseName: 'Workplace Safety Fundamentals',
-  userName: 'Alexandra M. Rivera',
+  courseName: '',
+  userName: '',
   issuedAt: new Date().toISOString(),
-  certificationText:
-    'Occupational health & safety training program completed in accordance with applicable workplace safety standards.',
+  certificationText: '',
 }

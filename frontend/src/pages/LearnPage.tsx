@@ -14,6 +14,8 @@ import { localCache } from '@/lib/localCache'
 import { useAuth } from '@/contexts/AuthContext'
 import { easeOut, transition } from '@/lib/motionPresets'
 import type { AdminTest } from '@/types'
+import { t } from '@/i18n/t'
+import { localizedCourseTitle } from '@/lib/catalogLocale'
 
 function scoreMeetsPassThreshold(test: AdminTest, answers: Record<string, string>): boolean {
   if (!test.questions.length) return false
@@ -71,9 +73,9 @@ export function LearnPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 py-20">
         <Container className="max-w-md text-center">
-          <p className="text-slate-600">Sign in to access the course player.</p>
+          <p className="text-slate-600">{t('LearnPage_74_sign_in_to_access_the_course_player_36200b14d2')}</p>
           <Link to="/login" className="mt-6 inline-block font-semibold text-amber-700 hover:text-amber-600">
-            Sign in →
+            {t('ui_learn_sign_in_arrow')}
           </Link>
         </Container>
       </div>
@@ -84,9 +86,9 @@ export function LearnPage() {
     return (
       <div className="py-20">
         <Container>
-          <h1 className="font-display text-xl font-bold text-brand-900">Course not found</h1>
+          <h1 className="font-display text-xl font-bold text-brand-900">{t('LearnPage_87_course_not_found_2465eb9154')}</h1>
           <Link to="/courses" className="mt-4 inline-block font-semibold text-amber-700">
-            Catalog →
+            {t('ui_learn_catalog_arrow')}
           </Link>
         </Container>
       </div>
@@ -97,10 +99,10 @@ export function LearnPage() {
     return (
       <div className="py-20">
         <Container className="max-w-lg">
-          <h1 className="font-display text-xl font-bold text-brand-900">Not enrolled</h1>
-          <p className="mt-2 text-slate-600">Purchase this course from the catalog first (demo enroll).</p>
+          <h1 className="font-display text-xl font-bold text-brand-900">{t('LearnPage_100_not_enrolled_597ec4b0de')}</h1>
+          <p className="mt-2 text-slate-600">{t('LearnPage_101_purchase_this_course_from_the_catalog_first_demo_62e677c097')}</p>
           <Link to={`/courses/${course.slug}`}>
-            <Button className="mt-6">View course</Button>
+            <Button className="mt-6">{t('LearnPage_103_view_course_4787a51af8')}</Button>
           </Link>
         </Container>
       </div>
@@ -124,7 +126,7 @@ export function LearnPage() {
     localCache.addCertificate({
       id: `CERT-${Date.now()}`,
       courseId: course.id,
-      courseName: course.title,
+      courseName: localizedCourseTitle(course.slug, course.title),
       userName: user.name,
       issuedAt: new Date().toISOString(),
       ...(certificationText ? { certificationText } : {}),
@@ -170,8 +172,10 @@ export function LearnPage() {
         transition={transition.page}
       >
         <Container className="w-full min-w-0 max-w-2xl">
-          <h1 className="font-display text-2xl font-bold text-brand-900 sm:text-3xl">Knowledge check</h1>
-          <p className="mt-2 break-words text-sm text-slate-600">{course.title}</p>
+          <h1 className="font-display text-2xl font-bold text-brand-900 sm:text-3xl">{t('LearnPage_173_knowledge_check_e4ec131477')}</h1>
+          <p className="mt-2 break-words text-sm text-slate-600">
+            {localizedCourseTitle(course.slug, course.title)}
+          </p>
           {publishedTest?.title ? (
             <p className="mt-1 text-xs font-medium text-sky-800">{publishedTest.title}</p>
           ) : null}
@@ -179,7 +183,9 @@ export function LearnPage() {
             {customTestReady && publishedTest ? (
               <>
                 <p className="text-xs text-slate-500">
-                  Answer each question. You need <strong className="text-brand-800">{publishedTest.passPercent}%</strong> correct to pass.
+                  {t('ui_learn_test_intro_before')}
+                  <strong className="text-brand-800">{publishedTest.passPercent}%</strong>
+                  {t('ui_learn_test_intro_after')}
                 </p>
                 <div className="mt-8 space-y-10">
                   {publishedTest.questions.map((q, qi) => (
@@ -210,17 +216,17 @@ export function LearnPage() {
                 </div>
                 {!submitted ? (
                   <Button className="mt-10" disabled={!allMcAnswered} onClick={submitCustomTest}>
-                    Submit answers
+                    {t('ui_learn_submit_answers')}
                   </Button>
                 ) : null}
               </>
             ) : (
               <>
                 <p className="text-xs text-amber-800/90">
-                  No published test is set for this course in Admin → Tests. Showing a sample question.
+                  {t('ui_learn_no_test_warning')}
                 </p>
                 <p className="mt-6 font-medium leading-relaxed text-slate-800">
-                  Demo question: What is the primary goal of workplace safety training?
+                  {t('ui_learn_demo_question_title')}
                 </p>
                 <div className="mt-6 space-y-3">
                   <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
@@ -231,7 +237,7 @@ export function LearnPage() {
                       onChange={() => setDemoAnswer('a')}
                       className="mt-0.5 shrink-0 accent-sky-600"
                     />
-                    <span className="min-w-0 flex-1 break-words text-sm">Protect workers and prevent incidents</span>
+                    <span className="min-w-0 flex-1 break-words text-sm">{t('LearnPage_234_protect_workers_and_prevent_incidents_7bf8112ad7')}</span>
                   </label>
                   <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
                     <input
@@ -241,12 +247,12 @@ export function LearnPage() {
                       onChange={() => setDemoAnswer('b')}
                       className="mt-0.5 shrink-0 accent-sky-600"
                     />
-                    <span className="min-w-0 flex-1 break-words text-sm">Reduce paperwork only</span>
+                    <span className="min-w-0 flex-1 break-words text-sm">{t('LearnPage_244_reduce_paperwork_only_d19268d9e2')}</span>
                   </label>
                 </div>
                 {!submitted ? (
                   <Button className="mt-8" disabled={!demoAnswer} onClick={submitDemoTest}>
-                    Submit answers
+                    {t('ui_learn_submit_answers')}
                   </Button>
                 ) : null}
               </>
@@ -255,8 +261,7 @@ export function LearnPage() {
             {submitted && passed ? (
               <div className="mt-8 space-y-6">
                 <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-4 text-center text-sm text-emerald-950 sm:px-5">
-                  <strong>Congratulations — you passed.</strong> Your completion record is saved on this device. PDF email
-                  will connect when the API is live.
+                  <strong>{t('LearnPage_258_congratulations_you_passed_70ea555952')}</strong> {t('ui_learn_pass_saved_blurb')}
                 </div>
                 {passCert ? (
                   <CertificateVisual
@@ -267,17 +272,17 @@ export function LearnPage() {
                 ) : null}
                 <div className="flex flex-wrap justify-center gap-3">
                   <Link to="/certificates">
-                    <Button>View all certificates</Button>
+                    <Button>{t('LearnPage_270_view_all_certificates_7adad16f2a')}</Button>
                   </Link>
                   <Link to="/my-courses">
-                    <Button variant="secondary">My learning</Button>
+                    <Button variant="secondary">{t('LearnPage_273_my_learning_06b8911395')}</Button>
                   </Link>
                 </div>
               </div>
             ) : null}
             {submitted && !passed ? (
               <div className="mt-8 rounded-2xl border border-red-200/80 bg-red-50/90 p-5 text-sm text-red-900">
-                Not quite — review the material and try again.
+                {t('ui_learn_fail_message')}
                 <Button
                   className="mt-5"
                   variant="secondary"
@@ -287,7 +292,7 @@ export function LearnPage() {
                     setMcAnswers({})
                   }}
                 >
-                  Retry
+                  {t('ui_learn_retry')}
                 </Button>
               </div>
             ) : null}
@@ -302,16 +307,16 @@ export function LearnPage() {
       <Container>
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">Now learning</p>
+            <p className="font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">{t('LearnPage_305_now_learning_08b44848c4')}</p>
             <h1 className="mt-1 break-words font-display text-lg font-semibold text-brand-900 sm:text-xl md:text-2xl">
-              {course.title}
+              {localizedCourseTitle(course.slug, course.title)}
             </h1>
           </div>
           <Link
             to="/my-courses"
             className="shrink-0 text-sm font-medium text-sky-800 transition hover:text-sky-900 sm:pt-1"
           >
-            ← My courses
+            {t('ui_learn_back_my_courses')}
           </Link>
         </div>
 
@@ -340,7 +345,7 @@ export function LearnPage() {
               className="relative flex h-full w-full max-h-full flex-col items-center justify-center"
             >
               <p className="absolute left-3 top-3 z-10 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:left-4 sm:top-4 sm:text-xs">
-                Slide {slideNum} of {totalSlides}
+                {t('ui_learn_slide_progress', { n: slideNum, total: totalSlides })}
               </p>
               {currentSlideSrc ? (
                 <img
@@ -351,11 +356,9 @@ export function LearnPage() {
               ) : (
                 <>
                   <p className="mt-10 max-w-xl px-4 font-display text-xl font-medium leading-snug text-brand-900 sm:text-2xl">
-                    Voice-over plays here in production. Placeholder for slide {slideNum}.
+                    {t('ui_learn_voice_placeholder', { n: slideNum })}
                   </p>
-                  <p className="mt-5 text-xs text-slate-600">
-                    Upload slide images in Admin → Courses to show frames here.
-                  </p>
+                  <p className="mt-5 text-xs text-slate-600">{t('ui_learn_upload_hint')}</p>
                 </>
               )}
             </motion.div>
@@ -369,7 +372,7 @@ export function LearnPage() {
                 onClick={() => setSlideIndex((i) => Math.max(0, i - 1))}
               >
                 <ChevronLeft className="h-4 w-4" />
-                Previous
+                {t('ui_learn_previous')}
               </Button>
               <Button
                 variant="secondary"
@@ -377,16 +380,16 @@ export function LearnPage() {
                 disabled={isLastSlide}
                 onClick={() => setSlideIndex((i) => Math.min(totalSlides - 1, i + 1))}
               >
-                Next
+                {t('ui_learn_next')}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
             {isLastSlide ? (
               <Button className="!rounded-xl sm:shrink-0" onClick={openTest}>
-                Take knowledge check
+                {t('ui_learn_take_knowledge_check')}
               </Button>
             ) : (
-              <span className="text-center text-sm text-slate-600 sm:text-left">Complete all slides to unlock the test.</span>
+              <span className="text-center text-sm text-slate-600 sm:text-left">{t('LearnPage_389_complete_all_slides_to_unlock_the_test_0825f886f3')}</span>
             )}
           </div>
         </div>

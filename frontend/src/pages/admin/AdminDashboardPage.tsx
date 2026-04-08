@@ -12,6 +12,7 @@ import { qk } from '@/api/queryKeys'
 import { localCache } from '@/lib/localCache'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
+import { t } from '@/i18n/t'
 
 export function AdminDashboardPage() {
   const qPub = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
@@ -43,28 +44,26 @@ export function AdminDashboardPage() {
   const orders = qOrders.data ?? []
 
   const metrics = [
-    { label: 'Published courses', value: published.length },
-    { label: 'Total courses', value: all.length },
-    { label: 'Categories', value: allCats.length },
-    { label: 'Demo enrollments', value: purchases },
-    { label: 'Certificates issued', value: certs },
-    { label: 'Media assets', value: media.length },
-    { label: 'Tests configured', value: tests.length },
-    { label: 'Announcements', value: announcements.length },
-    { label: 'Orders (local)', value: orders.length },
+    { label: t('ui_metric_published_courses'), value: published.length },
+    { label: t('ui_metric_total_courses'), value: all.length },
+    { label: t('ui_metric_categories'), value: allCats.length },
+    { label: t('ui_metric_demo_enrollments'), value: purchases },
+    { label: t('ui_metric_certificates_issued'), value: certs },
+    { label: t('ui_metric_media_assets'), value: media.length },
+    { label: t('ui_metric_tests_configured'), value: tests.length },
+    { label: t('ui_metric_announcements'), value: announcements.length },
+    { label: t('ui_metric_orders_local'), value: orders.length },
   ]
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold tracking-tight text-brand-900">Overview</h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Snapshot of catalog, commerce, and admin content stored in this browser.
-      </p>
+      <h1 className="font-display text-3xl font-bold tracking-tight text-brand-900">{t('AdminDashboardPage_59_overview_70114f29ad')}</h1>
+      <p className="mt-2 text-sm text-slate-600">{t('ui_admin_dashboard_subtitle')}</p>
 
       {loading ? (
         <div className="mt-8 flex items-center gap-3 text-sm text-slate-500">
-          <Spinner size="sm" label="Loading metrics" />
-          <span>Loading metrics…</span>
+          <Spinner size="sm" label={t('ui_spinner_loading_metrics')} />
+          <span>{t('AdminDashboardPage_67_loading_metrics_2623c58c65')}</span>
         </div>
       ) : null}
 
@@ -91,10 +90,10 @@ export function AdminDashboardPage() {
       </div>
 
       <div className="mt-10 rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 text-sm text-amber-950 shadow-sm">
-        <strong className="font-semibold">Frontend prototype.</strong> Admin data lives in{' '}
-        <code className="rounded-md bg-white/90 px-1.5 py-0.5 text-xs">localStorage</code> (<code className="text-xs">abc_portal_*</code>). Use{' '}
-        <strong className="font-semibold">Courses</strong>, <strong className="font-semibold">Media</strong>, <strong className="font-semibold">Tests</strong>, and{' '}
-        <strong className="font-semibold">Announcements</strong> to manage records; <strong className="font-semibold">Orders</strong> lists enrollments from this device.
+        <strong className="font-semibold">{t('AdminDashboardPage_94_frontend_prototype_23b65971f6')}</strong> {t('ui_admin_data_lives_in')}{' '}
+        <code className="rounded-md bg-white/90 px-1.5 py-0.5 text-xs">{t('AdminDashboardPage_95_localstorage_801dab6669')}</code> (<code className="text-xs">{t('AdminDashboardPage_95_abc_portal_2a6ce68b12')}</code>). {t('ui_admin_use')}{' '}
+        <strong className="font-semibold">{t('AdminDashboardPage_96_courses_e84808c320')}</strong>, <strong className="font-semibold">{t('AdminDashboardPage_96_media_62971eb786')}</strong>, <strong className="font-semibold">{t('AdminDashboardPage_96_tests_3f9f2bcbf7')}</strong>, and{' '}
+        <strong className="font-semibold">{t('AdminDashboardPage_97_announcements_a26ca4a7de')}</strong> {t('AdminDashboardPage_97_to_manage_records_e75aac566f')} <strong className="font-semibold">{t('AdminDashboardPage_97_orders_3b4f8a5a77')}</strong> {t('ui_admin_orders_lists_suffix')}
       </div>
     </div>
   )

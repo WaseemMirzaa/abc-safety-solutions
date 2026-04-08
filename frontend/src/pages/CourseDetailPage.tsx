@@ -13,6 +13,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { localCache } from '@/lib/localCache'
 import { getCategoryById } from '@/data/catalog'
 import { getCourseSlideCount } from '@/lib/courseSlides'
+import { t } from '@/i18n/t'
+import { localizedCategoryName, localizedCourseDescription, localizedCourseTitle } from '@/lib/catalogLocale'
 
 function formatPrice(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
@@ -49,7 +51,7 @@ export function CourseDetailPage() {
     return (
       <div className="py-12 sm:py-16">
         <Container>
-          <PageLoader message="Loading course" minHeight="min-h-[24vh]" />
+          <PageLoader message={t('ui_page_loader_course')} minHeight="min-h-[24vh]" />
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -66,9 +68,9 @@ export function CourseDetailPage() {
     return (
       <div className="py-24">
         <Container className="max-w-lg text-center">
-          <h1 className="font-display text-2xl font-bold text-brand-900">Course not found</h1>
+          <h1 className="font-display text-2xl font-bold text-brand-900">{t('CourseDetailPage_69_course_not_found_b16349f879')}</h1>
           <Link to="/courses" className="mt-6 inline-flex text-sm font-semibold text-amber-700 hover:text-amber-600">
-            ← Back to catalog
+            {t('ui_course_detail_back_arrow')}
           </Link>
         </Container>
       </div>
@@ -82,10 +84,10 @@ export function CourseDetailPage() {
       <Container>
         <nav className="text-sm text-slate-500">
           <Link to="/courses" className="font-medium transition hover:text-brand-800">
-            Courses
+            {t('ui_course_nav_courses')}
           </Link>
           <span className="mx-2 text-slate-300">/</span>
-          <span className="text-slate-700">{course.title}</span>
+          <span className="text-slate-700">{localizedCourseTitle(course.slug, course.title)}</span>
         </nav>
 
         <div className="mt-10 grid gap-12 lg:grid-cols-12 lg:gap-14">
@@ -97,50 +99,56 @@ export function CourseDetailPage() {
 
           <div className="lg:col-span-5">
             {cat ? (
-              <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">{cat.name}</p>
+              <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+                {localizedCategoryName(cat.id, cat.name)}
+              </p>
             ) : null}
-            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-brand-900 sm:text-4xl">{course.title}</h1>
-            <p className="mt-5 text-base leading-relaxed text-slate-600">{course.description}</p>
+            <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-brand-900 sm:text-4xl">
+              {localizedCourseTitle(course.slug, course.title)}
+            </h1>
+            <p className="mt-5 text-base leading-relaxed text-slate-600">
+              {localizedCourseDescription(course.slug, course.description)}
+            </p>
 
             <ul className="mt-8 space-y-3 text-sm text-slate-700">
               <li className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/80 px-4 py-3">
                 <Clock className="h-5 w-5 shrink-0 text-sky-600" />
-                Estimated {Math.round(course.durationMinutes / 60)} hours · self-paced
+                {t('ui_course_estimated_hours', { hours: Math.round(course.durationMinutes / 60) })}
               </li>
               <li className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/80 px-4 py-3">
                 <Layers className="h-5 w-5 shrink-0 text-sky-600" />
-                {getCourseSlideCount(course)} slides with voice-over (demo player)
+                {t('ui_course_slides_voice', { count: getCourseSlideCount(course) })}
               </li>
               <li className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/80 px-4 py-3">
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-sky-600" />
-                Knowledge check + certificate upon passing
+                {t('ui_course_knowledge_cert')}
               </li>
             </ul>
 
             <div className="card-elevated mt-10 p-6 sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Your investment</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('CourseDetailPage_121_your_investment_10257b1552')}</p>
               <p className="mt-2 font-display text-4xl font-bold text-brand-900">{formatPrice(course.priceCents)}</p>
               <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                Local demo: no payment processor. Purchase is saved in this browser only.
+                {t('ui_course_local_demo_payment')}
               </p>
               <p className="mt-4 text-xs text-slate-500">
                 <Link to={`/checkout?course=${encodeURIComponent(course.slug)}`} className="font-semibold text-amber-700 hover:text-amber-600">
-                  Preview checkout UI →
+                  {t('ui_course_preview_checkout')}
                 </Link>
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 {purchased ? (
                   <Link to={`/learn/${course.id}`} className="flex-1">
-                    <Button className="w-full">Continue to course</Button>
+                    <Button className="w-full">{t('CourseDetailPage_134_continue_to_course_6b6b6ed6e8')}</Button>
                   </Link>
                 ) : (
                   <Button className="flex-1" onClick={buy}>
-                    {user ? 'Enroll (demo)' : 'Sign in to enroll'}
+                    {user ? t('ui_course_enroll_demo') : t('ui_course_signin_enroll')}
                   </Button>
                 )}
                 <Link to="/courses" className="flex-1">
                   <Button variant="secondary" className="w-full">
-                    Back to catalog
+                    {t('ui_course_detail_back')}
                   </Button>
                 </Link>
               </div>

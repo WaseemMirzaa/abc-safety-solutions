@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { registerPanelImage } from '@/config/brandAssets'
 import { isReservedDemoEmail } from '@/config/demoAccounts'
 import { Award, UserPlus } from 'lucide-react'
+import { t } from '@/i18n/t'
 
 export function RegisterPage() {
   const { login } = useAuth()
@@ -18,11 +19,11 @@ export function RegisterPage() {
     e.preventDefault()
     setErr('')
     if (!email.trim() || !name.trim()) {
-      setErr('Enter name and email.')
+      setErr(t('ui_register_err_name_email'))
       return
     }
     if (isReservedDemoEmail(email)) {
-      setErr('This email is reserved for demo sign-in. Use Sign in instead.')
+      setErr(t('ui_register_err_reserved'))
       return
     }
     login({ email: email.trim(), name: name.trim(), role: 'learner' })
@@ -35,18 +36,18 @@ export function RegisterPage() {
         <AuthLogo className="brightness-0 invert drop-shadow-md" />
         <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-400/35 bg-black/25 px-3 py-1.5 text-[11px] font-medium text-amber-100 shadow-sm backdrop-blur-md ring-1 ring-white/10">
           <UserPlus className="h-3.5 w-3.5 text-amber-400" aria-hidden />
-          New learner
+          {t('ui_register_badge_new')}
         </div>
         <p className="mt-4 font-display text-2xl font-bold leading-[1.15] tracking-tight text-white drop-shadow-sm sm:text-3xl xl:text-[2rem]">
-          Create your profile
+          {t('ui_register_aside_headline')}
         </p>
         <p className="mt-2.5 max-w-md text-sm leading-snug text-slate-200/90">
-          One place for catalog access, progress, and completion records—ready to sync when the API goes live.
+          {t('ui_register_aside_sub')}
         </p>
       </div>
 
       <p className="my-6 max-w-md font-display text-base font-semibold leading-snug tracking-tight text-white/95 sm:text-lg">
-        Structured modules, knowledge checks, and completion records in one place.
+        {t('ui_register_aside_modules')}
       </p>
 
       <div className="mt-auto flex shrink-0 items-start gap-2.5 rounded-xl border border-white/15 bg-slate-950/45 p-3 shadow-lg shadow-black/20 backdrop-blur-md ring-1 ring-white/10">
@@ -54,7 +55,8 @@ export function RegisterPage() {
           <Award className="h-5 w-5" aria-hidden />
         </div>
         <p className="text-[12px] leading-snug text-slate-200 sm:text-[13px]">
-          <span className="font-medium text-white">Certificates & progress</span> stay on this device until backend auth ships.
+          <span className="font-medium text-white">{t('RegisterPage_57_certificates_progress_feb968d16f')}</span>
+          {t('ui_register_cert_blurb_suffix')}
         </p>
       </div>
     </div>
@@ -67,28 +69,26 @@ export function RegisterPage() {
       </div>
 
       <p className="inline-flex w-fit items-center rounded-full border border-sky-200/80 bg-gradient-to-r from-sky-50 to-white px-3 py-1 font-display text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-800 shadow-sm shadow-sky-900/5">
-        Register
+        {t('ui_register_header_badge')}
       </p>
       <h1 className="mt-3 font-display text-2xl font-bold tracking-tight sm:text-3xl">
-        <span className="bg-gradient-to-r from-sky-800 via-sky-700 to-brand-900 bg-clip-text text-transparent">Create your account</span>
+        <span className="bg-gradient-to-r from-sky-800 via-sky-700 to-brand-900 bg-clip-text text-transparent">{t('RegisterPage_73_create_your_account_5fda4f1546')}</span>
       </h1>
-      <p className="mt-2 text-sm leading-snug text-slate-600">
-        Use a real-looking email and name—reserved demo addresses must use the sign-in page instead.
-      </p>
+      <p className="mt-2 text-sm leading-snug text-slate-600">{t('ui_register_form_hint')}</p>
 
       <div className="relative mt-6 overflow-hidden rounded-2xl border border-sky-200/70 bg-white/95 p-5 shadow-[0_6px_28px_-6px_rgba(14,165,233,0.18),0_20px_44px_-26px_rgba(15,23,42,0.12)] ring-1 ring-sky-100/70 backdrop-blur-[2px] sm:p-6">
         <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-amber-400 via-sky-500 to-sky-600" aria-hidden />
         <form onSubmit={submit} className="relative space-y-4">
           <div>
             <label htmlFor="r-name" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Full name
+              {t('ui_register_label_full_name')}
             </label>
-            <p className="mt-0.5 text-[11px] text-slate-400">Used on certificates</p>
+            <p className="mt-0.5 text-[11px] text-slate-400">{t('RegisterPage_86_used_on_certificates_d9bfe50439')}</p>
             <input id="r-name" className="input-pro mt-2" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
           </div>
           <div>
             <label htmlFor="r-email" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Work email
+              {t('ui_register_label_work_email')}
             </label>
             <input
               id="r-email"

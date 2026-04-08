@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { localCache } from '@/lib/localCache'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { Award, Printer } from 'lucide-react'
+import { t } from '@/i18n/t'
 
 export function CertificatesPage() {
   const { user } = useAuth()
@@ -19,10 +20,10 @@ export function CertificatesPage() {
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/25">
             <Award className="h-8 w-8" />
           </div>
-          <h1 className="mt-8 font-display text-3xl font-bold text-brand-900">Certificates</h1>
-          <p className="mt-3 text-slate-600">Sign in to view credentials earned on this device.</p>
+          <h1 className="mt-8 font-display text-3xl font-bold text-brand-900">{t('CertificatesPage_22_certificates_fc4642ee51')}</h1>
+          <p className="mt-3 text-slate-600">{t('CertificatesPage_23_sign_in_to_view_credentials_earned_on_this_devic_5f1914b3c9')}</p>
           <Link to="/login" className="mt-10 inline-block">
-            <Button>Sign in</Button>
+            <Button>{t('CertificatesPage_25_sign_in_00d939efe1')}</Button>
           </Link>
         </Container>
       </div>
@@ -37,10 +38,8 @@ export function CertificatesPage() {
             <Award className="h-7 w-7" />
           </div>
           <div className="min-w-0">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-brand-900 sm:text-4xl">Certificates</h1>
-            <p className="mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">
-              PDF email delivery will connect to NestJS. Records below are from local cache.
-            </p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-brand-900 sm:text-4xl">{t('CertificatesPage_40_certificates_583170f8cf')}</h1>
+            <p className="mt-3 max-w-2xl text-sm text-slate-600 sm:text-base">{t('ui_certificates_pdf_blurb')}</p>
           </div>
         </div>
 
@@ -48,17 +47,15 @@ export function CertificatesPage() {
           <div className="mt-14 space-y-10">
             <div className="min-w-0 rounded-3xl border border-slate-200/90 bg-white/80 p-4 shadow-sm sm:p-8 md:p-10">
               <p className="text-center font-display text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:text-xs">
-                Design preview
+                {t('ui_certificates_design_preview')}
               </p>
               <CertificateVisual cert={SAMPLE_CERTIFICATE} sampleWatermark className="mx-auto mt-4 max-w-full sm:mt-6 md:max-w-3xl" />
-              <p className="mt-6 text-center text-sm text-slate-500">
-                Sample layout only. Pass a course knowledge check to earn a certificate with your name.
-              </p>
+              <p className="mt-6 text-center text-sm text-slate-500">{t('ui_certificates_sample_hint')}</p>
             </div>
             <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-8 py-12 text-center text-slate-600">
-              <p className="font-medium text-brand-900">No certificates on this device yet.</p>
+              <p className="font-medium text-brand-900">{t('CertificatesPage_59_no_certificates_on_this_device_yet_15d006e7f7')}</p>
               <Link to="/my-courses" className="mt-6 inline-block">
-                <Button>Go to my learning</Button>
+                <Button>{t('CertificatesPage_61_go_to_my_learning_4701894b0e')}</Button>
               </Link>
             </div>
           </div>
@@ -80,10 +77,10 @@ export function CertificatesPage() {
                     onClick={() => window.print()}
                   >
                     <Printer className="h-4 w-4 shrink-0" />
-                    Print / save PDF
+                    {t('ui_certificates_print_pdf')}
                   </Button>
-                  <Button variant="secondary" className="text-xs sm:text-sm" disabled title="PDF via API later">
-                    Email PDF (soon)
+                  <Button variant="secondary" className="text-xs sm:text-sm" disabled title={t('ui_certificates_pdf_title')}>
+                    {t('ui_certificates_email_btn')}
                   </Button>
                 </div>
               </motion.li>

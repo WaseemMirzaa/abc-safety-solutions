@@ -5,6 +5,8 @@ import type { Course } from '@/types'
 import { getCategoryById } from '@/data/catalog'
 import { getCourseSlideCount } from '@/lib/courseSlides'
 import { easeOut, transition } from '@/lib/motionPresets'
+import { t } from '@/i18n/t'
+import { localizedCategoryName, localizedCourseSummary, localizedCourseTitle } from '@/lib/catalogLocale'
 
 function formatPrice(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
@@ -19,8 +21,9 @@ type Props = {
 export function CourseCard({ course, entrance = true }: Props) {
   const reduce = useReducedMotion()
   const cat = getCategoryById(course.categoryId)
+  const catDisplay = cat ? localizedCategoryName(cat.id, cat.name) : ''
   const shortCat = cat
-    ? `${cat.name.split('(')[0].trim().slice(0, 26)}${cat.name.length > 26 ? '…' : ''}`
+    ? `${catDisplay.split('(')[0].trim().slice(0, 26)}${catDisplay.length > 26 ? '…' : ''}`
     : ''
 
   const shellClass =
@@ -51,29 +54,31 @@ export function CourseCard({ course, entrance = true }: Props) {
           to={`/courses/${course.slug}`}
           className="font-display text-lg font-semibold leading-snug text-brand-900 transition group-hover:text-amber-800"
         >
-          {course.title}
+          {localizedCourseTitle(course.slug, course.title)}
         </Link>
-        <p className="mt-3 line-clamp-2 flex-1 text-sm leading-relaxed text-slate-600">{course.summary}</p>
+        <p className="mt-3 line-clamp-2 flex-1 text-sm leading-relaxed text-slate-600">
+          {localizedCourseSummary(course.slug, course.summary)}
+        </p>
         <div className="mt-5 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
             <Clock className="h-3.5 w-3.5 text-sky-600" />
-            {Math.round(course.durationMinutes / 60)}h est.
+            {t('ui_course_card_hours_est', { hours: Math.round(course.durationMinutes / 60) })}
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
             <Layers className="h-3.5 w-3.5 text-sky-600" />
-            {getCourseSlideCount(course)} slides
+            {t('ui_course_card_slide_count', { count: getCourseSlideCount(course) })}
           </span>
         </div>
         <div className="mt-6 flex items-end justify-between gap-4 border-t border-slate-100 pt-5">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">From</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{t('CourseCard_69_from_e291070e50')}</p>
             <p className="font-display text-2xl font-bold tracking-tight text-brand-900">{formatPrice(course.priceCents)}</p>
           </div>
           <Link
             to={`/courses/${course.slug}`}
             className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-brand-950 shadow-md shadow-amber-900/20 ring-1 ring-amber-400/40 transition hover:from-amber-300 hover:to-amber-500 active:scale-[0.98] motion-reduce:active:scale-100"
           >
-            Details
+            {t('ui_course_card_details')}
             <ArrowUpRight className="h-4 w-4 opacity-80" />
           </Link>
         </div>
