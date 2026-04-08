@@ -107,6 +107,7 @@ def build_document():
         "through the admin panel without per‑course development fees for standard self‑service listings.",
         "Deliver each course as slide‑based content (typically 30–60 slides) with professional voice‑over audio.",
         "Require a knowledge check (test) after training; issue a branded PDF certificate upon successful completion.",
+        "Support category-level certificate wording controlled by admin, so each training discipline can display its own certification text.",
         "Email the certificate automatically and store it in the learner’s web and app account.",
         "Support renewal reminders and optional broadcast announcements for new or updated offerings.",
     ):
@@ -123,11 +124,12 @@ def build_document():
         "E‑commerce: secure payment integration (e.g. Stripe) and order history",
         "Course player: slides with audio; progress saved so learners can resume",
         "Assessments: tests linked to courses; automated scoring; pass / fail handling",
-        "Certificates: PDF from client‑provided template; fields include learner name, "
-        "course title, completion date; delivery by email and download in dashboard",
+        "Certificates: branded layout with prominent blue company logo; includes learner name, "
+        "course title, completion date, and category-specific certification text; delivery by email and dashboard download",
         "Categories and subcategories for organizing the catalog",
-        "Admin panel: manage courses, media, tests, pricing, users/orders, and announcements",
+        "Admin panel: manage courses, media, tests, pricing, users/orders, announcements, and category certificate text",
         "Responsive layout for phones and tablets",
+        "Deployment-ready configuration for Vercel builds and Cloudflare Pages static build upload",
     )
     for x in web_items:
         doc.add_paragraph(x, style="List Bullet")
@@ -160,8 +162,11 @@ def build_document():
             ("Format", "Slide decks (~30–60 slides) + voice‑over audio."),
             ("Purchase", "Pay online → immediate access to purchased course(s)."),
             ("Completion", "Pass test → PDF certificate + email; stored in account."),
+            ("Certificate content", "Admin can set/edit category-level certification text shown on certificates."),
+            ("Branding on certificate", "Main blue web app logo is prominently displayed in certificate header."),
             ("Admin", "Full control to add/edit courses, tests, and media without developer for routine updates."),
             ("Mobile", "Same learning and certificates as web; reminders and announcements supported."),
+            ("Deployment", "Configured for Vercel production builds and Cloudflare Pages `dist` uploads."),
         ],
     )
 
