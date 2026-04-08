@@ -14,7 +14,7 @@
     "i18n:extract": "python3 ../scripts/extract_hardcoded_strings.py",
     "i18n:build-en": "python3 ../scripts/i18n_convert.py",
     "i18n:apply-jsx": "python3 ../scripts/i18n_convert.py --apply",
-    "i18n:verify": "python3 ../scripts/verify_i18n_coverage.py",
+    "i18n:verify": "python3 ../scripts/verify_i18n_coverage.py && python3 ../scripts/verify_locale_invariants.py",
     "i18n:report-untranslated": "python3 ../scripts/report_untranslated_strings.py"
   },
   "dependencies": {
