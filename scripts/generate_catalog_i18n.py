@@ -230,7 +230,7 @@ def main() -> None:
         ("3", "Fire Training", "Fire Training"),
         ("4", "Survival Training", "Survival Training"),
         ("5", "BOP Controls Training", "BOP Controls"),
-        ("6", "EPA Lead-Safe Training & Certification", "EPA Lead-Safe"),
+        ("6", "EPA Lead-Safe Training & Certificates", "EPA Lead-Safe"),
     ]
     BRAND_ES = [
         ("Formación en salud y seguridad ocupacional", "Salud y seguridad ocupacional"),
@@ -239,7 +239,7 @@ def main() -> None:
         ("Formación contra incendios", "Incendios"),
         ("Formación en supervivencia", "Supervivencia"),
         ("Formación en controles BOP", "Controles BOP"),
-        ("Formación EPA Lead-Safe y certificación", "EPA Lead-Safe"),
+        ("Formación EPA Lead-Safe y certificados", "EPA Lead-Safe"),
     ]
     for i, ((_, en_t, en_s), (es_t, es_s)) in enumerate(zip(BRAND, BRAND_ES, strict=True)):
         en_extra[f"ui_brand_program_{i}_title"] = en_t

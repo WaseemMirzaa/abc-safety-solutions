@@ -40,7 +40,7 @@ describe('route guards and public paths', () => {
     localCache.setUser({ email: 'l@test.local', name: 'Learner', role: 'learner' })
     renderAt('/admin')
     await waitFor(() => {
-      expect(screen.getByText(/training\s*&\s*certification/i)).toBeInTheDocument()
+      expect(screen.getByText(/training\s*&\s*certificates/i)).toBeInTheDocument()
     })
   })
 
@@ -71,7 +71,7 @@ describe('route guards and public paths', () => {
   it('redirects unknown paths to home', async () => {
     renderAt('/this-route-does-not-exist-xyz')
     await waitFor(() => {
-      expect(screen.getByText(/training\s*&\s*certification/i)).toBeInTheDocument()
+      expect(screen.getByText(/training\s*&\s*certificates/i)).toBeInTheDocument()
     })
   })
 })
