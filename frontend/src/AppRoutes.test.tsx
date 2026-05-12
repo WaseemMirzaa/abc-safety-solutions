@@ -3,10 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { localCache } from '@/lib/localCache'
 import { AppRoutes } from '@/App'
+import type { UserSession } from '@/types'
 
-function renderAt(path: string) {
+function renderAt(path: string, initialSession?: { user: UserSession; accessToken?: string }) {
   const qc = new QueryClient({
     defaultOptions: {
       queries: { retry: false, staleTime: 0 },
@@ -14,7 +14,7 @@ function renderAt(path: string) {
   })
   return render(
     <QueryClientProvider client={qc}>
-      <AuthProvider>
+      <AuthProvider initialSession={initialSession}>
         <MemoryRouter initialEntries={[path]}>
           <AppRoutes />
         </MemoryRouter>
@@ -26,7 +26,6 @@ function renderAt(path: string) {
 describe('route guards and public paths', () => {
   beforeEach(() => {
     localStorage.clear()
-    localCache.setUser(null)
   })
 
   it('sends guests from /admin to /login', async () => {
@@ -37,32 +36,28 @@ describe('route guards and public paths', () => {
   })
 
   it('sends learners from /admin to home', async () => {
-    localCache.setUser({ email: 'l@test.local', name: 'Learner', role: 'learner' })
-    renderAt('/admin')
+    renderAt('/admin', { user: { email: 'l@test.local', name: 'Learner', role: 'learner' } })
     await waitFor(() => {
       expect(screen.getByText(/training\s*&\s*certificates/i)).toBeInTheDocument()
     })
   })
 
   it('lets admins open /admin dashboard', async () => {
-    localCache.setUser({ email: 'admin@demo.local', name: 'Admin', role: 'admin' })
-    renderAt('/admin')
+    renderAt('/admin', { user: { email: 'admin@demo.local', name: 'Admin', role: 'admin' } })
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /^overview$/i })).toBeInTheDocument()
     })
   })
 
   it('lets admins open /admin/courses', async () => {
-    localCache.setUser({ email: 'admin@demo.local', name: 'Admin', role: 'admin' })
-    renderAt('/admin/courses')
+    renderAt('/admin/courses', { user: { email: 'admin@demo.local', name: 'Admin', role: 'admin' } })
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /^courses$/i })).toBeInTheDocument()
     })
   })
 
   it('lets learners open /my-courses', async () => {
-    localCache.setUser({ email: 'l@test.local', name: 'Learner', role: 'learner' })
-    renderAt('/my-courses')
+    renderAt('/my-courses', { user: { email: 'l@test.local', name: 'Learner', role: 'learner' } })
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /my learning/i })).toBeInTheDocument()
     })

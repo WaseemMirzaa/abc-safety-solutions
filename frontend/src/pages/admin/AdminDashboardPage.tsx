@@ -7,9 +7,9 @@ import {
   fetchAdminTests,
   fetchAnnouncements,
   fetchAdminOrders,
+  fetchAdminStats,
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { localCache } from '@/lib/localCache'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
 import { t } from '@/i18n/t'
@@ -22,9 +22,10 @@ export function AdminDashboardPage() {
   const qTests = useQuery({ queryKey: qk.adminTests, queryFn: fetchAdminTests })
   const qAnn = useQuery({ queryKey: qk.adminAnnouncements, queryFn: fetchAnnouncements })
   const qOrders = useQuery({ queryKey: qk.adminOrders, queryFn: fetchAdminOrders })
+  const qStats = useQuery({ queryKey: qk.adminStats, queryFn: fetchAdminStats })
 
-  const purchases = localCache.getPurchases().length
-  const certs = localCache.getCertificates().length
+  const purchases = qStats.data?.enrollments ?? qOrders.data?.length ?? 0
+  const certs = qStats.data?.certificatesIssued ?? 0
 
   const loading =
     qPub.isPending ||
@@ -33,7 +34,8 @@ export function AdminDashboardPage() {
     qMedia.isPending ||
     qTests.isPending ||
     qAnn.isPending ||
-    qOrders.isPending
+    qOrders.isPending ||
+    qStats.isPending
 
   const published = qPub.data ?? []
   const all = qAll.data ?? []
@@ -47,7 +49,7 @@ export function AdminDashboardPage() {
     { label: t('ui_metric_published_courses'), value: published.length },
     { label: t('ui_metric_total_courses'), value: all.length },
     { label: t('ui_metric_categories'), value: allCats.length },
-    { label: t('ui_metric_demo_enrollments'), value: purchases },
+    { label: t('ui_metric_enrollments'), value: purchases },
     { label: t('ui_metric_certificates_issued'), value: certs },
     { label: t('ui_metric_media_assets'), value: media.length },
     { label: t('ui_metric_tests_configured'), value: tests.length },
@@ -89,12 +91,6 @@ export function AdminDashboardPage() {
             ))}
       </div>
 
-      <div className="mt-10 rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 text-sm text-amber-950 shadow-sm">
-        <strong className="font-semibold">{t('AdminDashboardPage_94_frontend_prototype_23b65971f6')}</strong> {t('ui_admin_data_lives_in')}{' '}
-        <code className="rounded-md bg-white/90 px-1.5 py-0.5 text-xs">{t('AdminDashboardPage_95_localstorage_801dab6669')}</code> (<code className="text-xs">{t('AdminDashboardPage_95_abc_portal_2a6ce68b12')}</code>). {t('ui_admin_use')}{' '}
-        <strong className="font-semibold">{t('AdminDashboardPage_96_courses_e84808c320')}</strong>, <strong className="font-semibold">{t('AdminDashboardPage_96_media_62971eb786')}</strong>, <strong className="font-semibold">{t('AdminDashboardPage_96_tests_3f9f2bcbf7')}</strong>, and{' '}
-        <strong className="font-semibold">{t('AdminDashboardPage_97_announcements_a26ca4a7de')}</strong> {t('AdminDashboardPage_97_to_manage_records_e75aac566f')} <strong className="font-semibold">{t('AdminDashboardPage_97_orders_3b4f8a5a77')}</strong> {t('ui_admin_orders_lists_suffix')}
-      </div>
     </div>
   )
 }

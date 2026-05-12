@@ -6,7 +6,7 @@ import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { CourseCard } from '@/components/CourseCard'
 import { CourseCardSkeleton } from '@/components/ui/Skeleton'
-import { fetchPublishedCourses } from '@/api/localData'
+import { fetchCategories, fetchPublishedCourses } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { homeHeroImage, trainingProgramTiles } from '@/config/brandAssets'
 import { listContainer, listItem } from '@/lib/motionPresets'
@@ -33,6 +33,7 @@ const featureItems = [
 export function HomePage() {
   const reduce = useReducedMotion()
   const { data: courses = [], isPending } = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
+  const { data: categoryList = [] } = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
   const featured = courses.slice(0, 3)
 
   return (
@@ -272,7 +273,7 @@ export function HomePage() {
                 ))
               : featured.map((c) => (
                   <motion.div key={c.id} variants={listItem} layout>
-                    <CourseCard course={c} entrance={false} />
+                    <CourseCard course={c} categories={categoryList} entrance={false} />
                   </motion.div>
                 ))}
           </motion.div>

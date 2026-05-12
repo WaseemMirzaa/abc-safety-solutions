@@ -4,16 +4,21 @@ import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
-import { fetchAllCoursesAdmin, fetchCategories, mergeCourses } from '@/api/localData'
+import {
+  adminCreateCourse,
+  adminDeleteCourse,
+  adminUpdateCourse,
+  adminUploadImage,
+  fetchAllCoursesAdmin,
+  fetchCategories,
+} from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { getCategoryById, isSeedCourseId } from '@/data/catalog'
-import { localCache } from '@/lib/localCache'
-import { readFileAsDataUrl } from '@/lib/readFileAsDataUrl'
+import { findCategory, isSeedCourseId } from '@/data/catalog'
 import type { Course } from '@/types'
 import { ChevronDown, ChevronUp, ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
 import { t } from '@/i18n/t'
 
-const MAX_SLIDE_BYTES = 2 * 1024 * 1024
+const MAX_SLIDE_BYTES = 5 * 1024 * 1024
 const MAX_SLIDES = 30
 
 function formatPrice(cents: number) {
@@ -31,6 +36,7 @@ function emptyCustomCourse(categoryId: string): Course {
     priceCents: 2999,
     durationMinutes: 60,
     slideCount: 20,
+    certificateValidityDays: null,
     imageUrl: 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/Occupational-Health-Safety-Training-min.jpg',
     published: false,
   }
@@ -72,15 +78,15 @@ export function AdminCoursesPage() {
     qc.invalidateQueries({ queryKey: qk.courses })
   }
 
-  const toggle = (courseId: string, published: boolean) => {
-    localCache.patchCourseOverride(courseId, { published: !published })
+  const toggle = async (row: Course, published: boolean) => {
+    await adminUpdateCourse({ ...row, published: !published })
     invalidate()
   }
 
   const slugTaken = (slug: string, exceptId: string) =>
-    mergeCourses().some((c) => c.slug === slug && c.id !== exceptId)
+    courses.some((c) => c.slug === slug && c.id !== exceptId)
 
-  const save = () => {
+  const save = async () => {
     if (!draft) return
     if (!draft.title.trim() || !draft.slug.trim()) {
       setSlugErr('Title and slug are required.')
@@ -94,6 +100,11 @@ export function AdminCoursesPage() {
     const urls = (draft.slideImageUrls ?? []).filter(Boolean)
     const slideCount =
       urls.length > 0 ? urls.length : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
+    const cv = draft.certificateValidityDays
+    const certificateValidityDays =
+      cv === null || cv === undefined || Number.isNaN(Number(cv)) || Number(cv) <= 0
+        ? null
+        : Math.max(1, Math.round(Number(cv)))
     const next: Course = {
       ...draft,
       slug: draft.slug.trim().toLowerCase().replace(/\s+/g, '-'),
@@ -104,23 +115,25 @@ export function AdminCoursesPage() {
       durationMinutes: Math.max(1, Math.round(Number(draft.durationMinutes)) || 1),
       slideCount,
       slideImageUrls: urls.length > 0 ? urls : undefined,
+      certificateValidityDays,
     }
 
-    if (modal === 'create') {
-      localCache.addCustomCourse(next)
-    } else if (isSeedCourseId(next.id)) {
-      const { id: _id, slug: _slug, ...rest } = next
-      localCache.patchCourseOverride(next.id, rest)
-    } else {
-      localCache.updateCustomCourse(next)
+    try {
+      if (modal === 'create') {
+        await adminCreateCourse(next)
+      } else {
+        await adminUpdateCourse(next)
+      }
+      invalidate()
+      closeModal()
+    } catch (e) {
+      setSlugErr(e instanceof Error ? e.message : 'Save failed.')
     }
-    invalidate()
-    closeModal()
   }
 
-  const removeCustom = (c: Course) => {
+  const removeCustom = async (c: Course) => {
     if (!isSeedCourseId(c.id) && window.confirm(`Delete “${c.title}”?`)) {
-      localCache.removeCustomCourse(c.id)
+      await adminDeleteCourse(c.id)
       invalidate()
     }
   }
@@ -169,8 +182,12 @@ export function AdminCoursesPage() {
           setSlideUploadErr(`Stopped at ${MAX_SLIDES} slides (max).`)
           break
         }
-        const dataUrl = await readFileAsDataUrl(file, MAX_SLIDE_BYTES)
-        list.push(dataUrl)
+        if (file.size > MAX_SLIDE_BYTES) {
+          setSlideUploadErr('Each slide image must be 5 MB or smaller.')
+          break
+        }
+        const { url } = await adminUploadImage(file)
+        list.push(url)
       }
       setDraft({ ...draft, slideImageUrls: list })
     } catch (err) {
@@ -220,7 +237,7 @@ export function AdminCoursesPage() {
             </thead>
             <tbody>
               {courses.map((c) => {
-                const cat = getCategoryById(c.categoryId)
+                const cat = findCategory(categoryList, c.categoryId)
                 const fromSeed = isSeedCourseId(c.id)
                 return (
                   <tr key={c.id} className="border-b border-slate-100 transition last:border-0 hover:bg-slate-50/80">
@@ -246,7 +263,7 @@ export function AdminCoursesPage() {
                         <Button
                           variant="secondary"
                           className="!rounded-lg !py-2 !text-xs"
-                          onClick={() => toggle(c.id, c.published)}
+                          onClick={() => void toggle(c, c.published)}
                         >
                           {c.published ? t('ui_courses_unpublish') : t('ui_courses_publish')}
                         </Button>
@@ -262,7 +279,7 @@ export function AdminCoursesPage() {
                           <Button
                             variant="secondary"
                             className="!rounded-lg !border-red-200 !py-2 !text-xs !text-red-800 hover:!bg-red-50"
-                            onClick={() => removeCustom(c)}
+                            onClick={() => void removeCustom(c)}
                           >
                             <Trash2 className="mr-1 inline h-3.5 w-3.5" />
                             {t('ui_courses_delete')}
@@ -369,6 +386,26 @@ export function AdminCoursesPage() {
               ) : null}
             </div>
             <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Certificate expires (days after issue)
+              </label>
+              <input
+                type="number"
+                min={1}
+                className="input-pro mt-1.5 w-full"
+                placeholder="Leave empty for no expiry"
+                value={draft.certificateValidityDays ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setDraft({
+                    ...draft,
+                    certificateValidityDays: v === '' ? null : Math.max(1, Math.round(Number(v)) || 1),
+                  })
+                }}
+              />
+              <p className="mt-1 text-[11px] text-slate-500">Learners see this on the course page and on issued certificates.</p>
+            </div>
+            <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_369_published_9748b31e49')}</label>
               <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
                 <input
@@ -393,7 +430,7 @@ export function AdminCoursesPage() {
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_391_slide_images_7ff457e52d')}</label>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-500">
-                    Optional. Up to {MAX_SLIDES} images (~2 MB each), shown in order in the learner player. Stored as data URLs in this browser.
+                    Optional. Up to {MAX_SLIDES} images (5 MB each), shown in order in the learner player. Files upload to the API server.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -472,7 +509,7 @@ export function AdminCoursesPage() {
           </div>
           {slugErr ? <p className="mt-4 text-sm font-medium text-red-600">{slugErr}</p> : null}
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button type="button" onClick={save}>
+            <Button type="button" onClick={() => void save()}>
               Save
             </Button>
             <Button type="button" variant="secondary" onClick={closeModal}>

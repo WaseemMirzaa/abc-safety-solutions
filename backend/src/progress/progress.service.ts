@@ -1,0 +1,48 @@
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { randomUUID } from 'node:crypto'
+import { Repository } from 'typeorm'
+import { ProgressEntity } from '../entities/progress.entity'
+
+@Injectable()
+export class ProgressService {
+  constructor(
+    @InjectRepository(ProgressEntity)
+    private readonly progress: Repository<ProgressEntity>,
+  ) {}
+
+  async get(userId: string, courseId: string) {
+    let row = await this.progress.findOne({ where: { userId, courseId } })
+    if (!row) {
+      row = this.progress.create({
+        id: randomUUID(),
+        userId,
+        courseId,
+        slideIndex: 0,
+        audioTimeSec: 0,
+        completedSlides: false,
+        testPassed: false,
+      })
+      await this.progress.save(row)
+    }
+    return row
+  }
+
+  async save(
+    userId: string,
+    courseId: string,
+    body: { slideIndex: number; audioTimeSec: number; completedSlides: boolean },
+  ) {
+    const row = await this.get(userId, courseId)
+    row.slideIndex = body.slideIndex
+    row.audioTimeSec = body.audioTimeSec
+    row.completedSlides = body.completedSlides
+    return this.progress.save(row)
+  }
+
+  async setTestPassed(userId: string, courseId: string, passed: boolean) {
+    const row = await this.get(userId, courseId)
+    row.testPassed = passed
+    return this.progress.save(row)
+  }
+}

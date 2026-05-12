@@ -1,46 +1,77 @@
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { authMe } from '@/api/localData'
+import { getToken, setToken } from '@/api/client'
 import { t } from '@/i18n/t'
 import type { UserSession } from '@/types'
-import { localCache } from '@/lib/localCache'
 
 type AuthState = {
   user: UserSession | null
-  login: (u: UserSession) => void
+  ready: boolean
+  applySession: (accessToken: string, user: UserSession) => void
   logout: () => void
+  refreshMe: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
 
-let listeners: Array<() => void> = []
-function emit() {
-  listeners.forEach((l) => l())
+export type AuthProviderProps = {
+  children: React.ReactNode
+  /** Vitest: skip remote bootstrap */
+  initialSession?: { accessToken?: string; user: UserSession }
 }
 
-function subscribe(cb: () => void) {
-  listeners.push(cb)
-  return () => {
-    listeners = listeners.filter((l) => l !== cb)
-  }
-}
+export function AuthProvider({ children, initialSession }: AuthProviderProps) {
+  const [user, setUser] = useState<UserSession | null>(initialSession?.user ?? null)
+  const [ready, setReady] = useState(Boolean(initialSession))
 
-function getSnapshot(): UserSession | null {
-  return localCache.getUser()
-}
+  useEffect(() => {
+    if (initialSession) {
+      if (initialSession.accessToken) setToken(initialSession.accessToken)
+      setUser(initialSession.user)
+      setReady(true)
+      return
+    }
+    const tok = getToken()
+    if (!tok) {
+      setReady(true)
+      return
+    }
+    authMe()
+      .then((u) => setUser(u))
+      .catch(() => setToken(null))
+      .finally(() => setReady(true))
+  }, [initialSession])
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const user = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-
-  const login = useCallback((u: UserSession) => {
-    localCache.setUser(u)
-    emit()
+  const applySession = useCallback((accessToken: string, u: UserSession) => {
+    setToken(accessToken)
+    setUser(u)
+    setReady(true)
   }, [])
 
   const logout = useCallback(() => {
-    localCache.setUser(null)
-    emit()
+    setToken(null)
+    setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout])
+  const refreshMe = useCallback(async () => {
+    const tok = getToken()
+    if (!tok) {
+      setUser(null)
+      return
+    }
+    try {
+      const u = await authMe()
+      setUser(u)
+    } catch {
+      setToken(null)
+      setUser(null)
+    }
+  }, [])
+
+  const value = useMemo(
+    () => ({ user, ready, applySession, logout, refreshMe }),
+    [user, ready, applySession, logout, refreshMe],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -3,9 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Users, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { fetchAdminDirectory } from '@/api/localData'
+import { adminCreateDirectoryUser, adminRemoveDirectoryUser, fetchAdminDirectory } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { localCache } from '@/lib/localCache'
 import type { AdminDirectoryUser } from '@/types'
 import { t } from '@/i18n/t'
 
@@ -16,41 +15,51 @@ export function AdminUsersPage() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<AdminDirectoryUser['role']>('learner')
+  const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminDirectory })
 
-  const add = () => {
+  const add = async () => {
     setErr('')
     const e = email.trim().toLowerCase()
     if (!e || !name.trim()) {
       setErr('Email and name are required.')
       return
     }
+    if (password.trim().length < 8) {
+      setErr('Password must be at least 8 characters.')
+      return
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
       setErr('Enter a valid email.')
       return
     }
-    if (localCache.getAdminDirectory().some((u) => u.email.toLowerCase() === e)) {
+    if (users.some((u) => u.email.toLowerCase() === e)) {
       setErr('This email is already in the directory.')
       return
     }
-    localCache.addAdminDirectoryUser({ email: e, name: name.trim(), role })
-    setEmail('')
-    setName('')
-    setRole('learner')
-    setOpen(false)
-    invalidate()
+    try {
+      await adminCreateDirectoryUser({ email: e, name: name.trim(), role, password: password.trim() })
+      setEmail('')
+      setName('')
+      setPassword('')
+      setRole('learner')
+      setOpen(false)
+      invalidate()
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : 'Could not create user.')
+    }
   }
 
-  const remove = (u: AdminDirectoryUser) => {
+  const remove = async (u: AdminDirectoryUser) => {
     if (window.confirm(`Remove ${u.email} from directory?`)) {
-      localCache.removeAdminDirectoryUser(u.email)
+      await adminRemoveDirectoryUser(u.email)
       invalidate()
     }
   }
 
-  const isBuiltin = (email: string) => ['learner@demo.local', 'admin@demo.local'].includes(email.toLowerCase())
+  const isBuiltin = (_email: string) => false
 
   return (
     <div>
@@ -62,7 +71,7 @@ export function AdminUsersPage() {
           <div>
             <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminUsersPage_62_users_b96cb62200')}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Demo directory for support workflows; real users will sync from the API.
+              Manage user accounts and roles.
             </p>
           </div>
         </div>
@@ -107,7 +116,7 @@ export function AdminUsersPage() {
                         type="button"
                         variant="secondary"
                         className="!rounded-lg !border-red-200 !py-1.5 !text-xs !text-red-800"
-                        onClick={() => remove(u)}
+                        onClick={() => void remove(u)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -138,10 +147,21 @@ export function AdminUsersPage() {
                 <option value="admin">{t('AdminUsersPage_135_admin_f20661fe44')}</option>
               </select>
             </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Initial password</label>
+              <input
+                className="input-pro mt-1.5 w-full"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                minLength={8}
+              />
+            </div>
             {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}
           </div>
           <div className="mt-8 flex gap-3">
-            <Button type="button" onClick={add}>
+            <Button type="button" onClick={() => void add()}>
               Save
             </Button>
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>

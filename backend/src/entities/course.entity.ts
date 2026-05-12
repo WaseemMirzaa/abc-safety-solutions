@@ -1,0 +1,44 @@
+import { Column, Entity, PrimaryColumn } from 'typeorm'
+
+@Entity('courses')
+export class CourseEntity {
+  @PrimaryColumn('varchar', { length: 36 })
+  id: string
+
+  @Column({ unique: true, length: 255 })
+  slug: string
+
+  @Column({ length: 500 })
+  title: string
+
+  @Column({ type: 'text' })
+  summary: string
+
+  @Column({ type: 'text' })
+  description: string
+
+  @Column({ type: 'varchar', length: 36 })
+  categoryId: string
+
+  @Column({ type: 'int' })
+  priceCents: number
+
+  @Column({ type: 'int' })
+  durationMinutes: number
+
+  @Column({ type: 'int' })
+  slideCount: number
+
+  /** Absolute expiration of certificate from issue date (days). Null = no expiry shown. */
+  @Column({ type: 'int', nullable: true })
+  certificateValidityDays: number | null
+
+  @Column({ type: 'text' })
+  imageUrl: string
+
+  @Column({ type: 'json', nullable: true })
+  slideImageUrls: string[] | null
+
+  @Column({ default: false })
+  published: boolean
+}

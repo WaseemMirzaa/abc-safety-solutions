@@ -3,9 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { fetchAdminTests, mergeCourses } from '@/api/localData'
+import { adminDeleteTest, adminSaveTest, fetchAdminTests, fetchAllCoursesAdmin } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { localCache } from '@/lib/localCache'
 import type { AdminTest, TestAnswerOption, TestQuestion } from '@/types'
 import { t } from '@/i18n/t'
 
@@ -58,7 +57,7 @@ function validateTest(test: AdminTest): string | null {
 export function AdminTestsPage() {
   const qc = useQueryClient()
   const { data: tests = [], isLoading } = useQuery({ queryKey: qk.adminTests, queryFn: fetchAdminTests })
-  const courseList = mergeCourses()
+  const { data: courseList = [] } = useQuery({ queryKey: qk.adminCourses, queryFn: fetchAllCoursesAdmin })
 
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<AdminTest | null>(null)
@@ -84,7 +83,7 @@ export function AdminTestsPage() {
     setErr('')
   }
 
-  const save = () => {
+  const save = async () => {
     if (!draft) return
     const next: AdminTest = {
       ...draft,
@@ -97,14 +96,14 @@ export function AdminTestsPage() {
       setErr(v)
       return
     }
-    localCache.upsertAdminTest(next)
+    await adminSaveTest(next, modal === 'create' ? 'create' : 'edit')
     invalidate()
     close()
   }
 
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
     if (window.confirm('Delete this test and all its questions?')) {
-      localCache.deleteAdminTest(id)
+      await adminDeleteTest(id)
       invalidate()
     }
   }
@@ -390,7 +389,7 @@ export function AdminTestsPage() {
           {err ? <p className="mt-4 text-sm font-medium text-red-600">{err}</p> : null}
 
           <div className="mt-8 flex flex-wrap gap-3 border-t border-slate-100 pt-6">
-            <Button type="button" onClick={save}>
+            <Button type="button" onClick={() => void save()}>
               Save test
             </Button>
             <Button type="button" variant="secondary" onClick={close}>

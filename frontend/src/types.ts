@@ -17,6 +17,8 @@ export type Course = {
   priceCents: number
   durationMinutes: number
   slideCount: number
+  /** Days until certificate expires after issue; null/undefined = no expiry. */
+  certificateValidityDays?: number | null
   /** Uploaded slide frames (data URLs in demo); when non-empty, player uses these in order. */
   slideImageUrls?: string[]
   imageUrl: string
@@ -43,6 +45,7 @@ export type Progress = {
   audioTimeSec: number
   updatedAt: string
   completedSlides: boolean
+  testPassed?: boolean
 }
 
 export type Certificate = {
@@ -53,6 +56,10 @@ export type Certificate = {
   issuedAt: string
   /** Snapshot of category certification line at issue time. */
   certificationText?: string
+  categoryId?: string
+  /** ISO date when the credential expires, if configured on the course. */
+  expiresAt?: string | null
+  userId?: string
 }
 
 export type MediaAsset = {

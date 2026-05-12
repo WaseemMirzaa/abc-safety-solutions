@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Clock, Layers, ArrowUpRight } from 'lucide-react'
-import type { Course } from '@/types'
-import { getCategoryById } from '@/data/catalog'
+import type { Category, Course } from '@/types'
+import { findCategory } from '@/data/catalog'
 import { getCourseSlideCount } from '@/lib/courseSlides'
 import { easeOut, transition } from '@/lib/motionPresets'
 import { t } from '@/i18n/t'
@@ -14,13 +14,14 @@ function formatPrice(cents: number) {
 
 type Props = {
   course: Course
+  categories?: Category[]
   /** When false, parent handles list stagger (e.g. catalog grid). */
   entrance?: boolean
 }
 
-export function CourseCard({ course, entrance = true }: Props) {
+export function CourseCard({ course, categories = [], entrance = true }: Props) {
   const reduce = useReducedMotion()
-  const cat = getCategoryById(course.categoryId)
+  const cat = findCategory(categories, course.categoryId)
   const catDisplay = cat ? localizedCategoryName(cat.id, cat.name) : ''
   const shortCat = cat
     ? `${catDisplay.split('(')[0].trim().slice(0, 26)}${catDisplay.length > 26 ? '…' : ''}`

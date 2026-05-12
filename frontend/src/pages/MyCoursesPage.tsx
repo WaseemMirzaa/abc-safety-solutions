@@ -9,15 +9,62 @@ import { Button } from '@/components/Button'
 import { PageHeaderSkeleton, MyCourseRowSkeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCourseSlideCount } from '@/lib/courseSlides'
-import { localCache } from '@/lib/localCache'
-import { fetchPublishedCourses, mergeCourses } from '@/api/localData'
+import { fetchMyEnrollments, fetchMyProgress, fetchPublishedCourses } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { BookOpen } from 'lucide-react'
+import type { Course } from '@/types'
+
+function EnrolledCourseRow({ course }: { course: Course }) {
+  const { data: prog } = useQuery({
+    queryKey: qk.progress(course.id),
+    queryFn: () => fetchMyProgress(course.id),
+    staleTime: 15_000,
+  })
+  return (
+    <motion.li
+      variants={listItem}
+      layout
+      className="card-elevated flex flex-col gap-6 p-6 transition hover:border-amber-200/50 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex gap-5">
+        <img src={course.imageUrl} alt="" className="h-24 w-36 rounded-2xl object-cover ring-1 ring-slate-200/80" />
+        <div>
+          <h2 className="font-display text-lg font-semibold text-brand-900">
+            {localizedCourseTitle(course.slug, course.title)}
+          </h2>
+          <p
+            className={clsx(
+              'mt-2 text-sm',
+              prog && (prog.slideIndex > 0 || prog.completedSlides) ? 'font-semibold text-sky-700' : 'text-slate-500',
+            )}
+          >
+            {prog && (prog.slideIndex > 0 || prog.completedSlides)
+              ? t('ui_mycourses_resume', {
+                  slide: prog.slideIndex + 1,
+                  total: getCourseSlideCount(course),
+                })
+              : t('ui_not_started')}
+          </p>
+        </div>
+      </div>
+      <Link to={`/learn/${course.id}`}>
+        <Button className="w-full sm:w-auto">
+          {prog && (prog.slideIndex > 0 || prog.completedSlides) ? t('ui_continue') : t('ui_start')}
+        </Button>
+      </Link>
+    </motion.li>
+  )
+}
 
 export function MyCoursesPage() {
   const { user } = useAuth()
   const { data: courses = [], isPending } = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
+  const { data: enrollments = [], isPending: enPending } = useQuery({
+    queryKey: qk.enrollments,
+    queryFn: fetchMyEnrollments,
+    enabled: Boolean(user),
+  })
 
   if (!user) {
     return (
@@ -36,14 +83,18 @@ export function MyCoursesPage() {
     )
   }
 
-  const purchases = localCache.getPurchases()
-  const byId = new Map(mergeCourses().map((c) => [c.id, c]))
-  const mine = purchases.map((p) => byId.get(p.courseId)).filter(Boolean)
+  const byId = new Map(courses.map((c) => [c.id, c]))
+  const mine = enrollments
+    .filter((e) => !e.refunded)
+    .map((e) => e.course ?? byId.get(e.courseId))
+    .filter(Boolean) as typeof courses
+
+  const loading = isPending || enPending
 
   return (
     <div className="py-12 sm:py-16 lg:py-20">
       <Container>
-        {isPending ? (
+        {loading ? (
           <PageHeaderSkeleton />
         ) : (
           <>
@@ -54,7 +105,7 @@ export function MyCoursesPage() {
           </>
         )}
 
-        {isPending ? (
+        {loading ? (
           <motion.ul
             className="mt-8 space-y-5"
             variants={listContainer}
@@ -82,43 +133,9 @@ export function MyCoursesPage() {
             initial="hidden"
             animate="show"
           >
-            {mine.map((c) => {
-              if (!c) return null
-              const prog = localCache.getProgress(c.id)
-              return (
-                <motion.li
-                  key={c.id}
-                  variants={listItem}
-                  layout
-                  className="card-elevated flex flex-col gap-6 p-6 transition hover:border-amber-200/50 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex gap-5">
-                    <img src={c.imageUrl} alt="" className="h-24 w-36 rounded-2xl object-cover ring-1 ring-slate-200/80" />
-                    <div>
-                      <h2 className="font-display text-lg font-semibold text-brand-900">
-                        {localizedCourseTitle(c.slug, c.title)}
-                      </h2>
-                      <p
-                        className={clsx(
-                          'mt-2 text-sm',
-                          prog ? 'font-semibold text-sky-700' : 'text-slate-500',
-                        )}
-                      >
-                        {prog
-                          ? t('ui_mycourses_resume', {
-                              slide: prog.slideIndex + 1,
-                              total: getCourseSlideCount(c),
-                            })
-                          : t('ui_not_started')}
-                      </p>
-                    </div>
-                  </div>
-                  <Link to={`/learn/${c.id}`}>
-                    <Button className="w-full sm:w-auto">{prog ? t('ui_continue') : t('ui_start')}</Button>
-                  </Link>
-                </motion.li>
-              )
-            })}
+            {mine.map((c) => (
+              <EnrolledCourseRow key={c.id} course={c} />
+            ))}
           </motion.ul>
         )}
 

@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/Button'
-import { fetchAdminOrders, type AdminOrderRow } from '@/api/localData'
+import { adminToggleOrderRefund, fetchAdminOrders, type AdminOrderRow } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { localCache } from '@/lib/localCache'
 import { t } from '@/i18n/t'
 
 function formatPrice(cents: number) {
@@ -16,12 +15,11 @@ export function AdminOrdersPage() {
   const { data: rows = [], isLoading } = useQuery({ queryKey: qk.adminOrders, queryFn: fetchAdminOrders })
   const [selected, setSelected] = useState<AdminOrderRow | null>(null)
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminOrders })
-
-  const toggleRefund = (orderId: string) => {
-    localCache.toggleOrderRefund(orderId)
-    invalidate()
-    setSelected((s) => (s && s.orderId === orderId ? { ...s, refunded: !s.refunded } : s))
+  const toggleRefund = async (orderId: string) => {
+    await adminToggleOrderRefund(orderId)
+    await qc.invalidateQueries({ queryKey: qk.adminOrders })
+    await qc.invalidateQueries({ queryKey: qk.adminStats })
+    setSelected(null)
   }
 
   return (
@@ -33,7 +31,7 @@ export function AdminOrdersPage() {
         <div>
           <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminOrdersPage_33_orders_8898490306')}</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Enrollments created on this device (demo). Stripe webhooks will populate real orders later.
+            View and manage all course orders. Toggle refund status as needed.
           </p>
         </div>
       </div>
@@ -60,7 +58,7 @@ export function AdminOrdersPage() {
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
-                  No orders in local storage yet. Enroll from the catalog as a learner to see rows here.
+                  No orders yet.
                 </td>
               </tr>
             ) : (
@@ -118,7 +116,7 @@ export function AdminOrdersPage() {
                 </div>
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_119_fulfillment_b1c235d09c')}</dt>
-                  <dd className="mt-1 text-slate-800">{t('AdminOrdersPage_120_enrollment_granted_local_demo_5f8f4303c0')}</dd>
+                  <dd className="mt-1 text-slate-800">Enrollment granted</dd>
                 </div>
               </dl>
             </div>

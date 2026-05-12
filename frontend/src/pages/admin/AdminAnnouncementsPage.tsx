@@ -3,9 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Megaphone, Plus, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { fetchAnnouncements } from '@/api/localData'
+import { adminDeleteAnnouncement, adminUpsertAnnouncement, fetchAnnouncements } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { localCache } from '@/lib/localCache'
 import type { Announcement } from '@/types'
 import { t } from '@/i18n/t'
 
@@ -18,7 +17,7 @@ export function AdminAnnouncementsPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminAnnouncements })
 
-  const add = () => {
+  const add = async () => {
     if (!title.trim() || !body.trim()) return
     const a: Announcement = {
       id: `ann-${Date.now()}`,
@@ -28,15 +27,15 @@ export function AdminAnnouncementsPage() {
       status: 'draft',
       sentAt: null,
     }
-    localCache.addAnnouncement(a)
+    await adminUpsertAnnouncement(a)
     setTitle('')
     setBody('')
     setOpen(false)
     invalidate()
   }
 
-  const markSent = (a: Announcement) => {
-    localCache.updateAnnouncement({
+  const markSent = async (a: Announcement) => {
+    await adminUpsertAnnouncement({
       ...a,
       status: 'sent',
       sentAt: new Date().toISOString(),
@@ -44,9 +43,9 @@ export function AdminAnnouncementsPage() {
     invalidate()
   }
 
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
     if (window.confirm('Delete this announcement?')) {
-      localCache.deleteAnnouncement(id)
+      await adminDeleteAnnouncement(id)
       invalidate()
     }
   }
@@ -105,7 +104,7 @@ export function AdminAnnouncementsPage() {
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
                   {a.status === 'draft' ? (
-                    <Button type="button" className="gap-1.5 !text-sm" onClick={() => markSent(a)}>
+                    <Button type="button" className="gap-1.5 !text-sm" onClick={() => void markSent(a)}>
                       <Send className="h-4 w-4" />
                       Mark sent
                     </Button>
@@ -114,7 +113,7 @@ export function AdminAnnouncementsPage() {
                     type="button"
                     variant="secondary"
                     className="!border-red-200 !text-red-800"
-                    onClick={() => remove(a.id)}
+                    onClick={() => void remove(a.id)}
                   >
                     <Trash2 className="mr-1 inline h-4 w-4" />
                     Delete
@@ -138,7 +137,7 @@ export function AdminAnnouncementsPage() {
             </div>
           </div>
           <div className="mt-8 flex gap-3">
-            <Button type="button" onClick={add}>
+            <Button type="button" onClick={() => void add()}>
               Save draft
             </Button>
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>

@@ -1,12 +1,33 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AuthLogo, AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { Button } from '@/components/Button'
 import { loginPanelImage } from '@/config/brandAssets'
 import { KeyRound, Mail } from 'lucide-react'
 import { t } from '@/i18n/t'
+import { authForgotPassword } from '@/api/localData'
 
-/** Stub — NestJS will send reset links via transactional email. */
 export function ForgotPasswordPage() {
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [ok, setOk] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setErr(null)
+    setOk(false)
+    setBusy(true)
+    try {
+      await authForgotPassword(email.trim())
+      setOk(true)
+    } catch {
+      setErr(t('ui_forgot_err'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const aside = (
     <div className="relative z-10 flex h-full min-h-0 w-full flex-col justify-between p-6 lg:p-8 xl:p-10">
       <div className="shrink-0">
@@ -41,12 +62,28 @@ export function ForgotPasswordPage() {
         <Mail className="h-6 w-6" />
       </div>
       <h1 className="mt-6 font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">{t('ForgotPasswordPage_42_reset_password_9182f380f6')}</h1>
-      <p className="mt-3 text-sm leading-relaxed text-slate-600">
-        This flow is not wired yet. With the API, you will enter your email and receive a secure link to set a new password.
-      </p>
-      <Button className="mt-8 w-full" disabled>
-        Send reset link (API)
-      </Button>
+      <p className="mt-3 text-sm leading-relaxed text-slate-600">{t('ui_forgot_main_intro')}</p>
+      <form onSubmit={(e) => void submit(e)} className="mt-8 space-y-4">
+        <div>
+          <label htmlFor="fp-email" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            {t('ui_forgot_email_label')}
+          </label>
+          <input
+            id="fp-email"
+            type="email"
+            autoComplete="email"
+            required
+            className="input-pro mt-2 w-full"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        {ok ? <p className="text-sm text-emerald-800">{t('ui_forgot_sent_ok')}</p> : null}
+        {err ? <p className="text-sm text-red-600">{err}</p> : null}
+        <Button type="submit" className="w-full" disabled={busy}>
+          {busy ? t('ui_account_saving') : t('ui_forgot_send')}
+        </Button>
+      </form>
       <p className="mt-8 text-center text-sm text-slate-600">
         <Link to="/login" className="font-semibold text-amber-700 hover:text-amber-600">
           {t('ui_forgot_back_signin')}

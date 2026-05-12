@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { CertificateVisual } from '@/components/CertificateVisual'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
-import { fetchAllCoursesAdmin } from '@/api/localData'
-import { getCategoryById } from '@/data/catalog'
+import {
+  fetchCategories,
+  fetchCourseById,
+  fetchMyCertificates,
+  fetchMyEnrollments,
+  fetchMyProgress,
+  fetchPublishedTestForCourse,
+  issueCertificate,
+  patchMyProgress,
+  submitNoTestPass,
+  submitTestAnswers,
+} from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { getCourseSlideCount } from '@/lib/courseSlides'
-import { localCache } from '@/lib/localCache'
 import { useAuth } from '@/contexts/AuthContext'
 import { easeOut, transition } from '@/lib/motionPresets'
-import type { AdminTest } from '@/types'
+import type { AdminTest, Certificate } from '@/types'
 import { t } from '@/i18n/t'
 import { localizedCourseTitle } from '@/lib/catalogLocale'
 
@@ -31,48 +40,81 @@ export function LearnPage() {
   const reduce = useReducedMotion()
   const { courseId = '' } = useParams()
   const { user } = useAuth()
-  const { data: allCourses = [] } = useQuery({
-    queryKey: qk.adminCourses,
-    queryFn: fetchAllCoursesAdmin,
+  const qc = useQueryClient()
+
+  const { data: course, isLoading: courseLoading } = useQuery({
+    queryKey: qk.courseById(courseId),
+    queryFn: () => fetchCourseById(courseId),
     enabled: Boolean(user && courseId),
   })
-  const course = useMemo(() => allCourses.find((c) => c.id === courseId), [allCourses, courseId])
-  const purchased = localCache.getPurchases().some((p) => p.courseId === courseId)
+
+  const { data: enrollments = [] } = useQuery({
+    queryKey: qk.enrollments,
+    queryFn: fetchMyEnrollments,
+    enabled: Boolean(user && courseId),
+  })
+
+  const purchased = Boolean(
+    course && enrollments.some((e) => e.courseId === course.id && !e.refunded),
+  )
+
+  const { data: categoryList = [] } = useQuery({
+    queryKey: qk.categories,
+    queryFn: fetchCategories,
+    enabled: Boolean(user && courseId),
+  })
+
+  const { data: progressRow, isFetched: progressReady } = useQuery({
+    queryKey: qk.progress(courseId),
+    queryFn: () => fetchMyProgress(courseId),
+    enabled: Boolean(user && courseId && purchased),
+  })
+
+  const { data: publishedTest } = useQuery({
+    queryKey: qk.publishedTest(courseId),
+    queryFn: () => fetchPublishedTestForCourse(courseId),
+    enabled: Boolean(user && courseId && purchased),
+  })
+
+  const { data: certs = [] } = useQuery({
+    queryKey: qk.certificates,
+    queryFn: fetchMyCertificates,
+    enabled: Boolean(user && courseId && purchased),
+  })
+
+  const saveProgress = useMutation({
+    mutationFn: (body: { slideIndex: number; audioTimeSec: number; completedSlides: boolean }) =>
+      patchMyProgress(courseId, body),
+  })
 
   const [slideIndex, setSlideIndex] = useState(0)
   const [showTest, setShowTest] = useState(false)
-  /** Fallback demo (no admin test): legacy two-option question */
   const [demoAnswer, setDemoAnswer] = useState<'a' | 'b' | null>(null)
-  /** Admin-built test: questionId → selected optionId */
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
-
-  const publishedTest = useMemo(() => {
-    if (!course) return undefined
-    return localCache.getPublishedTestForCourse(course.id)
-  }, [course?.id, showTest])
+  const [testErr, setTestErr] = useState('')
+  const [freshCert, setFreshCert] = useState<Certificate | null>(null)
 
   const totalSlides = course ? getCourseSlideCount(course) : 1
   const slideUrls = course?.slideImageUrls?.filter(Boolean) ?? []
 
-  /** Only hydrate from storage when the course changes — not on every progress write (that caused next/prev to snap back). */
   useEffect(() => {
-    if (!courseId || !course) return
-    const p = localCache.getProgress(courseId)
+    if (!courseId || !course || !progressReady || !progressRow) return
     const max = Math.max(0, getCourseSlideCount(course) - 1)
-    setSlideIndex(Math.min(p?.slideIndex ?? 0, max))
-  }, [course, courseId])
+    setSlideIndex(Math.min(progressRow.slideIndex ?? 0, max))
+  }, [course, courseId, progressReady, progressRow])
 
   useEffect(() => {
     if (!courseId || !course) return
-    localCache.setProgress({
-      courseId,
-      slideIndex,
-      audioTimeSec: 0,
-      updatedAt: new Date().toISOString(),
-      completedSlides: slideIndex >= totalSlides - 1,
-    })
-  }, [course, courseId, slideIndex, totalSlides])
+    const tmr = window.setTimeout(() => {
+      saveProgress.mutate({
+        slideIndex,
+        audioTimeSec: 0,
+        completedSlides: slideIndex >= totalSlides - 1,
+      })
+    }, 400)
+    return () => window.clearTimeout(tmr)
+  }, [course, courseId, slideIndex, totalSlides, saveProgress])
 
   if (!user) {
     return (
@@ -82,6 +124,16 @@ export function LearnPage() {
           <Link to="/login" className="mt-6 inline-block font-semibold text-amber-700 hover:text-amber-600">
             {t('ui_learn_sign_in_arrow')}
           </Link>
+        </Container>
+      </div>
+    )
+  }
+
+  if (courseLoading) {
+    return (
+      <div className="py-20">
+        <Container>
+          <p className="text-slate-600">{t('ui_page_loader_course', { defaultValue: 'Loading course…' })}</p>
         </Container>
       </div>
     )
@@ -114,45 +166,52 @@ export function LearnPage() {
     )
   }
 
-  const hasCert = localCache.getCertificates().some((c) => c.courseId === course.id)
-
   const openTest = () => {
     setMcAnswers({})
     setDemoAnswer(null)
     setSubmitted(false)
+    setTestErr('')
+    setFreshCert(null)
     setShowTest(true)
   }
 
-  const issueCertIfNeeded = () => {
-    if (hasCert) return
-    const cat = getCategoryById(course.categoryId)
-    const certificationText = cat?.certificationText?.trim() || undefined
-    localCache.addCertificate({
-      id: `CERT-${Date.now()}`,
-      courseId: course.id,
-      courseName: localizedCourseTitle(course.slug, course.title),
-      userName: user.name,
-      issuedAt: new Date().toISOString(),
-      ...(certificationText ? { certificationText } : {}),
-    })
-  }
-
-  const submitCustomTest = () => {
-    if (!publishedTest?.questions.length) return
+  const submitCustomTest = useCallback(async () => {
+    if (!publishedTest?.questions.length || !course) return
     setSubmitted(true)
-    if (scoreMeetsPassThreshold(publishedTest, mcAnswers)) issueCertIfNeeded()
-  }
+    setTestErr('')
+    try {
+      const res = await submitTestAnswers(course.id, mcAnswers)
+      if (res.passed) {
+        const cert = await issueCertificate(course.id)
+        setFreshCert(cert)
+        await qc.invalidateQueries({ queryKey: qk.certificates })
+      }
+    } catch (e) {
+      setTestErr(e instanceof Error ? e.message : 'Submit failed')
+    }
+  }, [course, mcAnswers, publishedTest, qc])
 
-  const submitDemoTest = () => {
+  const submitDemoTest = useCallback(async () => {
+    if (!course) return
     setSubmitted(true)
-    if (demoAnswer === 'a') issueCertIfNeeded()
-  }
+    setTestErr('')
+    if (demoAnswer !== 'a') return
+    try {
+      await submitNoTestPass(course.id, true)
+      const cert = await issueCertificate(course.id)
+      setFreshCert(cert)
+      await qc.invalidateQueries({ queryKey: qk.certificates })
+    } catch (e) {
+      setTestErr(e instanceof Error ? e.message : 'Submit failed')
+    }
+  }, [course, demoAnswer, qc])
 
   const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
   const allMcAnswered =
     customTestReady &&
     publishedTest!.questions.every((q) => Boolean(mcAnswers[q.id]))
-  const customPassed = customTestReady && submitted && scoreMeetsPassThreshold(publishedTest!, mcAnswers)
+  const customPassed =
+    customTestReady && submitted && scoreMeetsPassThreshold(publishedTest!, mcAnswers)
   const demoPassed = submitted && demoAnswer === 'a'
 
   const slideNum = Math.min(slideIndex + 1, totalSlides)
@@ -160,14 +219,13 @@ export function LearnPage() {
   const progressPct = Math.round(((slideIndex + 1) / totalSlides) * 100)
   const currentSlideSrc = slideUrls[slideIndex]
 
+  const passCert =
+    freshCert && freshCert.courseId === course.id
+      ? freshCert
+      : certs.filter((x) => x.courseId === course.id).at(-1)
+
   if (showTest) {
     const passed = customTestReady ? customPassed : demoPassed
-    const passCert = passed
-      ? localCache
-          .getCertificates()
-          .filter((x) => x.courseId === course.id)
-          .at(-1)
-      : undefined
     return (
       <motion.div
         className="min-h-[70vh] bg-gradient-to-b from-slate-100 to-slate-50 py-12 sm:py-16"
@@ -183,6 +241,7 @@ export function LearnPage() {
           {publishedTest?.title ? (
             <p className="mt-1 text-xs font-medium text-sky-800">{publishedTest.title}</p>
           ) : null}
+          {testErr ? <p className="mt-2 text-sm text-red-600">{testErr}</p> : null}
           <div className="card-elevated mt-8 min-w-0 overflow-x-hidden p-4 sm:p-8">
             {customTestReady && publishedTest ? (
               <>
@@ -219,19 +278,15 @@ export function LearnPage() {
                   ))}
                 </div>
                 {!submitted ? (
-                  <Button className="mt-10" disabled={!allMcAnswered} onClick={submitCustomTest}>
+                  <Button className="mt-10" disabled={!allMcAnswered} onClick={() => void submitCustomTest()}>
                     {t('ui_learn_submit_answers')}
                   </Button>
                 ) : null}
               </>
             ) : (
               <>
-                <p className="text-xs text-amber-800/90">
-                  {t('ui_learn_no_test_warning')}
-                </p>
-                <p className="mt-6 font-medium leading-relaxed text-slate-800">
-                  {t('ui_learn_demo_question_title')}
-                </p>
+                <p className="text-xs text-amber-800/90">{t('ui_learn_no_test_warning')}</p>
+                <p className="mt-6 font-medium leading-relaxed text-slate-800">{t('ui_learn_demo_question_title')}</p>
                 <div className="mt-6 space-y-3">
                   <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
                     <input
@@ -255,7 +310,7 @@ export function LearnPage() {
                   </label>
                 </div>
                 {!submitted ? (
-                  <Button className="mt-8" disabled={!demoAnswer} onClick={submitDemoTest}>
+                  <Button className="mt-8" disabled={!demoAnswer} onClick={() => void submitDemoTest()}>
                     {t('ui_learn_submit_answers')}
                   </Button>
                 ) : null}
@@ -270,6 +325,7 @@ export function LearnPage() {
                 {passCert ? (
                   <CertificateVisual
                     cert={passCert}
+                    categories={categoryList}
                     variant="compact"
                     className="mx-auto w-full min-w-0 max-w-full shadow-md sm:max-w-xl"
                   />
@@ -294,6 +350,8 @@ export function LearnPage() {
                     setSubmitted(false)
                     setDemoAnswer(null)
                     setMcAnswers({})
+                    setTestErr('')
+                    setFreshCert(null)
                   }}
                 >
                   {t('ui_learn_retry')}

@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Clock, Layers, CheckCircle2 } from 'lucide-react'
 import { Container } from '@/components/Container'
@@ -7,11 +8,10 @@ import { Button } from '@/components/Button'
 import { CourseDetailSkeleton } from '@/components/ui/Skeleton'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { easeOut } from '@/lib/motionPresets'
-import { fetchCourseBySlug } from '@/api/localData'
+import { fetchCategories, fetchCourseBySlug, fetchMyEnrollments, purchaseCourse } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { useAuth } from '@/contexts/AuthContext'
-import { localCache } from '@/lib/localCache'
-import { getCategoryById } from '@/data/catalog'
+import { findCategory } from '@/data/catalog'
 import { getCourseSlideCount } from '@/lib/courseSlides'
 import { t } from '@/i18n/t'
 import { localizedCategoryName, localizedCourseDescription, localizedCourseTitle } from '@/lib/catalogLocale'
@@ -24,6 +24,8 @@ export function CourseDetailPage() {
   const { slug = '' } = useParams()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const qc = useQueryClient()
+  const [buyBusy, setBuyBusy] = useState(false)
 
   const { data: course, isLoading } = useQuery({
     queryKey: qk.course(slug),
@@ -31,20 +33,31 @@ export function CourseDetailPage() {
     enabled: Boolean(slug),
   })
 
-  const purchased = course ? localCache.getPurchases().some((p) => p.courseId === course.id) : false
+  const { data: categoryList = [] } = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
+  const { data: enrollments = [] } = useQuery({
+    queryKey: qk.enrollments,
+    queryFn: fetchMyEnrollments,
+    enabled: Boolean(user),
+  })
 
-  const buy = () => {
+  const purchased = course
+    ? enrollments.some((e) => e.courseId === course.id && !e.refunded)
+    : false
+
+  const buy = async () => {
     if (!course) return
     if (!user) {
       navigate('/login', { state: { from: `/courses/${slug}` } })
       return
     }
-    localCache.addPurchase({
-      courseId: course.id,
-      purchasedAt: new Date().toISOString(),
-      orderId: `LOCAL-${Date.now()}`,
-    })
-    navigate('/my-courses')
+    setBuyBusy(true)
+    try {
+      await purchaseCourse(course.id)
+      await qc.invalidateQueries({ queryKey: qk.enrollments })
+      navigate('/my-courses')
+    } finally {
+      setBuyBusy(false)
+    }
   }
 
   if (isLoading) {
@@ -77,7 +90,7 @@ export function CourseDetailPage() {
     )
   }
 
-  const cat = getCategoryById(course.categoryId)
+  const cat = findCategory(categoryList, course.categoryId)
 
   return (
     <div className="py-12 sm:py-16 lg:py-20">
@@ -123,14 +136,20 @@ export function CourseDetailPage() {
                 <CheckCircle2 className="h-5 w-5 shrink-0 text-sky-600" />
                 {t('ui_course_knowledge_cert')}
               </li>
+              {course.certificateValidityDays != null && course.certificateValidityDays > 0 ? (
+                <li className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white/80 px-4 py-3 text-sm text-slate-700">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-amber-600" />
+                  {t('ui_course_cert_validity_days', {
+                    days: course.certificateValidityDays,
+                    defaultValue: `Completion certificate expires ${course.certificateValidityDays} days after it is issued.`,
+                  })}
+                </li>
+              ) : null}
             </ul>
 
             <div className="card-elevated mt-10 p-6 sm:p-8">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('CourseDetailPage_121_your_investment_10257b1552')}</p>
               <p className="mt-2 font-display text-4xl font-bold text-brand-900">{formatPrice(course.priceCents)}</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                {t('ui_course_local_demo_payment')}
-              </p>
               <p className="mt-4 text-xs text-slate-500">
                 <Link to={`/checkout?course=${encodeURIComponent(course.slug)}`} className="font-semibold text-amber-700 hover:text-amber-600">
                   {t('ui_course_preview_checkout')}
@@ -142,8 +161,8 @@ export function CourseDetailPage() {
                     <Button className="w-full">{t('CourseDetailPage_134_continue_to_course_6b6b6ed6e8')}</Button>
                   </Link>
                 ) : (
-                  <Button className="flex-1" onClick={buy}>
-                    {user ? t('ui_course_enroll_demo') : t('ui_course_signin_enroll')}
+                  <Button className="flex-1" onClick={buy} disabled={buyBusy}>
+                    {user ? t('ui_course_enroll_now') : t('ui_course_signin_enroll')}
                   </Button>
                 )}
                 <Link to="/courses" className="flex-1">

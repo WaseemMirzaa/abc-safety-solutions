@@ -3,17 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Image as ImageIcon, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { fetchMediaAssets } from '@/api/localData'
+import { adminCreateMedia, adminDeleteMedia, adminUploadImage, fetchMediaAssets } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { inferMediaKind, readFileAsDataUrl } from '@/lib/readFileAsDataUrl'
-import { localCache } from '@/lib/localCache'
+import { inferMediaKind } from '@/lib/readFileAsDataUrl'
 import type { MediaAsset } from '@/types'
 import { t } from '@/i18n/t'
 
 const kinds: MediaAsset['kind'][] = ['image', 'audio', 'document', 'other']
 
-/** localStorage-safe limit for base64 demo uploads */
-const MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 export function AdminMediaPage() {
   const qc = useQueryClient()
@@ -46,9 +44,13 @@ export function AdminMediaPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadErr('')
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadErr('File too large (max 5 MB).')
+      return
+    }
     try {
-      const dataUrl = await readFileAsDataUrl(file, MAX_UPLOAD_BYTES)
-      setUrl(dataUrl)
+      const r = await adminUploadImage(file)
+      setUrl(r.url)
       setKind(inferMediaKind(file.type || 'application/octet-stream'))
       setFileName(file.name)
       if (!label.trim()) setLabel(file.name.replace(/\.[^.]+$/, ''))
@@ -57,7 +59,7 @@ export function AdminMediaPage() {
     }
   }
 
-  const add = () => {
+  const add = async () => {
     if (!label.trim() || !url.trim()) return
     const a: MediaAsset = {
       id: `media-${Date.now()}`,
@@ -65,17 +67,17 @@ export function AdminMediaPage() {
       url: url.trim(),
       kind,
       createdAt: new Date().toISOString(),
-      source: url.trim().startsWith('data:') ? 'upload' : 'url',
+      source: 'upload',
       fileName: fileName ?? null,
     }
-    localCache.addMediaAsset(a)
+    await adminCreateMedia(a)
     closeModal()
     invalidate()
   }
 
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
     if (window.confirm('Remove this asset from the library?')) {
-      localCache.deleteMediaAsset(id)
+      await adminDeleteMedia(id)
       invalidate()
     }
   }
@@ -150,7 +152,7 @@ export function AdminMediaPage() {
                       type="button"
                       variant="secondary"
                       className="!rounded-lg !border-red-200 !py-1.5 !text-xs !text-red-800"
-                      onClick={() => remove(a.id)}
+                      onClick={() => void remove(a.id)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -169,7 +171,7 @@ export function AdminMediaPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_168_upload_file_cd5a443e57')}</p>
               <input ref={fileRef} type="file" accept="image/*,audio/*,.pdf,.mp3,.wav,.m4a" className="sr-only" onChange={onPickFile} />
               <p className="mt-2 text-xs text-slate-500">
-                Images, audio, or PDF — max {(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)} MB (demo limit for localStorage).
+                Images, audio, or PDF — max {(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)} MB.
               </p>
               {uploadErr ? <p className="mt-2 text-sm font-medium text-red-600">{uploadErr}</p> : null}
               <Button type="button" variant="secondary" className="mt-3 gap-2" onClick={() => fileRef.current?.click()}>
@@ -213,7 +215,7 @@ export function AdminMediaPage() {
             </div>
           </div>
           <div className="mt-8 flex gap-3">
-            <Button type="button" onClick={add}>
+            <Button type="button" onClick={() => void add()}>
               Save
             </Button>
             <Button type="button" variant="secondary" onClick={closeModal}>

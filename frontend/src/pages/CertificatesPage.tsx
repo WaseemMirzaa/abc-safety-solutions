@@ -1,17 +1,28 @@
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { CertificateVisual, SAMPLE_CERTIFICATE } from '@/components/CertificateVisual'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
-import { localCache } from '@/lib/localCache'
+import { fetchCategories, fetchMyCertificates } from '@/api/localData'
+import { qk } from '@/api/queryKeys'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { Award, Printer } from 'lucide-react'
 import { t } from '@/i18n/t'
 
 export function CertificatesPage() {
   const { user } = useAuth()
-  const certs = localCache.getCertificates()
+  const { data: certs = [] } = useQuery({
+    queryKey: qk.certificates,
+    queryFn: fetchMyCertificates,
+    enabled: Boolean(user),
+  })
+  const { data: categoryList = [] } = useQuery({
+    queryKey: qk.categories,
+    queryFn: fetchCategories,
+    enabled: Boolean(user),
+  })
 
   if (!user) {
     return (
@@ -49,7 +60,12 @@ export function CertificatesPage() {
               <p className="text-center font-display text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:text-xs">
                 {t('ui_certificates_design_preview')}
               </p>
-              <CertificateVisual cert={SAMPLE_CERTIFICATE} sampleWatermark className="mx-auto mt-4 max-w-full sm:mt-6 md:max-w-3xl" />
+              <CertificateVisual
+                cert={SAMPLE_CERTIFICATE}
+                categories={categoryList}
+                sampleWatermark
+                className="mx-auto mt-4 max-w-full sm:mt-6 md:max-w-3xl"
+              />
               <p className="mt-6 text-center text-sm text-slate-500">{t('ui_certificates_sample_hint')}</p>
             </div>
             <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-8 py-12 text-center text-slate-600">
@@ -68,7 +84,7 @@ export function CertificatesPage() {
           >
             {certs.map((c) => (
               <motion.li key={c.id} variants={listItem} layout className="certificate-print-root min-w-0 space-y-5">
-                <CertificateVisual cert={c} className="mx-auto w-full max-w-3xl" />
+                <CertificateVisual cert={c} categories={categoryList} className="mx-auto w-full max-w-3xl" />
                 <div className="flex flex-wrap justify-center gap-2 sm:gap-3 print:hidden">
                   <Button
                     type="button"

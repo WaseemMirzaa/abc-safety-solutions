@@ -3,10 +3,39 @@ import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { Search, ShieldCheck } from 'lucide-react'
 import { t } from '@/i18n/t'
+import { ApiError } from '@/api/client'
+import { fetchCertificateVerify, type CertificateVerifyResult } from '@/api/localData'
 
-/** Public verify stub — backend will expose GET /certificates/verify/:id */
 export function VerifyCertificatePage() {
   const [id, setId] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<CertificateVerifyResult | null>(null)
+
+  async function verify() {
+    const trimmed = id.trim()
+    if (!trimmed) {
+      setError(t('ui_verify_err_empty'))
+      setResult(null)
+      return
+    }
+    setLoading(true)
+    setError(null)
+    setResult(null)
+    try {
+      const r = await fetchCertificateVerify(trimmed)
+      setResult(r)
+    } catch (e) {
+      setResult(null)
+      if (e instanceof ApiError && e.status === 404) {
+        setError(t('ui_verify_err_generic'))
+      } else {
+        setError(t('ui_verify_err_generic'))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="py-16 sm:py-24">
@@ -26,11 +55,35 @@ export function VerifyCertificatePage() {
             placeholder={t('ui_verify_cert_placeholder')}
             value={id}
             onChange={(e) => setId(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && verify()}
           />
-          <Button className="mt-6 w-full gap-2" disabled>
+          <Button className="mt-6 w-full gap-2" disabled={loading} onClick={() => void verify()}>
             <Search className="h-4 w-4" />
-            {t('ui_verify_btn')}
+            {loading ? t('ui_verify_loading') : t('ui_verify_btn')}
           </Button>
+          {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+          {result ? (
+            <dl className="mt-6 space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/40 px-4 py-4 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-600">{t('ui_verify_course')}</dt>
+                <dd className="font-medium text-slate-900">{result.courseName}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-600">{t('ui_verify_issued_to')}</dt>
+                <dd className="font-medium text-slate-900">{result.issuedTo}</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-600">{t('ui_verify_issued_at')}</dt>
+                <dd className="text-slate-800">{new Date(result.issuedAt).toLocaleString()}</dd>
+              </div>
+              {result.expiresAt ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-600">{t('ui_verify_expires')}</dt>
+                  <dd className="text-slate-800">{new Date(result.expiresAt).toLocaleString()}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
         </div>
       </Container>
     </div>

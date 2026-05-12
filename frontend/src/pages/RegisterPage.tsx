@@ -3,31 +3,42 @@ import { Link, useNavigate } from 'react-router-dom'
 import { AuthLogo, AuthSplitLayout } from '@/components/auth/AuthSplitLayout'
 import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
+import { ApiError } from '@/api/client'
+import { authRegister } from '@/api/localData'
 import { registerPanelImage } from '@/config/brandAssets'
-import { isReservedDemoEmail } from '@/config/demoAccounts'
 import { Award, UserPlus } from 'lucide-react'
 import { t } from '@/i18n/t'
 
 export function RegisterPage() {
-  const { login } = useAuth()
+  const { applySession } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr('')
     if (!email.trim() || !name.trim()) {
       setErr(t('ui_register_err_name_email'))
       return
     }
-    if (isReservedDemoEmail(email)) {
-      setErr(t('ui_register_err_reserved'))
+    if (password.trim().length < 8) {
+      setErr('Password must be at least 8 characters.')
       return
     }
-    login({ email: email.trim(), name: name.trim(), role: 'learner' })
-    navigate('/courses', { replace: true })
+    setBusy(true)
+    try {
+      const r = await authRegister(email.trim(), password, name.trim())
+      applySession(r.accessToken, r.user)
+      navigate('/courses', { replace: true })
+    } catch (ex) {
+      setErr(ex instanceof ApiError ? ex.message : 'Registration failed.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const aside = (
@@ -99,8 +110,22 @@ export function RegisterPage() {
               autoComplete="email"
             />
           </div>
+          <div>
+            <label htmlFor="r-password" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Password
+            </label>
+            <input
+              id="r-password"
+              type="password"
+              className="input-pro mt-2"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              minLength={8}
+            />
+          </div>
           {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}
-          <Button type="submit" className="w-full !py-3">
+          <Button type="submit" className="w-full !py-3" disabled={busy}>
             Create account
           </Button>
         </form>

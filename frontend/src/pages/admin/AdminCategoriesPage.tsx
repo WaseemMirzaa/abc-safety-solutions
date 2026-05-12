@@ -3,10 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Tags, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { fetchCategories } from '@/api/localData'
+import {
+  adminCreateCategory,
+  adminDeleteCategory,
+  adminUpdateCategory,
+  fetchCategories,
+} from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { categories as seedCategories, isSeedCategoryId } from '@/data/catalog'
-import { localCache } from '@/lib/localCache'
+import { getSeedCategories, isSeedCategoryId } from '@/data/catalog'
 import type { Category } from '@/types'
 import { t } from '@/i18n/t'
 
@@ -56,7 +60,7 @@ export function AdminCategoriesPage() {
     setErr('')
   }
 
-  const save = () => {
+  const save = async () => {
     if (!draft) return
     const name = draft.name.trim()
     let slug = draft.slug.trim()
@@ -77,25 +81,30 @@ export function AdminCategoriesPage() {
     }
     const certText = (draft.certificationText ?? '').trim()
     if (modal === 'edit' && isSeedCategoryId(draft.id)) {
-      localCache.patchCategoryFieldOverride(draft.id, { certificationText: certText })
+      await adminUpdateCategory(draft.id, { certificationText: certText })
       invalidate()
       close()
       return
     }
     const next: Category = { ...draft, name, slug, parentId: null, certificationText: certText }
     if (modal === 'create') {
-      localCache.addCustomCategory(next)
-    } else if (!isSeedCategoryId(next.id)) {
-      localCache.updateCustomCategory(next)
+      await adminCreateCategory({
+        id: next.id,
+        name: next.name,
+        slug: next.slug,
+        certificationText: next.certificationText,
+      })
+    } else {
+      await adminUpdateCategory(next.id, { name: next.name, slug: next.slug, certificationText: next.certificationText })
     }
     invalidate()
     close()
   }
 
-  const remove = (c: Category) => {
+  const remove = async (c: Category) => {
     if (isSeedCategoryId(c.id)) return
     if (window.confirm(`Delete category “${c.name}”? Courses still pointing at it keep their categoryId until edited.`)) {
-      localCache.removeCustomCategory(c.id)
+      await adminDeleteCategory(c.id)
       invalidate()
     }
   }
@@ -185,7 +194,8 @@ export function AdminCategoriesPage() {
 
       {!isLoading ? (
         <p className="mt-6 text-xs text-slate-500">
-          {seedCategories.length} built-in categories · {Math.max(0, allCategories.length - seedCategories.length)} custom in this browser.
+          {getSeedCategories().length} built-in categories ·{' '}
+          {Math.max(0, allCategories.length - getSeedCategories().length)} custom in this browser.
         </p>
       ) : null}
 
@@ -227,7 +237,7 @@ export function AdminCategoriesPage() {
             {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}
           </div>
           <div className="mt-8 flex gap-3">
-            <Button type="button" onClick={save}>
+            <Button type="button" onClick={() => void save()}>
               Save
             </Button>
             <Button type="button" variant="secondary" onClick={close}>

@@ -8,6 +8,7 @@
 .env
 .env.*
 !.env.example
+backend/uploads/
 __pycache__/
 *.py[cod]
 .idea/

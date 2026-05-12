@@ -1,14 +1,15 @@
 import { clsx } from 'clsx'
 import { Award, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { mergeCourses } from '@/api/localData'
 import { resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
 import { localizedCategoryCertLine } from '@/lib/catalogLocale'
-import type { Certificate } from '@/types'
+import type { Category, Certificate } from '@/types'
 import { brandLogoLight } from '@/config/brandAssets'
 
 type Props = {
   cert: Certificate
+  /** Used when certification text was not snapshotted at issue. */
+  categories?: Category[]
   variant?: 'full' | 'compact'
   /** When true, shows a faint “SAMPLE” ribbon (empty-state demo). */
   sampleWatermark?: boolean
@@ -41,13 +42,16 @@ function CornerFlourish({ className }: { className?: string }) {
   )
 }
 
-export function CertificateVisual({ cert, variant = 'full', sampleWatermark, className }: Props) {
+export function CertificateVisual({ cert, categories = [], variant = 'full', sampleWatermark, className }: Props) {
   const { t } = useTranslation()
   const issued = new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(cert.issuedAt))
+  const expires =
+    cert.expiresAt != null && cert.expiresAt !== ''
+      ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(cert.expiresAt))
+      : null
   const compact = variant === 'compact'
-  const rawLine = resolveCertificateCategoryLine(cert)
-  const course = mergeCourses().find((c) => c.id === cert.courseId)
-  const cid = course?.categoryId ?? 'cat-ohs'
+  const rawLine = resolveCertificateCategoryLine(cert, categories)
+  const cid = cert.categoryId ?? 'cat-ohs'
   const categoryLine = rawLine ? localizedCategoryCertLine(cid, rawLine) : undefined
   const displayCourseName =
     cert.id === 'DEMO-CERT-PREVIEW' ? t('ui_cert_sample_course') : cert.courseName
@@ -189,6 +193,13 @@ export function CertificateVisual({ cert, variant = 'full', sampleWatermark, cla
           >
             {t('ui_cert_issued_on')}{' '}
             <span className="font-medium text-brand-800">{issued}</span>
+            {expires ? (
+              <>
+                {' · '}
+                {t('ui_cert_expires_on', { defaultValue: 'Expires' })}{' '}
+                <span className="font-medium text-brand-800">{expires}</span>
+              </>
+            ) : null}
           </p>
 
           <div
@@ -253,4 +264,5 @@ export const SAMPLE_CERTIFICATE: Certificate = {
   userName: '',
   issuedAt: new Date().toISOString(),
   certificationText: '',
+  categoryId: 'cat-ohs',
 }

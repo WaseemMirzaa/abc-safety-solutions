@@ -1,10 +1,9 @@
-/** Read a file as a data URL for local demo storage (e.g. localStorage). */
 export function readFileAsDataUrl(file: File, maxBytes: number): Promise<string> {
   return new Promise((resolve, reject) => {
     if (file.size > maxBytes) {
       reject(
         new Error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB. Max for this demo is ${(maxBytes / 1024 / 1024).toFixed(0)} MB (browser storage limit).`,
+          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB. Max allowed is ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`,
         ),
       )
       return

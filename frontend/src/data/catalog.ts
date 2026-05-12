@@ -1,5 +1,4 @@
 import type { Category, Course } from '@/types'
-import { localCache } from '@/lib/localCache'
 
 const BASE = 'https://abcsafetysolutions.com/wp-content/uploads'
 
@@ -116,24 +115,15 @@ export function isSeedCategoryId(id: string) {
   return SEED_CATEGORY_IDS.has(id)
 }
 
-function mergeCategoryFields(c: Category): Category {
-  const base = c.certificationText ?? ''
-  if (!isSeedCategoryId(c.id)) {
-    return { ...c, certificationText: base || '' }
-  }
-  const o = localCache.getCategoryFieldOverrides()[c.id]
-  return { ...c, certificationText: (o?.certificationText ?? base) || '' }
+/** Static seed categories only (catalog copy). Live data comes from `fetchCategories()`. */
+export function getSeedCategories(): Category[] {
+  return categories.map((c) => ({ ...c, certificationText: c.certificationText ?? '' }))
 }
 
-/** Seed + admin-created categories from local storage. */
-export function getAllCategories(): Category[] {
-  return [...categories.map(mergeCategoryFields), ...localCache.getCustomCategories().map(mergeCategoryFields)]
+export function findCategory(list: Category[], id: string) {
+  return list.find((c) => c.id === id)
 }
 
-export function getCategoryBySlug(slug: string) {
-  return getAllCategories().find((c) => c.slug === slug)
-}
-
-export function getCategoryById(id: string) {
-  return getAllCategories().find((c) => c.id === id)
+export function findCategoryBySlug(list: Category[], slug: string) {
+  return list.find((c) => c.slug === slug)
 }

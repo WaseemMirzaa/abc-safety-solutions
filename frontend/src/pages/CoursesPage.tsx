@@ -106,7 +106,7 @@ export function CoursesPage() {
           >
             {filtered.map((c) => (
               <motion.div key={c.id} variants={listItem} layout>
-                <CourseCard course={c} entrance={false} />
+                <CourseCard course={c} categories={categoryList} entrance={false} />
               </motion.div>
             ))}
           </motion.div>

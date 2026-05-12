@@ -1,0 +1,31 @@
+import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm'
+
+@Entity('certificates')
+export class CertificateEntity {
+  @PrimaryColumn('varchar', { length: 36 })
+  id: string
+
+  @Column({ type: 'varchar', length: 36 })
+  userId: string
+
+  @Column({ type: 'varchar', length: 36 })
+  courseId: string
+
+  @Column({ type: 'varchar', length: 36 })
+  categoryId: string
+
+  @Column({ length: 500 })
+  courseName: string
+
+  @Column({ length: 500 })
+  userName: string
+
+  @Column({ type: 'text', nullable: true })
+  certificationText: string | null
+
+  @CreateDateColumn()
+  issuedAt: Date
+
+  @Column({ type: 'datetime', nullable: true })
+  expiresAt: Date | null
+}

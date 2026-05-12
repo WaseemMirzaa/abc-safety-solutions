@@ -29,10 +29,13 @@ const side = [
 ] as const
 
 export function AdminLayout() {
-  const { user } = useAuth()
+  const { user, ready } = useAuth()
   const location = useLocation()
   const reduce = useReducedMotion()
 
+  if (!ready) {
+    return null
+  }
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
