@@ -382,7 +382,27 @@ The React app uses **same-origin** API calls (`VITE_API_URL` defaults to empty),
 ```bash
 cd /opt/abc-safety-solutions
 git pull origin main
+bash scripts/run-db-migrations.sh
 bash scripts/deploy.sh
+```
+
+### PM2 deployments (API without Docker)
+
+If the API runs under PM2 and you see `Unknown column 'CourseEntity.slides'`:
+
+```bash
+cd /opt/abc-safety-solutions
+git pull origin main
+bash scripts/run-db-migrations.sh
+cd backend && npm run build
+pm2 restart abc-api
+```
+
+Or run SQL directly:
+
+```bash
+mysql -h127.0.0.1 -u abc -p abc_portal -e "ALTER TABLE courses ADD COLUMN IF NOT EXISTS slides JSON NULL;"
+pm2 restart abc-api
 ```
 
 Reset or create admin later:

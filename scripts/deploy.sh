@@ -32,6 +32,11 @@ docker compose build --no-cache api web
 echo "==> Starting services..."
 docker compose up -d
 
+if [ -f scripts/run-db-migrations.sh ]; then
+  echo "==> Database migrations..."
+  bash scripts/run-db-migrations.sh || echo "WARN: migrations failed — run bash scripts/run-db-migrations.sh manually"
+fi
+
 echo "==> Waiting for API to be healthy..."
 for i in $(seq 1 20); do
   if docker compose exec -T api node -e "process.exit(0)" 2>/dev/null; then
