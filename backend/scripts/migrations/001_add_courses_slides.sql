@@ -1,6 +1,4 @@
--- Run once on existing production DBs created before the slides column was added.
--- Example:
---   docker compose exec -T mysql mysql -u abc -p abc_portal < backend/scripts/migrations/001_add_courses_slides.sql
+-- Adds courses.slides (JSON). Prefer: bash scripts/run-db-migrations.sh (skips if column exists).
+-- Manual (MySQL 5.7+): only run if the column is missing.
 
-ALTER TABLE `courses`
-  ADD COLUMN IF NOT EXISTS `slides` JSON NULL;
+ALTER TABLE `courses` ADD COLUMN `slides` JSON NULL;

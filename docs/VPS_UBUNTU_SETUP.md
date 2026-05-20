@@ -401,7 +401,7 @@ pm2 restart abc-api
 Or run SQL directly:
 
 ```bash
-mysql -h127.0.0.1 -u abc -p abc_portal -e "ALTER TABLE courses ADD COLUMN IF NOT EXISTS slides JSON NULL;"
+mysql -h127.0.0.1 -u abc -p abc_portal -e "ALTER TABLE courses ADD COLUMN slides JSON NULL;"
 pm2 restart abc-api
 ```
 
