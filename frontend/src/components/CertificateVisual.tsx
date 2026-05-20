@@ -11,7 +11,7 @@ type Props = {
   /** Used when certification text was not snapshotted at issue. */
   categories?: Category[]
   variant?: 'full' | 'compact'
-  /** When true, shows a faint “SAMPLE” ribbon (empty-state demo). */
+  /** When true, shows a faint “SAMPLE” ribbon (preview layout). */
   sampleWatermark?: boolean
   className?: string
 }
@@ -54,8 +54,8 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
   const cid = cert.categoryId ?? 'cat-ohs'
   const categoryLine = rawLine ? localizedCategoryCertLine(cid, rawLine) : undefined
   const displayCourseName =
-    cert.id === 'DEMO-CERT-PREVIEW' ? t('ui_cert_sample_course') : cert.courseName
-  const displayUserName = cert.id === 'DEMO-CERT-PREVIEW' ? t('ui_cert_sample_user') : cert.userName
+    cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_course') : cert.courseName
+  const displayUserName = cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_user') : cert.userName
 
   return (
     <div
@@ -256,9 +256,9 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
   )
 }
 
-/** Demo preview; display copy comes from locales (ui_cert_sample_*). */
+/** Layout preview; display copy comes from locales (ui_cert_sample_*). */
 export const SAMPLE_CERTIFICATE: Certificate = {
-  id: 'DEMO-CERT-PREVIEW',
+  id: 'SAMPLE-CERT-PREVIEW',
   courseId: 'sample',
   courseName: '',
   userName: '',

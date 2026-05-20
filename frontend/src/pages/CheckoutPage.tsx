@@ -91,7 +91,7 @@ export function CheckoutPage() {
                   ? t('ui_checkout_busy')
                   : stripeEnabled
                     ? t('ui_checkout_pay_stripe')
-                    : t('ui_checkout_demo_btn')}
+                    : t('ui_checkout_enroll_btn')}
               </Button>
             </>
           ) : null}

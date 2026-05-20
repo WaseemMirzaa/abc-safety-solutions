@@ -8,17 +8,18 @@ import {
   adminCreateCourse,
   adminDeleteCourse,
   adminUpdateCourse,
-  adminUploadImage,
+  adminUploadFile,
   fetchAllCoursesAdmin,
   fetchCategories,
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { findCategory, isSeedCourseId } from '@/data/catalog'
-import type { Course } from '@/types'
-import { ChevronDown, ChevronUp, ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
+import { getCourseSlides, slideTypeFromFile } from '@/lib/courseSlides'
+import { resolveMediaUrl } from '@/lib/mediaUrl'
+import type { Course, CourseSlide } from '@/types'
+import { ChevronDown, ChevronUp, FileText, Film, ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
 import { t } from '@/i18n/t'
 
-const MAX_SLIDE_BYTES = 5 * 1024 * 1024
 const MAX_SLIDES = 30
 
 function formatPrice(cents: number) {
@@ -60,7 +61,12 @@ export function AdminCoursesPage() {
   }
 
   const openEdit = (c: Course) => {
-    setDraft({ ...c })
+    const slides = c.slides?.length ? c.slides : getCourseSlides(c)
+    setDraft({
+      ...c,
+      slides: slides.length ? slides : undefined,
+      slideImageUrls: undefined,
+    })
     setSlugErr('')
     setSlideUploadErr('')
     setModal('edit')
@@ -97,9 +103,9 @@ export function AdminCoursesPage() {
       return
     }
     setSlugErr('')
-    const urls = (draft.slideImageUrls ?? []).filter(Boolean)
+    const slides = (draft.slides ?? []).filter((s) => s.url)
     const slideCount =
-      urls.length > 0 ? urls.length : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
+      slides.length > 0 ? slides.length : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
     const cv = draft.certificateValidityDays
     const certificateValidityDays =
       cv === null || cv === undefined || Number.isNaN(Number(cv)) || Number(cv) <= 0
@@ -114,7 +120,8 @@ export function AdminCoursesPage() {
       priceCents: Math.max(0, Math.round(Number(draft.priceCents)) || 0),
       durationMinutes: Math.max(1, Math.round(Number(draft.durationMinutes)) || 1),
       slideCount,
-      slideImageUrls: urls.length > 0 ? urls : undefined,
+      slides: slides.length > 0 ? slides : undefined,
+      slideImageUrls: undefined,
       certificateValidityDays,
     }
 
@@ -140,7 +147,12 @@ export function AdminCoursesPage() {
 
   const seed = useMemo(() => (draft ? isSeedCourseId(draft.id) : false), [draft])
 
-  const slideList = draft?.slideImageUrls ?? []
+  const slideList: CourseSlide[] = draft?.slides ?? (draft ? getCourseSlides(draft) : [])
+
+  const setSlides = (slides: CourseSlide[] | undefined) => {
+    if (!draft) return
+    setDraft({ ...draft, slides: slides?.length ? slides : undefined, slideImageUrls: undefined })
+  }
 
   const moveSlide = (from: number, dir: -1 | 1) => {
     if (!draft) return
@@ -149,18 +161,16 @@ export function AdminCoursesPage() {
     const next = [...slideList]
     const [row] = next.splice(from, 1)
     next.splice(to, 0, row)
-    setDraft({ ...draft, slideImageUrls: next })
+    setSlides(next)
   }
 
   const removeSlide = (index: number) => {
     if (!draft) return
-    const next = slideList.filter((_, i) => i !== index)
-    setDraft({ ...draft, slideImageUrls: next.length > 0 ? next : undefined })
+    setSlides(slideList.filter((_, i) => i !== index))
   }
 
   const clearSlides = () => {
-    if (!draft) return
-    setDraft({ ...draft, slideImageUrls: undefined })
+    setSlides(undefined)
     setSlideUploadErr('')
   }
 
@@ -170,26 +180,27 @@ export function AdminCoursesPage() {
     const files = e.target.files
     e.target.value = ''
     if (!files?.length) return
-    const images = Array.from(files).filter((f) => f.type.startsWith('image/'))
-    if (!images.length) {
-      setSlideUploadErr('Choose image files only.')
-      return
-    }
-    let list = [...(draft.slideImageUrls ?? [])]
+    let list = [...(draft.slides ?? getCourseSlides(draft))]
     try {
-      for (const file of images) {
+      for (const file of Array.from(files)) {
         if (list.length >= MAX_SLIDES) {
           setSlideUploadErr(`Stopped at ${MAX_SLIDES} slides (max).`)
           break
         }
-        if (file.size > MAX_SLIDE_BYTES) {
-          setSlideUploadErr('Each slide image must be 5 MB or smaller.')
+        const type = slideTypeFromFile(file)
+        if (!type) {
+          setSlideUploadErr('Use images, PDF, or video files (MP4, WebM).')
           break
         }
-        const { url } = await adminUploadImage(file)
-        list.push(url)
+        const { url, fileName, kind } = await adminUploadFile(file)
+        list.push({
+          id: `slide-${Date.now()}-${list.length}`,
+          type: (kind as CourseSlide['type']) || type,
+          url,
+          title: fileName,
+        })
       }
-      setDraft({ ...draft, slideImageUrls: list })
+      setSlides(list)
     } catch (err) {
       setSlideUploadErr(err instanceof Error ? err.message : 'Upload failed.')
     }
@@ -430,14 +441,14 @@ export function AdminCoursesPage() {
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_391_slide_images_7ff457e52d')}</label>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-500">
-                    Optional. Up to {MAX_SLIDES} images (5 MB each), shown in order in the learner player. Files upload to the API server.
+                    {t('ui_admin_slides_help', { max: MAX_SLIDES })}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <input
                     ref={slidesInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf,video/*"
                     multiple
                     className="hidden"
                     onChange={onPickSlides}
@@ -449,7 +460,7 @@ export function AdminCoursesPage() {
                     onClick={() => slidesInputRef.current?.click()}
                   >
                     <ImagePlus className="mr-1 inline h-3.5 w-3.5" />
-                    Add slides
+                    {t('ui_admin_add_slides')}
                   </Button>
                   {slideList.length > 0 ? (
                     <Button type="button" variant="secondary" className="!rounded-lg !py-2 !text-xs" onClick={clearSlides}>
@@ -461,14 +472,29 @@ export function AdminCoursesPage() {
               {slideUploadErr ? <p className="mt-3 text-xs font-medium text-red-600">{slideUploadErr}</p> : null}
               {slideList.length > 0 ? (
                 <ul className="mt-4 flex max-h-56 flex-col gap-2 overflow-y-auto">
-                  {slideList.map((src, i) => (
+                  {slideList.map((slide, i) => (
                     <li
-                      key={`${i}-${src.slice(0, 24)}`}
+                      key={slide.id}
                       className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2 pr-3"
                     >
-                      <img src={src} alt="" className="h-14 w-24 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
+                      {slide.type === 'image' ? (
+                        <img
+                          src={resolveMediaUrl(slide.url)}
+                          alt=""
+                          className="h-14 w-24 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                        />
+                      ) : slide.type === 'pdf' ? (
+                        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-amber-50 ring-1 ring-amber-200">
+                          <FileText className="h-7 w-7 text-amber-800" aria-hidden />
+                        </div>
+                      ) : (
+                        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-sky-50 ring-1 ring-sky-200">
+                          <Film className="h-7 w-7 text-sky-800" aria-hidden />
+                        </div>
+                      )}
                       <span className="min-w-0 flex-1 text-xs font-medium text-slate-600">
-                        {t('ui_courses_slide_label', { n: i + 1 })}
+                        {t('ui_courses_slide_label', { n: i + 1 })} · {slide.type}
+                        {slide.title ? <span className="block truncate font-normal text-slate-500">{slide.title}</span> : null}
                       </span>
                       <div className="flex shrink-0 gap-1">
                         <Button

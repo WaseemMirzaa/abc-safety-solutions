@@ -32,7 +32,6 @@ export class UsersService {
 
   async removeByEmail(email: string) {
     const e = email.toLowerCase()
-    if (e === 'learner@demo.local' || e === 'admin@demo.local') return { ok: false, reason: 'built-in' }
     await this.users.delete({ email: e })
     return { ok: true }
   }

@@ -30,6 +30,7 @@ export class AdminCoursesController {
       imageUrl: dto.imageUrl,
       published: dto.published,
       slideImageUrls: dto.slideImageUrls?.length ? dto.slideImageUrls : null,
+      slides: dto.slides?.length ? dto.slides : null,
     })
   }
 
@@ -48,6 +49,7 @@ export class AdminCoursesController {
       imageUrl: dto.imageUrl,
       published: dto.published,
       slideImageUrls: dto.slideImageUrls?.length ? dto.slideImageUrls : null,
+      slides: dto.slides?.length ? dto.slides : null,
     })
   }
 

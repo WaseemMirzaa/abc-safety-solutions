@@ -1,4 +1,5 @@
 import { Column, Entity, PrimaryColumn } from 'typeorm'
+import type { CourseSlide } from '../common/course-slide.types'
 
 @Entity('courses')
 export class CourseEntity {
@@ -38,6 +39,10 @@ export class CourseEntity {
 
   @Column({ type: 'json', nullable: true })
   slideImageUrls: string[] | null
+
+  /** Ordered learner content: images, PDFs (with embedded media), or videos. */
+  @Column({ type: 'json', nullable: true })
+  slides: CourseSlide[] | null
 
   @Column({ default: false })
   published: boolean

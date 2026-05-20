@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { In, Repository } from 'typeorm'
 import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
+import type { CourseSlide } from '../common/course-slide.types'
 
 export type CourseDto = {
   id: string
@@ -15,6 +16,7 @@ export type CourseDto = {
   durationMinutes: number
   slideCount: number
   slideImageUrls?: string[]
+  slides?: CourseSlide[]
   imageUrl: string
   published: boolean
   certificateValidityDays?: number | null
@@ -29,7 +31,21 @@ export class CoursesService {
     private readonly categories: Repository<CategoryEntity>,
   ) {}
 
+  private normalizeSlides(c: CourseEntity): CourseSlide[] | undefined {
+    if (c.slides?.length) return c.slides
+    const legacy = c.slideImageUrls?.filter(Boolean) ?? []
+    if (!legacy.length) return undefined
+    return legacy.map((url, i) => ({
+      id: `legacy-${i}`,
+      type: 'image' as const,
+      url,
+    }))
+  }
+
   private map(c: CourseEntity): CourseDto {
+    const slides = this.normalizeSlides(c)
+    const slideCount =
+      slides?.length ?? (c.slideImageUrls?.length ? c.slideImageUrls.length : c.slideCount)
     return {
       id: c.id,
       slug: c.slug,
@@ -39,8 +55,9 @@ export class CoursesService {
       categoryId: c.categoryId,
       priceCents: c.priceCents,
       durationMinutes: c.durationMinutes,
-      slideCount: c.slideCount,
+      slideCount: Math.max(1, slideCount),
       slideImageUrls: c.slideImageUrls ?? undefined,
+      slides,
       imageUrl: c.imageUrl,
       published: c.published,
       certificateValidityDays: c.certificateValidityDays,
@@ -88,6 +105,7 @@ export class CoursesService {
       ...data,
       certificateValidityDays: data.certificateValidityDays ?? null,
       slideImageUrls: data.slideImageUrls ?? null,
+      slides: data.slides ?? null,
       published: data.published ?? false,
     })
     return this.courses.save(row)

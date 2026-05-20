@@ -1,4 +1,4 @@
-import { apiJson, ApiError, adminUploadImage, publicJson } from './client'
+import { apiJson, ApiError, adminUploadFile, adminUploadImage, publicJson } from './client'
 import type {
   AdminDirectoryUser,
   AdminTest,
@@ -25,6 +25,7 @@ function asCourse(row: Course): Course {
   return {
     ...row,
     slideImageUrls: row.slideImageUrls?.filter(Boolean),
+    slides: row.slides?.length ? row.slides : undefined,
     certificateValidityDays:
       row.certificateValidityDays === undefined ? null : row.certificateValidityDays,
   }
@@ -246,7 +247,8 @@ function courseToAdminPayload(c: Course): Record<string, unknown> {
     certificateValidityDays: c.certificateValidityDays ?? null,
     imageUrl: c.imageUrl,
     published: c.published,
-    slideImageUrls: c.slideImageUrls?.length ? c.slideImageUrls : undefined,
+    slideImageUrls: undefined,
+    slides: c.slides?.length ? c.slides : undefined,
   }
 }
 
@@ -344,10 +346,10 @@ export async function adminRemoveDirectoryUser(email: string): Promise<void> {
 
 export type LoginResponse = { accessToken: string; user: UserSession }
 
-export async function authLogin(email: string, password: string, name?: string): Promise<LoginResponse> {
+export async function authLogin(email: string, password: string): Promise<LoginResponse> {
   return apiJson<LoginResponse>('/api/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password, ...(name?.trim() ? { name: name.trim() } : {}) }),
+    body: JSON.stringify({ email, password }),
   })
 }
 
@@ -383,4 +385,4 @@ export async function createStripeCheckoutSession(courseId: string): Promise<{ u
   })
 }
 
-export { adminUploadImage }
+export { adminUploadFile, adminUploadImage }

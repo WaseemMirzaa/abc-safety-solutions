@@ -33,17 +33,12 @@ export class AuthService {
     return this.issueTokens(u)
   }
 
-  /** Demo-style login: creates user on first sight if password matches seed (handled in seed) OR bcrypt verify */
   async login(dto: LoginDto) {
     const email = dto.email.trim().toLowerCase()
-    let user = await this.users.findOne({ where: { email } })
+    const user = await this.users.findOne({ where: { email } })
     if (!user) throw new UnauthorizedException('Invalid credentials')
     const ok = await bcrypt.compare(dto.password, user.passwordHash)
     if (!ok) throw new UnauthorizedException('Invalid credentials')
-    if (dto.name?.trim() && user.name !== dto.name!.trim()) {
-      user.name = dto.name!.trim()
-      await this.users.save(user)
-    }
     return this.issueTokens(user)
   }
 

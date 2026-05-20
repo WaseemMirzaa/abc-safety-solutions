@@ -7,6 +7,15 @@ export type Category = {
   certificationText: string
 }
 
+export type CourseSlideType = 'image' | 'pdf' | 'video'
+
+export type CourseSlide = {
+  id: string
+  type: CourseSlideType
+  url: string
+  title?: string
+}
+
 export type Course = {
   id: string
   slug: string
@@ -19,8 +28,10 @@ export type Course = {
   slideCount: number
   /** Days until certificate expires after issue; null/undefined = no expiry. */
   certificateValidityDays?: number | null
-  /** Uploaded slide frames (data URLs in demo); when non-empty, player uses these in order. */
+  /** @deprecated Legacy image-only slides; use `slides`. */
   slideImageUrls?: string[]
+  /** Ordered learner content: images, PDFs, or videos. */
+  slides?: CourseSlide[]
   imageUrl: string
   published: boolean
 }
@@ -68,7 +79,7 @@ export type MediaAsset = {
   url: string
   kind: 'image' | 'audio' | 'document' | 'other'
   createdAt: string
-  /** Set when file was chosen from disk (stored as data URL in this demo). */
+  /** Set when file was chosen from disk upload. */
   source?: 'url' | 'upload'
   fileName?: string | null
 }

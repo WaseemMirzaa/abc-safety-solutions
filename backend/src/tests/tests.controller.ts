@@ -11,7 +11,7 @@ class SubmitDto {
   answers: Record<string, string>
 }
 
-class DemoDto {
+class NoTestPassDto {
   @IsBoolean()
   @Type(() => Boolean)
   passed: boolean
@@ -42,7 +42,7 @@ export class TestsController {
   }
 
   @Post('course/:courseId/no-test-submit')
-  async noTest(@CurrentUser() u: { id: string }, @Param('courseId') courseId: string, @Body() body: DemoDto) {
+  async noTest(@CurrentUser() u: { id: string }, @Param('courseId') courseId: string, @Body() body: NoTestPassDto) {
     await this.enrollments.assertEnrolled(u.id, courseId)
     return this.tests.submitNoTestPass(u.id, courseId, body.passed)
   }

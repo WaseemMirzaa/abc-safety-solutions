@@ -43,14 +43,14 @@ describe('route guards and public paths', () => {
   })
 
   it('lets admins open /admin dashboard', async () => {
-    renderAt('/admin', { user: { email: 'admin@demo.local', name: 'Admin', role: 'admin' } })
+    renderAt('/admin', { user: { email: 'admin@example.com', name: 'Admin', role: 'admin' } })
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /^overview$/i })).toBeInTheDocument()
     })
   })
 
   it('lets admins open /admin/courses', async () => {
-    renderAt('/admin/courses', { user: { email: 'admin@demo.local', name: 'Admin', role: 'admin' } })
+    renderAt('/admin/courses', { user: { email: 'admin@example.com', name: 'Admin', role: 'admin' } })
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /^courses$/i })).toBeInTheDocument()
     })

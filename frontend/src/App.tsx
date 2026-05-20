@@ -2,6 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
+import { useAuth } from '@/contexts/AuthContext'
+import { PageLoader } from '@/components/ui/PageLoader'
 import { HomePage } from '@/pages/HomePage'
 import { CoursesPage } from '@/pages/CoursesPage'
 import { CourseDetailPage } from '@/pages/CourseDetailPage'
@@ -23,10 +25,16 @@ import { AdminAnnouncementsPage } from '@/pages/admin/AdminAnnouncementsPage'
 import { AdminMediaPage } from '@/pages/admin/AdminMediaPage'
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
 
+function SessionGate({ children }: { children: React.ReactNode }) {
+  const { ready } = useAuth()
+  if (!ready) return <PageLoader minHeight="min-h-svh" message="Loading…" />
+  return <>{children}</>
+}
+
 /** Router content only — wrap with `BrowserRouter` (app) or `MemoryRouter` (tests). */
 export function AppRoutes() {
   return (
-    <>
+    <SessionGate>
       <ScrollToTop />
       <Routes>
         <Route element={<PublicLayout />}>
@@ -55,7 +63,7 @@ export function AppRoutes() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </SessionGate>
   )
 }
 

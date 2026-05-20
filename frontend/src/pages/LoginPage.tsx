@@ -22,7 +22,6 @@ export function LoginPage() {
   const [searchParams] = useSearchParams()
   const redirectQuery = searchParams.get('redirect')?.trim() || undefined
   const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -30,13 +29,13 @@ export function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr('')
-    if (!email.trim() || !name.trim() || !password.trim()) {
-      setErr(t('ui_login_err_name_email'))
+    if (!email.trim() || !password.trim()) {
+      setErr(t('ui_login_err_email_password'))
       return
     }
     setBusy(true)
     try {
-      const r = await authLogin(email.trim(), password, name.trim())
+      const r = await authLogin(email.trim(), password)
       applySession(r.accessToken, r.user)
       const from = safeInternalPath(loc.state?.from) ?? safeInternalPath(redirectQuery)
       if (r.user.role === 'admin') {
@@ -102,13 +101,6 @@ export function LoginPage() {
         <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-sky-400 via-sky-500 to-amber-400" aria-hidden />
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {t('ui_login_label_full_name')}
-            </label>
-            <p className="mt-0.5 text-[11px] text-slate-400">{t('LoginPage_161_shown_on_certificates_a1cec36c08')}</p>
-            <input id="name" className="input-pro mt-2" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-          </div>
-          <div>
             <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
               {t('ui_login_label_email')}
             </label>
@@ -119,13 +111,13 @@ export function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
+              required
             />
           </div>
           <div>
             <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
               {t('ui_login_label_password')}
             </label>
-            <p className="mt-0.5 text-[11px] text-slate-400">{t('LoginPage_181_required_only_for_demo_emails_above_5bb152683d')}</p>
             <input
               id="password"
               type="password"
@@ -133,6 +125,7 @@ export function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              required
             />
           </div>
           {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}

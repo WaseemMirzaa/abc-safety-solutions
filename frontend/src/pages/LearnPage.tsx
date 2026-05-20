@@ -19,7 +19,8 @@ import {
   submitTestAnswers,
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { getCourseSlideCount } from '@/lib/courseSlides'
+import { CourseSlideViewer } from '@/components/CourseSlideViewer'
+import { getCourseSlideCount, getCourseSlides } from '@/lib/courseSlides'
 import { useAuth } from '@/contexts/AuthContext'
 import { easeOut, transition } from '@/lib/motionPresets'
 import type { AdminTest, Certificate } from '@/types'
@@ -89,14 +90,15 @@ export function LearnPage() {
 
   const [slideIndex, setSlideIndex] = useState(0)
   const [showTest, setShowTest] = useState(false)
-  const [demoAnswer, setDemoAnswer] = useState<'a' | 'b' | null>(null)
+  const [fallbackAnswer, setFallbackAnswer] = useState<'a' | 'b' | null>(null)
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [testErr, setTestErr] = useState('')
   const [freshCert, setFreshCert] = useState<Certificate | null>(null)
 
   const totalSlides = course ? getCourseSlideCount(course) : 1
-  const slideUrls = course?.slideImageUrls?.filter(Boolean) ?? []
+  const courseSlides = course ? getCourseSlides(course) : []
+  const currentSlide = courseSlides[slideIndex]
 
   useEffect(() => {
     if (!courseId || !course || !progressReady || !progressRow) return
@@ -157,7 +159,7 @@ export function LearnPage() {
       <div className="py-20">
         <Container className="max-w-lg">
           <h1 className="font-display text-xl font-bold text-brand-900">{t('LearnPage_100_not_enrolled_597ec4b0de')}</h1>
-          <p className="mt-2 text-slate-600">{t('LearnPage_101_purchase_this_course_from_the_catalog_first_demo_62e677c097')}</p>
+          <p className="mt-2 text-slate-600">{t('ui_learn_enroll_first')}</p>
           <Link to={`/courses/${course.slug}`}>
             <Button className="mt-6">{t('LearnPage_103_view_course_4787a51af8')}</Button>
           </Link>
@@ -168,7 +170,7 @@ export function LearnPage() {
 
   const openTest = () => {
     setMcAnswers({})
-    setDemoAnswer(null)
+    setFallbackAnswer(null)
     setSubmitted(false)
     setTestErr('')
     setFreshCert(null)
@@ -191,11 +193,11 @@ export function LearnPage() {
     }
   }, [course, mcAnswers, publishedTest, qc])
 
-  const submitDemoTest = useCallback(async () => {
+  const submitFallbackTest = useCallback(async () => {
     if (!course) return
     setSubmitted(true)
     setTestErr('')
-    if (demoAnswer !== 'a') return
+    if (fallbackAnswer !== 'a') return
     try {
       await submitNoTestPass(course.id, true)
       const cert = await issueCertificate(course.id)
@@ -204,7 +206,7 @@ export function LearnPage() {
     } catch (e) {
       setTestErr(e instanceof Error ? e.message : 'Submit failed')
     }
-  }, [course, demoAnswer, qc])
+  }, [course, fallbackAnswer, qc])
 
   const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
   const allMcAnswered =
@@ -212,12 +214,11 @@ export function LearnPage() {
     publishedTest!.questions.every((q) => Boolean(mcAnswers[q.id]))
   const customPassed =
     customTestReady && submitted && scoreMeetsPassThreshold(publishedTest!, mcAnswers)
-  const demoPassed = submitted && demoAnswer === 'a'
+  const fallbackPassed = submitted && fallbackAnswer === 'a'
 
   const slideNum = Math.min(slideIndex + 1, totalSlides)
   const isLastSlide = slideIndex >= totalSlides - 1
   const progressPct = Math.round(((slideIndex + 1) / totalSlides) * 100)
-  const currentSlideSrc = slideUrls[slideIndex]
 
   const passCert =
     freshCert && freshCert.courseId === course.id
@@ -225,7 +226,7 @@ export function LearnPage() {
       : certs.filter((x) => x.courseId === course.id).at(-1)
 
   if (showTest) {
-    const passed = customTestReady ? customPassed : demoPassed
+    const passed = customTestReady ? customPassed : fallbackPassed
     return (
       <motion.div
         className="min-h-[70vh] bg-gradient-to-b from-slate-100 to-slate-50 py-12 sm:py-16"
@@ -286,14 +287,14 @@ export function LearnPage() {
             ) : (
               <>
                 <p className="text-xs text-amber-800/90">{t('ui_learn_no_test_warning')}</p>
-                <p className="mt-6 font-medium leading-relaxed text-slate-800">{t('ui_learn_demo_question_title')}</p>
+                <p className="mt-6 font-medium leading-relaxed text-slate-800">{t('ui_learn_sample_question_title')}</p>
                 <div className="mt-6 space-y-3">
                   <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
                     <input
                       type="radio"
-                      name="demo-q"
-                      checked={demoAnswer === 'a'}
-                      onChange={() => setDemoAnswer('a')}
+                      name="fallback-q"
+                      checked={fallbackAnswer === 'a'}
+                      onChange={() => setFallbackAnswer('a')}
                       className="mt-0.5 shrink-0 accent-sky-600"
                     />
                     <span className="min-w-0 flex-1 break-words text-sm">{t('LearnPage_234_protect_workers_and_prevent_incidents_7bf8112ad7')}</span>
@@ -301,16 +302,16 @@ export function LearnPage() {
                   <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
                     <input
                       type="radio"
-                      name="demo-q"
-                      checked={demoAnswer === 'b'}
-                      onChange={() => setDemoAnswer('b')}
+                      name="fallback-q"
+                      checked={fallbackAnswer === 'b'}
+                      onChange={() => setFallbackAnswer('b')}
                       className="mt-0.5 shrink-0 accent-sky-600"
                     />
                     <span className="min-w-0 flex-1 break-words text-sm">{t('LearnPage_244_reduce_paperwork_only_d19268d9e2')}</span>
                   </label>
                 </div>
                 {!submitted ? (
-                  <Button className="mt-8" disabled={!demoAnswer} onClick={() => void submitDemoTest()}>
+                  <Button className="mt-8" disabled={!fallbackAnswer} onClick={() => void submitFallbackTest()}>
                     {t('ui_learn_submit_answers')}
                   </Button>
                 ) : null}
@@ -348,7 +349,7 @@ export function LearnPage() {
                   variant="secondary"
                   onClick={() => {
                     setSubmitted(false)
-                    setDemoAnswer(null)
+                    setFallbackAnswer(null)
                     setMcAnswers({})
                     setTestErr('')
                     setFreshCert(null)
@@ -404,25 +405,9 @@ export function LearnPage() {
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: reduce ? 0 : 0.18, ease: easeOut }}
-              className="relative flex h-full w-full max-h-full flex-col items-center justify-center"
+              className="relative flex h-full min-h-[min(70vh,520px)] w-full flex-col"
             >
-              <p className="absolute left-3 top-3 z-10 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:left-4 sm:top-4 sm:text-xs">
-                {t('ui_learn_slide_progress', { n: slideNum, total: totalSlides })}
-              </p>
-              {currentSlideSrc ? (
-                <img
-                  src={currentSlideSrc}
-                  alt=""
-                  className="max-h-full max-w-full rounded-xl object-contain shadow-md ring-1 ring-slate-200/80"
-                />
-              ) : (
-                <>
-                  <p className="mt-10 max-w-xl px-4 font-display text-xl font-medium leading-snug text-brand-900 sm:text-2xl">
-                    {t('ui_learn_voice_placeholder', { n: slideNum })}
-                  </p>
-                  <p className="mt-5 text-xs text-slate-600">{t('ui_learn_upload_hint')}</p>
-                </>
-              )}
+              <CourseSlideViewer slide={currentSlide} slideNum={slideNum} totalSlides={totalSlides} />
             </motion.div>
           </div>
           <div className="flex flex-col gap-4 border-t border-slate-200/90 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 sm:px-8">
