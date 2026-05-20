@@ -118,6 +118,37 @@ export function LearnPage() {
     return () => window.clearTimeout(tmr)
   }, [course, courseId, slideIndex, totalSlides, saveProgress])
 
+  const submitCustomTest = useCallback(async () => {
+    if (!publishedTest?.questions.length || !course) return
+    setSubmitted(true)
+    setTestErr('')
+    try {
+      const res = await submitTestAnswers(course.id, mcAnswers)
+      if (res.passed) {
+        const cert = await issueCertificate(course.id)
+        setFreshCert(cert)
+        await qc.invalidateQueries({ queryKey: qk.certificates })
+      }
+    } catch (e) {
+      setTestErr(e instanceof Error ? e.message : 'Submit failed')
+    }
+  }, [course, mcAnswers, publishedTest, qc])
+
+  const submitFallbackTest = useCallback(async () => {
+    if (!course) return
+    setSubmitted(true)
+    setTestErr('')
+    if (fallbackAnswer !== 'a') return
+    try {
+      await submitNoTestPass(course.id, true)
+      const cert = await issueCertificate(course.id)
+      setFreshCert(cert)
+      await qc.invalidateQueries({ queryKey: qk.certificates })
+    } catch (e) {
+      setTestErr(e instanceof Error ? e.message : 'Submit failed')
+    }
+  }, [course, fallbackAnswer, qc])
+
   if (!user) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-4 py-20">
@@ -176,37 +207,6 @@ export function LearnPage() {
     setFreshCert(null)
     setShowTest(true)
   }
-
-  const submitCustomTest = useCallback(async () => {
-    if (!publishedTest?.questions.length || !course) return
-    setSubmitted(true)
-    setTestErr('')
-    try {
-      const res = await submitTestAnswers(course.id, mcAnswers)
-      if (res.passed) {
-        const cert = await issueCertificate(course.id)
-        setFreshCert(cert)
-        await qc.invalidateQueries({ queryKey: qk.certificates })
-      }
-    } catch (e) {
-      setTestErr(e instanceof Error ? e.message : 'Submit failed')
-    }
-  }, [course, mcAnswers, publishedTest, qc])
-
-  const submitFallbackTest = useCallback(async () => {
-    if (!course) return
-    setSubmitted(true)
-    setTestErr('')
-    if (fallbackAnswer !== 'a') return
-    try {
-      await submitNoTestPass(course.id, true)
-      const cert = await issueCertificate(course.id)
-      setFreshCert(cert)
-      await qc.invalidateQueries({ queryKey: qk.certificates })
-    } catch (e) {
-      setTestErr(e instanceof Error ? e.message : 'Submit failed')
-    }
-  }, [course, fallbackAnswer, qc])
 
   const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
   const allMcAnswered =
