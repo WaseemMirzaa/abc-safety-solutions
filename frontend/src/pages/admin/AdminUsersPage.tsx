@@ -14,7 +14,6 @@ export function AdminUsersPage() {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
-  const [role, setRole] = useState<AdminDirectoryUser['role']>('learner')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
 
@@ -40,11 +39,10 @@ export function AdminUsersPage() {
       return
     }
     try {
-      await adminCreateDirectoryUser({ email: e, name: name.trim(), role, password: password.trim() })
+      await adminCreateDirectoryUser({ email: e, name: name.trim(), role: 'learner', password: password.trim() })
       setEmail('')
       setName('')
       setPassword('')
-      setRole('learner')
       setOpen(false)
       invalidate()
     } catch (ex) {
@@ -53,13 +51,14 @@ export function AdminUsersPage() {
   }
 
   const remove = async (u: AdminDirectoryUser) => {
-    if (window.confirm(`Remove ${u.email} from directory?`)) {
+    if (isProtectedAdmin(u)) return
+    if (window.confirm(`Remove ${u.email} from the directory?`)) {
       await adminRemoveDirectoryUser(u.email)
       invalidate()
     }
   }
 
-  const isBuiltin = (_email: string) => false
+  const isProtectedAdmin = (u: AdminDirectoryUser) => u.role === 'admin' || Boolean(u.protected)
 
   return (
     <div>
@@ -70,9 +69,7 @@ export function AdminUsersPage() {
           </div>
           <div>
             <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminUsersPage_62_users_b96cb62200')}</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage user accounts and roles.
-            </p>
+            <p className="mt-1 text-sm text-slate-600">{t('ui_admin_users_intro')}</p>
           </div>
         </div>
         <Button type="button" className="gap-2 self-start" onClick={() => setOpen(true)}>
@@ -106,11 +103,13 @@ export function AdminUsersPage() {
                   <td className="px-4 py-3 text-slate-600">{u.email}</td>
                   <td className="px-4 py-3 capitalize text-slate-600">{u.role}</td>
                   <td className="px-4 py-3 text-slate-500">
-                    {isBuiltin(u.email) ? t('ui_users_builtin') : t('ui_users_added_local')}
+                    {isProtectedAdmin(u) ? t('ui_users_protected_admin') : t('ui_users_added_local')}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {isBuiltin(u.email) ? (
-                      <span className="text-xs text-slate-400">—</span>
+                    {isProtectedAdmin(u) ? (
+                      <span className="text-xs text-slate-400" title={t('ui_users_protected_admin_hint')}>
+                        —
+                      </span>
                     ) : (
                       <Button
                         type="button"
@@ -130,7 +129,8 @@ export function AdminUsersPage() {
       </div>
 
       {open ? (
-        <AdminModal title="Add directory user" onClose={() => setOpen(false)}>
+        <AdminModal title={t('ui_admin_users_add_title')} onClose={() => setOpen(false)}>
+          <p className="mb-4 text-xs text-slate-600">{t('ui_admin_users_add_hint')}</p>
           <div className="space-y-4">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminUsersPage_124_email_8755edb8b6')}</label>
@@ -139,13 +139,6 @@ export function AdminUsersPage() {
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminUsersPage_128_display_name_64fcf60148')}</label>
               <input className="input-pro mt-1.5 w-full" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminUsersPage_132_role_789b86a640')}</label>
-              <select className="input-pro mt-1.5 w-full" value={role} onChange={(e) => setRole(e.target.value as AdminDirectoryUser['role'])}>
-                <option value="learner">{t('AdminUsersPage_134_learner_a74ff939e6')}</option>
-                <option value="admin">{t('AdminUsersPage_135_admin_f20661fe44')}</option>
-              </select>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Initial password</label>

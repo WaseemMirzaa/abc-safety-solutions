@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common'
+import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { InjectRepository } from '@nestjs/typeorm'
 import * as bcrypt from 'bcrypt'
@@ -60,6 +60,9 @@ export class AuthService {
   async updateProfile(userId: string, name: string) {
     const u = await this.users.findOne({ where: { id: userId } })
     if (!u) throw new UnauthorizedException()
+    if (u.role === 'admin') {
+      throw new ForbiddenException('Admin profile cannot be changed from the application. Update via server admin tools.')
+    }
     u.name = name.trim()
     await this.users.save(u)
     return { email: u.email, name: u.name, role: u.role }

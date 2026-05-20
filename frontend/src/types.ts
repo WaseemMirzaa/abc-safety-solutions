@@ -124,4 +124,6 @@ export type AdminDirectoryUser = {
   email: string
   name: string
   role: 'learner' | 'admin'
+  /** Server-managed admin; not editable in admin UI. */
+  protected?: boolean
 }

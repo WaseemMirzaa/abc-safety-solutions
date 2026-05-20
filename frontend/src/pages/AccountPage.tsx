@@ -40,7 +40,10 @@ export function AccountPage() {
     )
   }
 
+  const isAdmin = user.role === 'admin'
+
   async function saveName() {
+    if (isAdmin) return
     setProfileErr(null)
     setProfileBusy(true)
     try {
@@ -69,15 +72,26 @@ export function AccountPage() {
             <div className="sm:col-span-2">
               <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AccountPage_40_name_abcd8db4cc')}</dt>
               <dd className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  className="input-pro max-w-md flex-1"
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  aria-label={t('AccountPage_40_name_abcd8db4cc')}
-                />
-                <Button type="button" variant="secondary" disabled={profileBusy || nameDraft.trim() === user.name} onClick={() => void saveName()}>
-                  {profileBusy ? t('ui_account_saving') : t('ui_account_save_profile')}
-                </Button>
+                {isAdmin ? (
+                  <span className="font-medium text-slate-800">{user.name}</span>
+                ) : (
+                  <>
+                    <input
+                      className="input-pro max-w-md flex-1"
+                      value={nameDraft}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      aria-label={t('AccountPage_40_name_abcd8db4cc')}
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={profileBusy || nameDraft.trim() === user.name}
+                      onClick={() => void saveName()}
+                    >
+                      {profileBusy ? t('ui_account_saving') : t('ui_account_save_profile')}
+                    </Button>
+                  </>
+                )}
               </dd>
             </div>
             <div>
@@ -86,9 +100,15 @@ export function AccountPage() {
             </div>
           </dl>
           {profileErr ? <p className="mt-4 text-sm text-red-600">{profileErr}</p> : null}
-          <p className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-xs text-amber-950">
-            Password reset, email verification, and legal name for certificates will be API-driven.
-          </p>
+          {isAdmin ? (
+            <p className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-xs text-amber-950">
+              {t('ui_account_admin_profile_locked')}
+            </p>
+          ) : (
+            <p className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-xs text-amber-950">
+              Password reset, email verification, and legal name for certificates will be API-driven.
+            </p>
+          )}
         </div>
 
         <div className="card-elevated mt-8 p-6 sm:p-8">
