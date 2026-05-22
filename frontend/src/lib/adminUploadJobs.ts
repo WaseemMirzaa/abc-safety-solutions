@@ -1,5 +1,6 @@
 import { ApiError, xhrUploadForm } from '@/api/client'
 import { countPptxSlides } from '@/lib/pptxDeck'
+import { randomId } from '@/lib/randomId'
 import type { CourseSlide } from '@/types'
 
 export type AdminUploadJobStatus = 'uploading' | 'processing' | 'done' | 'error'
@@ -59,7 +60,7 @@ function patchJob(id: string, patch: Partial<AdminUploadJob>) {
 }
 
 function createJob(fileName: string): string {
-  const id = crypto.randomUUID()
+  const id = randomId()
   jobs.set(id, {
     id,
     fileName,
