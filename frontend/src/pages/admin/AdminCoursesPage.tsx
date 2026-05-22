@@ -272,7 +272,7 @@ export function AdminCoursesPage() {
     const videoDeck = slides.find((s) => s.type === 'video')
     if (deliveryMode === 'pptx') {
       if (!presentationDeck) {
-        errors.slides = 'Upload a presentation (.pptx, .ppt, or .pdf) (required).'
+        errors.slides = 'Upload a PDF presentation (required).'
       } else if (slides.some((s) => s.type !== 'pptx' && s.type !== 'ppt' && s.type !== 'pdf')) {
         errors.slides = 'Only one presentation deck is allowed. Remove other slide types first.'
       }
@@ -443,13 +443,12 @@ export function AdminCoursesPage() {
     e.target.value = ''
     if (!file) return
     const type = slideTypeFromFile(file)
-    if (type !== 'pptx' && type !== 'ppt' && type !== 'pdf') {
-      setSlideUploadErr('Use a PowerPoint file (.pptx or .ppt) or PDF.')
+    if (type !== 'pdf') {
+      setSlideUploadErr('Only PDF files are accepted. Export PowerPoint as PDF first if needed.')
       return
     }
     revokeDeckBlob()
-    if (type === 'pptx') setDeckBlobUrl(URL.createObjectURL(file))
-    setDeckUploadJobId(startCourseDeckUpload(file, draft.id, type))
+    setDeckUploadJobId(startCourseDeckUpload(file, draft.id, 'pdf'))
   }
 
   return (
@@ -704,7 +703,7 @@ export function AdminCoursesPage() {
                   }`}
                   onClick={() => switchDeliveryMode('pptx')}
                 >
-                  {t('ui_admin_format_pptx', { defaultValue: 'Slides (.pptx / PDF)' })}
+                  {t('ui_admin_format_pptx', { defaultValue: 'PDF slides' })}
                 </button>
                 <button
                   type="button"
@@ -722,7 +721,7 @@ export function AdminCoursesPage() {
                 {deliveryMode === 'pptx'
                   ? t('ui_admin_format_pptx_help', {
                       defaultValue:
-                        'Upload PowerPoint or PDF; learners move through slides with Previous / Next, then take the knowledge check.',
+                        'Upload a PDF; each page becomes a slide. Learners use Previous / Next, then take the knowledge check.',
                     })
                   : t('ui_admin_format_video_help', {
                       defaultValue:
@@ -733,14 +732,14 @@ export function AdminCoursesPage() {
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
                     {deliveryMode === 'pptx'
-                      ? t('ui_admin_pptx_label', { defaultValue: 'Presentation (.pptx or .pdf)' })
+                      ? t('ui_admin_pptx_label', { defaultValue: 'Presentation (PDF)' })
                       : t('ui_admin_video_label', { defaultValue: 'Training video' })}{' '}
                     <span className="text-red-600">*</span>
                   </label>
                   {deliveryMode === 'pptx' ? (
                     <p className="mt-1 text-[11px] text-violet-800/90">
                       {t('ui_admin_accepted_deck_files', {
-                        defaultValue: 'Accepted: .pptx, .ppt, or .pdf',
+                        defaultValue: 'Accepted: .pdf only',
                       })}
                     </p>
                   ) : null}
@@ -749,7 +748,7 @@ export function AdminCoursesPage() {
                   <input
                     ref={pptxInputRef}
                     type="file"
-                    accept=".pptx,.ppt,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,application/pdf"
+                    accept=".pdf,application/pdf"
                     className="hidden"
                     onChange={onPickPresentation}
                   />
@@ -774,7 +773,7 @@ export function AdminCoursesPage() {
                         ? 'Uploading…'
                         : deliveryMode === 'video'
                           ? 'Upload video'
-                          : t('ui_admin_upload_presentation', { defaultValue: 'Upload .pptx or PDF' })}
+                          : t('ui_admin_upload_presentation', { defaultValue: 'Upload PDF' })}
                     </Button>
                   ) : (
                     <>
@@ -789,7 +788,7 @@ export function AdminCoursesPage() {
                           ? 'Uploading…'
                           : deliveryMode === 'video'
                             ? 'Replace video'
-                            : t('ui_admin_replace_presentation', { defaultValue: 'Replace .pptx or PDF' })}
+                            : t('ui_admin_replace_presentation', { defaultValue: 'Replace PDF' })}
                       </Button>
                       <Button
                         type="button"
@@ -836,7 +835,7 @@ export function AdminCoursesPage() {
               {otherModeDeck && !activeDeck ? (
                 <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   {deliveryMode === 'video'
-                    ? 'A presentation is already on file. Switch to Slides (.pptx / PDF) above to replace it, or upload a video below.'
+                    ? 'A presentation is already on file. Switch to PDF slides above to replace it, or upload a video below.'
                     : 'A video is already on file. Switch to Video above to replace it, or upload a presentation below.'}
                 </p>
               ) : null}
@@ -870,7 +869,7 @@ export function AdminCoursesPage() {
               {!activeDeck ? (
                 <p className="mt-3 text-xs text-amber-800">
                   {deliveryMode === 'pptx'
-                    ? 'No presentation uploaded yet — required before you can save.'
+                    ? 'No PDF uploaded yet — required before you can save.'
                     : 'No video uploaded yet — required before you can save.'}
                 </p>
               ) : null}
