@@ -17,6 +17,10 @@ export class CourseTestEntity {
   @Column({ type: 'int' })
   passPercent: number
 
+  /** 0 = no time limit; otherwise max minutes to complete the test. */
+  @Column({ type: 'int', default: 0 })
+  timeLimitMinutes: number
+
   @Column({ default: false })
   published: boolean
 

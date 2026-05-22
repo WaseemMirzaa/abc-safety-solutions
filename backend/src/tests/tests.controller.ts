@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
-import { IsBoolean, IsObject, IsString } from 'class-validator'
+import { IsBoolean, IsObject, IsOptional, IsString } from 'class-validator'
 import { Type } from 'class-transformer'
 import { CurrentUser } from '../common/current-user.decorator'
 import { EnrollmentsService } from '../enrollments/enrollments.service'
@@ -9,6 +9,10 @@ import { TestsService } from './tests.service'
 class SubmitDto {
   @IsObject()
   answers: Record<string, string>
+
+  @IsOptional()
+  @IsBoolean()
+  timedOut?: boolean
 }
 
 class NoTestPassDto {
@@ -38,7 +42,7 @@ export class TestsController {
     @Body() body: SubmitDto,
   ) {
     await this.enrollments.assertEnrolled(u.id, courseId)
-    return this.tests.submit(u.id, courseId, body.answers ?? {})
+    return this.tests.submit(u.id, courseId, body.answers ?? {}, Boolean(body.timedOut))
   }
 
   @Post('course/:courseId/no-test-submit')

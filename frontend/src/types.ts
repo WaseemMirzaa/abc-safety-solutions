@@ -120,6 +120,8 @@ export type AdminTest = {
   title: string
   /** Minimum % of questions that must be correct (e.g. 80 = 8/10). */
   passPercent: number
+  /** 0 = no limit; otherwise learners have this many minutes to finish. */
+  timeLimitMinutes: number
   published: boolean
   updatedAt: string
   questions: TestQuestion[]

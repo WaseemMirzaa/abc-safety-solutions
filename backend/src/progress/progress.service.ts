@@ -48,4 +48,14 @@ export class ProgressService {
     row.testPassed = passed
     return this.progress.save(row)
   }
+
+  /** After a failed knowledge check, learner must review all slides again. */
+  async requireContentReview(userId: string, courseId: string) {
+    const row = await this.get(userId, courseId)
+    row.completedSlides = false
+    row.testPassed = false
+    row.slideIndex = 0
+    row.audioTimeSec = 0
+    return this.progress.save(row)
+  }
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { init } from 'pptx-preview'
+import { PresentationLoader } from '@/components/learn/PresentationLoader'
 import { getOrFetchPptxBuffer, prefetchPptxBuffer } from '@/lib/pptxDeckCache'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import { t } from '@/i18n/t'
@@ -9,24 +10,34 @@ type Props = {
   slideIndex: number
   className?: string
   compact?: boolean
-  /** When true, user must tap to start (large decks). File may still prefetch in the background. */
-  deferLoad?: boolean
+  onReadyChange?: (ready: boolean) => void
 }
 
-type Phase = 'idle' | 'downloading' | 'processing' | 'ready' | 'error'
+type Phase = 'downloading' | 'processing' | 'ready' | 'error'
 
-/** Renders one slide from a .pptx deck (prev/next controlled by parent). */
+function measureHost(host: HTMLElement | null, compact: boolean) {
+  const w = host?.clientWidth || host?.offsetWidth || 0
+  const h = host?.clientHeight || host?.offsetHeight || 0
+  const width = w > 0 ? w : compact ? 480 : 960
+  const height = h > 0 ? h : compact ? 200 : Math.round((width * 9) / 16)
+  return {
+    width: compact ? Math.max(280, Math.min(640, width)) : Math.max(320, width),
+    height: Math.max(compact ? 160 : 200, height),
+  }
+}
+
+/** Renders one slide from a .pptx deck (prev/next controlled by parent). Auto-loads on mount. */
 export function PptxSlideViewer({
   url,
   slideIndex,
   className = '',
   compact = false,
-  deferLoad = false,
+  onReadyChange,
 }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const previewerRef = useRef<ReturnType<typeof init> | null>(null)
-  const [loadStarted, setLoadStarted] = useState(!deferLoad)
-  const [phase, setPhase] = useState<Phase>(deferLoad ? 'idle' : 'downloading')
+  const [phase, setPhase] = useState<Phase>('downloading')
   const [err, setErr] = useState('')
   const [downloadPct, setDownloadPct] = useState(0)
   const [reloadToken, setReloadToken] = useState(0)
@@ -34,15 +45,19 @@ export function PptxSlideViewer({
   const resolved = resolveMediaUrl(url)
 
   useEffect(() => {
-    setLoadStarted(!deferLoad)
-    setPhase(deferLoad ? 'idle' : 'downloading')
-    setErr('')
-    setDownloadPct(0)
-  }, [url, deferLoad])
-
-  useEffect(() => {
     prefetchPptxBuffer(url)
   }, [url])
+
+  useEffect(() => {
+    onReadyChange?.(phase === 'ready')
+  }, [phase, onReadyChange])
+
+  useEffect(() => {
+    setPhase('downloading')
+    setErr('')
+    setDownloadPct(0)
+    onReadyChange?.(false)
+  }, [url, onReadyChange])
 
   const retry = useCallback(() => {
     setErr('')
@@ -52,21 +67,18 @@ export function PptxSlideViewer({
   }, [])
 
   useEffect(() => {
-    if (!loadStarted) return
-    const el = containerRef.current
-    if (!el) return
     let cancelled = false
     let previewer: ReturnType<typeof init> | null = null
 
     const run = async () => {
+      const el = containerRef.current
+      if (!el) return
+
       setPhase('downloading')
       setErr('')
       setDownloadPct(0)
 
-      const width = compact
-        ? Math.max(280, Math.min(640, el.clientWidth || el.offsetWidth || 480))
-        : Math.max(320, el.clientWidth || el.offsetWidth || 960)
-      const height = compact ? 200 : Math.max(280, el.clientHeight || el.offsetHeight || 540)
+      const { width, height } = measureHost(hostRef.current, compact)
 
       try {
         if (previewerRef.current) {
@@ -83,7 +95,8 @@ export function PptxSlideViewer({
         setPhase('processing')
         setDownloadPct(100)
 
-        previewer = init(el, { width, height, mode: 'slide' })
+        const { width: w2, height: h2 } = measureHost(hostRef.current, compact)
+        previewer = init(el, { width: w2 || width, height: h2 || height, mode: 'slide' })
         previewerRef.current = previewer
 
         await previewer.preview(buf)
@@ -100,34 +113,18 @@ export function PptxSlideViewer({
       }
     }
 
-    const start = () => void run()
-
-    if (el.clientWidth > 0 || compact) {
-      start()
-    } else {
-      const ro = new ResizeObserver(() => {
-        if (el.clientWidth > 0 && !cancelled) {
-          ro.disconnect()
-          start()
-        }
-      })
-      ro.observe(el)
-      const timer = window.setTimeout(start, 200)
-      return () => {
-        cancelled = true
-        ro.disconnect()
-        window.clearTimeout(timer)
-        previewer?.destroy()
-        previewerRef.current = null
-      }
+    const start = () => {
+      if (!cancelled) void run()
     }
+
+    start()
 
     return () => {
       cancelled = true
       previewer?.destroy()
       previewerRef.current = null
     }
-  }, [url, reloadToken, compact, loadStarted])
+  }, [url, reloadToken, compact])
 
   useEffect(() => {
     if (phase !== 'ready' || !previewerRef.current) return
@@ -135,81 +132,31 @@ export function PptxSlideViewer({
     previewerRef.current.renderSingleSlide(Math.min(slideIndex, max))
   }, [slideIndex, phase])
 
-  const loadingBoxClass = compact
-    ? 'flex h-[200px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 text-center text-sm text-slate-600'
-    : 'absolute inset-x-4 top-1/2 z-10 -translate-y-1/2 rounded-xl border border-dashed border-slate-200 bg-white/95 px-6 py-8 text-center text-sm text-slate-600 shadow-sm'
-
-  const statusText =
-    phase === 'downloading'
-      ? downloadPct > 0
-        ? t('ui_learn_pptx_downloading', {
-            defaultValue: 'Downloading… {{pct}}%',
-            pct: downloadPct,
-            interpolation: { escapeValue: false },
-          })
-        : t('ui_learn_pptx_loading', { defaultValue: 'Loading presentation…' })
-      : phase === 'processing'
-        ? t('ui_learn_pptx_processing', {
-            defaultValue: 'Processing slides… (large files can take 1–2 minutes the first time)',
-          })
-        : ''
-
   const containerClass = compact
-    ? 'pptx-deck-viewer pptx-deck-viewer--compact mx-auto h-[200px] w-full max-w-full overflow-hidden rounded-lg bg-white ring-1 ring-slate-200/80 [&_.pptx-preview-pagination]:hidden [&_.pptx-preview-wrapper+div]:hidden'
-    : 'pptx-deck-viewer mx-auto h-full min-h-[min(70vh,520px)] w-full max-w-full flex-1 overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-slate-200/80 [&_.pptx-preview-pagination]:hidden [&_.pptx-preview-wrapper+div]:hidden'
+    ? 'pptx-deck-viewer pptx-deck-viewer--compact absolute inset-0 mx-auto overflow-hidden rounded-lg bg-white [&_.pptx-preview-pagination]:hidden [&_.pptx-preview-wrapper+div]:hidden'
+    : 'pptx-deck-viewer absolute inset-0 mx-auto overflow-hidden rounded-lg bg-white [&_.pptx-preview-pagination]:hidden [&_.pptx-preview-wrapper+div]:hidden [&_.pptx-preview-wrapper]:!max-h-full [&_.pptx-preview-wrapper]:!max-w-full [&_canvas]:!max-h-full [&_canvas]:!max-w-full [&_canvas]:!object-contain'
 
-  if (deferLoad && !loadStarted) {
-    return (
-      <div className={compact ? `w-full ${className}` : `flex min-h-[min(50vh,400px)] w-full flex-col items-center justify-center ${className}`}>
-        <p className="max-w-md px-4 text-center text-sm text-slate-600">
-          {t('ui_learn_pptx_tap_load', {
-            defaultValue: 'Tap below to load the presentation. The file may already be downloading in the background.',
-          })}
-        </p>
-        <button
-          type="button"
-          className="mt-4 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
-          onClick={() => {
-            setLoadStarted(true)
-            setPhase('downloading')
-          }}
-        >
-          {t('ui_learn_pptx_load_btn', { defaultValue: 'Load presentation' })}
-        </button>
-      </div>
-    )
-  }
+  const isLoading = phase === 'downloading' || phase === 'processing'
+  const showDeck = phase === 'ready'
 
   return (
     <div
+      ref={hostRef}
       className={
         compact
-          ? `relative w-full ${className}`
-          : `relative flex h-full min-h-[min(70vh,520px)] w-full flex-col ${className}`
+          ? `relative h-full min-h-[160px] w-full ${className}`
+          : `relative flex h-full min-h-0 w-full flex-col ${className}`
       }
     >
-      {(phase === 'downloading' || phase === 'processing') && !err ? (
-        <div className={loadingBoxClass}>
-          <p>{statusText}</p>
-          {phase === 'downloading' && downloadPct > 0 ? (
-            <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full rounded-full bg-violet-500 transition-all" style={{ width: `${downloadPct}%` }} />
-            </div>
-          ) : phase === 'processing' ? (
-            <div className="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full w-2/3 animate-pulse rounded-full bg-violet-400" />
-            </div>
-          ) : null}
-        </div>
+      {isLoading && !err ? (
+        <PresentationLoader
+          phase={phase === 'processing' ? 'processing' : 'downloading'}
+          downloadPct={downloadPct}
+          compact={compact}
+        />
       ) : null}
       {phase === 'error' ? (
-        <div
-          className={
-            compact
-              ? 'flex h-[200px] flex-col items-center justify-center gap-3 rounded-lg border border-red-100 bg-red-50/50 px-4 text-center'
-              : 'flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center'
-          }
-        >
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg border border-red-100 bg-red-50/80 px-4 text-center">
           <p className="text-sm text-red-600">{err}</p>
           <button
             type="button"
@@ -223,7 +170,11 @@ export function PptxSlideViewer({
           </a>
         </div>
       ) : null}
-      <div ref={containerRef} className={`${containerClass} ${phase !== 'ready' ? 'hidden' : ''}`} />
+      <div
+        ref={containerRef}
+        className={`${containerClass} ${showDeck ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        aria-hidden={!showDeck}
+      />
     </div>
   )
 }

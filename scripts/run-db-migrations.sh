@@ -111,6 +111,17 @@ migrate_courses_popular() {
   fi
 }
 
+migrate_test_time_limit() {
+  local exists
+  exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='course_tests' AND COLUMN_NAME='timeLimitMinutes';")"
+  if [ "${exists:-0}" = "0" ]; then
+    echo "   006_add_test_time_limit.sql — adding column timeLimitMinutes"
+    mysql_scalar "ALTER TABLE course_tests ADD COLUMN timeLimitMinutes INT NOT NULL DEFAULT 0;" >/dev/null
+  else
+    echo "   006_add_test_time_limit.sql — timeLimitMinutes already exists (skip)"
+  fi
+}
+
 migrate_courses_slides() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='slides';")"
@@ -145,6 +156,7 @@ for f in "${files[@]}"; do
     003_widen_enrollments_order_id.sql) migrate_widen_order_id ;;
     004_add_course_languages.sql) migrate_course_languages ;;
     005_add_courses_popular.sql) migrate_courses_popular ;;
+    006_add_test_time_limit.sql) migrate_test_time_limit ;;
     *)
       echo "   $base"
       mysql_file "$f"

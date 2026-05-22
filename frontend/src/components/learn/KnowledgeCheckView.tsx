@@ -5,13 +5,15 @@ import {
   BookOpen,
   CheckCircle2,
   Circle,
-  RotateCcw,
+  ShieldAlert,
   Trophy,
   XCircle,
 } from 'lucide-react'
+import { useTestScreenshotGuard } from '@/hooks/useTestScreenshotGuard'
 import { CertificateVisual } from '@/components/CertificateVisual'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
+import { TestTimerBar } from '@/components/learn/TestTimerBar'
 import { scoreKnowledgeCheck, correctOptionId } from '@/lib/knowledgeCheckScoring'
 import { displayCourseTitle } from '@/lib/courseDisplay'
 import { easeOut, transition } from '@/lib/motionPresets'
@@ -24,6 +26,7 @@ type McProps = {
   onAnswer: (questionId: string, optionId: string) => void
   submitted: boolean
   showReview: boolean
+  locked: boolean
 }
 
 function optionReviewClass(
@@ -77,7 +80,7 @@ function OptionIcon({
   return <span className="h-6 w-6 shrink-0 rounded-full border-2 border-slate-200 bg-white" aria-hidden />
 }
 
-function McQuestionBlock({ test, answers, onAnswer, submitted, showReview }: McProps) {
+function McQuestionBlock({ test, answers, onAnswer, submitted, showReview, locked }: McProps) {
   const score = submitted ? scoreKnowledgeCheck(test, answers) : null
 
   return (
@@ -134,14 +137,16 @@ function McQuestionBlock({ test, answers, onAnswer, submitted, showReview }: McP
                     q,
                     selectedId,
                     showReview,
-                  )} ${showReview ? 'cursor-default' : 'cursor-pointer'}`}
+                  )} ${showReview || locked ? 'cursor-default opacity-95' : 'cursor-pointer'}`}
                 >
                   <input
                     type="radio"
                     name={q.id}
                     checked={selectedId === o.id}
-                    disabled={submitted}
-                    onChange={() => onAnswer(q.id, o.id)}
+                    disabled={submitted || locked}
+                    onChange={() => {
+                      if (!locked) onAnswer(q.id, o.id)
+                    }}
                     className="sr-only"
                   />
                   <OptionIcon o={o} q={q} selectedId={selectedId} showReview={showReview} />
@@ -167,18 +172,25 @@ type Props = {
   categoryList: Category[]
   mcAnswers: Record<string, string>
   setMcAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>
-  fallbackAnswer: 'a' | 'b' | null
-  setFallbackAnswer: (v: 'a' | 'b' | null) => void
   submitted: boolean
   submitting: boolean
   passed: boolean
   testErr: string
-  testSubmitResult: { passed: boolean; scorePercent: number; passPercent: number } | null
+  testSubmitResult: { passed: boolean; scorePercent: number; passPercent: number; timedOut?: boolean } | null
+  testLocked: boolean
+  timer: {
+    enabled: boolean
+    remainingSec: number
+    totalSec: number
+    progressPct: number
+    expired: boolean
+    urgent: boolean
+    critical: boolean
+    label: string
+  }
   passCert: Certificate | null | undefined
   onSubmitCustom: () => void
-  onSubmitFallback: () => void
-  onRetry: () => void
-  onBackToCourse: () => void
+  onReturnToSlides: () => void
 }
 
 export function KnowledgeCheckView({
@@ -187,20 +199,19 @@ export function KnowledgeCheckView({
   categoryList,
   mcAnswers,
   setMcAnswers,
-  fallbackAnswer,
-  setFallbackAnswer,
   submitted,
   submitting,
   passed,
   testErr,
   testSubmitResult,
+  testLocked,
+  timer,
   passCert,
   onSubmitCustom,
-  onSubmitFallback,
-  onRetry,
-  onBackToCourse,
+  onReturnToSlides,
 }: Props) {
   const reduce = useReducedMotion()
+  useTestScreenshotGuard(true)
   const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
   const test = customTestReady ? publishedTest! : null
   const allMcAnswered = test ? test.questions.every((q) => Boolean(mcAnswers[q.id])) : false
@@ -216,12 +227,12 @@ export function KnowledgeCheckView({
         }
       : clientScore
   const showReview = submitted && !submitting && !passed && Boolean(test)
-  const answeredCount = test ? test.questions.filter((q) => mcAnswers[q.id]).length : fallbackAnswer ? 1 : 0
-  const questionTotal = test ? test.questions.length : 1
+  const answeredCount = test ? test.questions.filter((q) => mcAnswers[q.id]).length : 0
+  const questionTotal = test ? test.questions.length : 0
 
   return (
     <motion.div
-      className="min-h-[70vh] bg-gradient-to-b from-slate-100 via-slate-50 to-white py-12 sm:py-16"
+      className="knowledge-check-secure relative min-h-[70vh] bg-gradient-to-b from-slate-100 via-slate-50 to-white py-12 sm:py-16"
       initial={reduce ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={transition.page}
@@ -237,18 +248,38 @@ export function KnowledgeCheckView({
             </h1>
             <p className="mt-2 break-words text-sm text-slate-600">{displayCourseTitle(course)}</p>
           </div>
-          <button
-            type="button"
-            onClick={onBackToCourse}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            {t('ui_learn_back_to_slides', { defaultValue: 'Back to course' })}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200/90 bg-amber-50 px-2.5 py-1.5 text-[10px] font-semibold text-amber-950">
+              <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {t('ui_learn_test_no_screenshots', { defaultValue: 'Screenshots disabled during test' })}
+            </span>
+            {!submitted ? (
+              <button
+                type="button"
+                onClick={onReturnToSlides}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                {t('ui_learn_back_to_slides', { defaultValue: 'Back to course' })}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {testErr ? (
           <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{testErr}</p>
+        ) : null}
+
+        {timer.enabled && test && !submitted ? (
+          <TestTimerBar
+            remainingSec={timer.remainingSec}
+            totalSec={timer.totalSec}
+            progressPct={timer.progressPct}
+            expired={timer.expired}
+            urgent={timer.urgent}
+            critical={timer.critical}
+            label={timer.label}
+          />
         ) : null}
 
         {!submitted && test ? (
@@ -295,10 +326,11 @@ export function KnowledgeCheckView({
                   onAnswer={(qid, oid) => setMcAnswers((prev) => ({ ...prev, [qid]: oid }))}
                   submitted={submitted || submitting}
                   showReview={showReview}
+                  locked={testLocked}
                 />
               </div>
 
-              {!submitted ? (
+              {!submitted && !testLocked ? (
                 <Button
                   className="mt-10 w-full sm:w-auto"
                   disabled={!allMcAnswered || submitting}
@@ -311,66 +343,21 @@ export function KnowledgeCheckView({
               ) : null}
             </>
           ) : (
-            <>
-              <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-xs text-amber-950">
-                {t('ui_learn_no_test_warning')}
+            <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-white px-6 py-10 text-center sm:px-10">
+              <p className="font-display text-lg font-semibold text-amber-950">
+                {t('ui_learn_no_test_title', { defaultValue: 'Knowledge check not available' })}
               </p>
-              <p className="mt-6 font-medium leading-relaxed text-slate-800">{t('ui_learn_sample_question_title')}</p>
-              <div className="mt-6 space-y-3">
-                {(
-                  [
-                    { id: 'a' as const, label: t('LearnPage_234_protect_workers_and_prevent_incidents_7bf8112ad7') },
-                    { id: 'b' as const, label: t('LearnPage_244_reduce_paperwork_only_d19268d9e2') },
-                  ] as const
-                ).map((opt) => {
-                  const showFbReview = submitted && !submitting && !passed
-                  const isCorrect = opt.id === 'a'
-                  const isSelected = fallbackAnswer === opt.id
-                  let cls = 'border-slate-200 bg-white hover:border-sky-300/80 hover:bg-sky-50/30'
-                  if (showFbReview) {
-                    if (isCorrect) cls = 'border-emerald-400 bg-emerald-50 ring-2 ring-emerald-400/35'
-                    else if (isSelected) cls = 'border-rose-400 bg-rose-50 ring-2 ring-rose-400/35'
-                    else cls = 'border-slate-100 bg-slate-50/60 opacity-70'
-                  } else if (isSelected) {
-                    cls = 'border-sky-400 bg-sky-50/80 ring-2 ring-sky-400/40'
-                  }
-                  return (
-                    <label
-                      key={opt.id}
-                      className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${cls} ${showFbReview ? 'cursor-default' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="fallback-q"
-                        checked={isSelected}
-                        disabled={submitted}
-                        onChange={() => setFallbackAnswer(opt.id)}
-                        className="sr-only"
-                      />
-                      {showFbReview && isCorrect ? (
-                        <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" />
-                      ) : showFbReview && isSelected && !isCorrect ? (
-                        <XCircle className="h-6 w-6 shrink-0 text-rose-600" />
-                      ) : (
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white" />
-                      )}
-                      <span className="min-w-0 flex-1 break-words text-sm">{opt.label}</span>
-                    </label>
-                  )
+              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-amber-950/90">
+                {t('ui_learn_no_test_body', {
+                  defaultValue:
+                    'This course does not have a published knowledge check yet. Ask your administrator to add one in Admin → Tests.',
                 })}
-              </div>
-              {!submitted ? (
-                <Button
-                  className="mt-8 w-full sm:w-auto"
-                  disabled={!fallbackAnswer || submitting}
-                  onClick={onSubmitFallback}
-                >
-                  {submitting
-                    ? t('ui_learn_test_submitting', { defaultValue: 'Checking answers…' })
-                    : t('ui_learn_submit_answers')}
-                </Button>
-              ) : null}
-            </>
+              </p>
+              <Button className="mt-8 gap-2" variant="secondary" onClick={onReturnToSlides}>
+                <BookOpen className="h-4 w-4" />
+                {t('ui_learn_back_to_slides', { defaultValue: 'Back to course' })}
+              </Button>
+            </div>
           )}
 
           {submitted && !submitting && passed ? (
@@ -439,8 +426,18 @@ export function KnowledgeCheckView({
                   </div>
                   <div className="min-w-0 flex-1">
                     <h2 className="font-display text-lg font-bold text-rose-950">
-                      {t('ui_learn_fail_title', { defaultValue: 'Not quite — keep going' })}
+                      {testSubmitResult?.timedOut
+                        ? t('ui_learn_fail_time_title', { defaultValue: "Time's up" })
+                        : t('ui_learn_fail_title', { defaultValue: 'Not quite — keep going' })}
                     </h2>
+                    {testSubmitResult?.timedOut ? (
+                      <p className="mt-2 text-sm text-rose-900/90">
+                        {t('ui_learn_fail_time_body', {
+                          defaultValue:
+                            'The time limit ended. Your score is based on the answers you selected before time ran out.',
+                        })}
+                      </p>
+                    ) : null}
                     {score ? (
                       <p className="mt-2 text-sm leading-relaxed text-rose-900/90">
                         {t('ui_learn_fail_score', {
@@ -456,6 +453,12 @@ export function KnowledgeCheckView({
                       <p className="mt-2 text-sm text-rose-900/90">{t('ui_learn_fail_message')}</p>
                     )}
                     <p className="mt-2 text-xs text-slate-600">
+                      {t('ui_learn_fail_retake_hint', {
+                        defaultValue:
+                          'Review every slide again from the start. The knowledge check unlocks when you finish the course material.',
+                      })}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
                       {t('ui_learn_fail_review_hint', {
                         defaultValue:
                           'Green highlights show the correct answers. Red shows what you picked when it was wrong.',
@@ -464,11 +467,7 @@ export function KnowledgeCheckView({
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 border-t border-rose-100 bg-white/60 px-5 py-4 sm:px-6">
-                  <Button className="gap-2" onClick={onRetry}>
-                    <RotateCcw className="h-4 w-4" />
-                    {t('ui_learn_retry')}
-                  </Button>
-                  <Button variant="secondary" onClick={onBackToCourse}>
+                  <Button className="gap-2" onClick={onReturnToSlides}>
                     <BookOpen className="h-4 w-4" />
                     {t('ui_learn_review_course', { defaultValue: 'Review course material' })}
                   </Button>

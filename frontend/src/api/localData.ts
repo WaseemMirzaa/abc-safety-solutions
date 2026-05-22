@@ -255,10 +255,14 @@ export async function fetchPublishedTestForCourse(courseId: string): Promise<Adm
   return test && test.questions?.length ? test : null
 }
 
-export async function submitTestAnswers(courseId: string, answers: Record<string, string>) {
-  return apiJson<{ passPercent: number; scorePercent: number; passed: boolean }>(
+export async function submitTestAnswers(
+  courseId: string,
+  answers: Record<string, string>,
+  opts?: { timedOut?: boolean },
+) {
+  return apiJson<{ passPercent: number; scorePercent: number; passed: boolean; timedOut?: boolean }>(
     `/api/tests/course/${encodeURIComponent(courseId)}/submit`,
-    { method: 'POST', body: JSON.stringify({ answers }) },
+    { method: 'POST', body: JSON.stringify({ answers, timedOut: Boolean(opts?.timedOut) }) },
   )
 }
 

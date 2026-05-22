@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -15,7 +15,6 @@ import {
   fetchPublishedTestForCourse,
   issueCertificate,
   patchMyProgress,
-  submitNoTestPass,
   submitTestAnswers,
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
@@ -33,6 +32,7 @@ import type { Certificate } from '@/types'
 import { t } from '@/i18n/t'
 import { displayCourseTitle } from '@/lib/courseDisplay'
 import { findEnrollment, hasCourseAccess } from '@/lib/courseAccess'
+import { useTestTimer } from '@/hooks/useTestTimer'
 
 export function LearnPage() {
   const reduce = useReducedMotion()
@@ -88,7 +88,6 @@ export function LearnPage() {
 
   const [slideIndex, setSlideIndex] = useState(0)
   const [showTest, setShowTest] = useState(false)
-  const [fallbackAnswer, setFallbackAnswer] = useState<'a' | 'b' | null>(null)
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
   const [submittingTest, setSubmittingTest] = useState(false)
@@ -96,10 +95,16 @@ export function LearnPage() {
     passed: boolean
     scorePercent: number
     passPercent: number
+    timedOut?: boolean
   } | null>(null)
+  const autoSubmitOnTimeout = useRef(false)
   const [testErr, setTestErr] = useState('')
   const [freshCert, setFreshCert] = useState<Certificate | null>(null)
   const [videoDoneLocal, setVideoDoneLocal] = useState(false)
+  const [videoWatchPct, setVideoWatchPct] = useState(0)
+  const [videoDurationSec, setVideoDurationSec] = useState(0)
+  const staleVideoCompleteFixed = useRef(false)
+  const [pptxReady, setPptxReady] = useState(false)
 
   const videoCourse = course ? isVideoCourse(course) : false
   const totalSlides = course ? getCourseSlideCount(course) : 1
@@ -107,11 +112,24 @@ export function LearnPage() {
   const pptxDeck = course && !videoCourse ? getPptxDeckSlide(course) : undefined
   const videoSlide = course && videoCourse ? getVideoSlide(course) : undefined
   const currentSlide = videoSlide ?? pptxDeck ?? courseSlides[slideIndex]
-  const contentComplete = Boolean(progressRow?.completedSlides) || videoDoneLocal
+  const savedVideoSec = progressRow?.audioTimeSec ?? 0
+  const videoProgressValid =
+    videoDurationSec > 0 && savedVideoSec >= videoDurationSec - 2
+  const contentComplete = videoCourse
+    ? videoDoneLocal || (Boolean(progressRow?.completedSlides) && videoProgressValid)
+    : Boolean(progressRow?.completedSlides)
 
   useEffect(() => {
     setVideoDoneLocal(false)
+    setVideoWatchPct(0)
+    setVideoDurationSec(0)
+    staleVideoCompleteFixed.current = false
+    setPptxReady(false)
   }, [courseId])
+
+  useEffect(() => {
+    if (!videoCourse) setVideoWatchPct(0)
+  }, [videoCourse, courseId])
 
   useEffect(() => {
     if (!courseId || !course || !progressReady || !progressRow) return
@@ -131,74 +149,141 @@ export function LearnPage() {
     return () => window.clearTimeout(tmr)
   }, [course, courseId, slideIndex, totalSlides, saveProgress, videoCourse])
 
-  const markVideoComplete = useCallback(() => {
-    if (!courseId || !videoCourse) return
-    setVideoDoneLocal(true)
-    saveProgress.mutate(
-      {
-        slideIndex: 0,
-        audioTimeSec: 0,
-        completedSlides: true,
-      },
-      {
-        onSuccess: () => {
-          void qc.invalidateQueries({ queryKey: qk.progress(courseId) })
+  const markVideoComplete = useCallback(
+    (watchedSec: number, durationSec: number) => {
+      if (!courseId || !videoCourse || !Number.isFinite(durationSec) || durationSec <= 0) return
+      if (watchedSec < durationSec - 2) return
+      setVideoDoneLocal(true)
+      setVideoWatchPct(100)
+      setVideoDurationSec(durationSec)
+      if (progressRow?.completedSlides && videoProgressValid) return
+      saveProgress.mutate(
+        {
+          slideIndex: 0,
+          audioTimeSec: Math.floor(Math.min(watchedSec, durationSec)),
+          completedSlides: true,
         },
-      },
-    )
-  }, [courseId, saveProgress, videoCourse, qc])
+        {
+          onSuccess: () => {
+            void qc.invalidateQueries({ queryKey: qk.progress(courseId) })
+          },
+        },
+      )
+    },
+    [courseId, saveProgress, videoCourse, qc, progressRow?.completedSlides, videoProgressValid],
+  )
 
-  const submitCustomTest = useCallback(async () => {
-    if (!publishedTest?.questions.length || !course) return
-    const allAnswered = publishedTest.questions.every((q) => Boolean(mcAnswers[q.id]))
-    if (!allAnswered) {
-      setTestErr(t('ui_learn_test_answer_all', { defaultValue: 'Please answer every question.' }))
-      return
-    }
-    setSubmittingTest(true)
-    setTestErr('')
-    setTestSubmitResult(null)
-    try {
-      const res = await submitTestAnswers(course.id, mcAnswers)
-      setTestSubmitResult(res)
-      setSubmitted(true)
-      if (res.passed) {
-        const cert = await issueCertificate(course.id)
-        setFreshCert(cert)
-        await qc.invalidateQueries({ queryKey: qk.certificates })
-      }
-    } catch (e) {
-      setSubmitted(false)
-      setTestSubmitResult(null)
-      setTestErr(e instanceof Error ? e.message : 'Submit failed')
-    } finally {
-      setSubmittingTest(false)
-    }
-  }, [course, mcAnswers, publishedTest, qc])
+  const saveVideoProgress = useCallback(
+    (maxTimeSec: number, durationSec: number) => {
+      if (!courseId || !videoCourse || progressRow?.completedSlides) return
+      if (!Number.isFinite(durationSec) || durationSec <= 0) return
+      saveProgress.mutate({
+        slideIndex: 0,
+        audioTimeSec: Math.floor(Math.min(maxTimeSec, durationSec)),
+        completedSlides: false,
+      })
+    },
+    [courseId, saveProgress, videoCourse, progressRow?.completedSlides],
+  )
 
-  const submitFallbackTest = useCallback(async () => {
-    if (!course || !fallbackAnswer) return
-    setSubmittingTest(true)
-    setTestErr('')
-    setTestSubmitResult(null)
-    const passed = fallbackAnswer === 'a'
-    try {
-      const res = await submitNoTestPass(course.id, passed)
-      setTestSubmitResult({ passed: res.passed, scorePercent: passed ? 100 : 0, passPercent: 100 })
-      setSubmitted(true)
-      if (res.passed) {
-        const cert = await issueCertificate(course.id)
-        setFreshCert(cert)
-        await qc.invalidateQueries({ queryKey: qk.certificates })
+  const handleVideoProgress = useCallback(
+    (maxSec: number, durSec: number) => {
+      if (durSec > 0) {
+        setVideoDurationSec(durSec)
+        setVideoWatchPct(Math.min(100, Math.round((maxSec / durSec) * 100)))
+        const saved = progressRow?.audioTimeSec ?? 0
+        if (saved >= durSec - 2 && progressRow?.completedSlides) {
+          setVideoDoneLocal(true)
+          setVideoWatchPct(100)
+        } else if (
+          progressRow?.completedSlides &&
+          !staleVideoCompleteFixed.current &&
+          courseId
+        ) {
+          staleVideoCompleteFixed.current = true
+          saveProgress.mutate({
+            slideIndex: 0,
+            audioTimeSec: Math.floor(Math.min(saved, durSec)),
+            completedSlides: false,
+          })
+          setVideoDoneLocal(false)
+        }
       }
-    } catch (e) {
-      setSubmitted(false)
+      saveVideoProgress(maxSec, durSec)
+    },
+    [courseId, progressRow, saveVideoProgress],
+  )
+
+  const returnToSlidesAfterFail = useCallback(() => {
+    setShowTest(false)
+    setSlideIndex(0)
+    setVideoDoneLocal(false)
+    setSubmitted(false)
+    setSubmittingTest(false)
+    setTestSubmitResult(null)
+    setMcAnswers({})
+    setTestErr('')
+    setFreshCert(null)
+    autoSubmitOnTimeout.current = false
+    void qc.invalidateQueries({ queryKey: qk.progress(courseId) })
+  }, [courseId, qc])
+
+  const submitCustomTest = useCallback(
+    async (opts?: { timedOut?: boolean }) => {
+      if (!publishedTest?.questions.length || !course) return
+      const timedOut = Boolean(opts?.timedOut)
+      if (!timedOut) {
+        const allAnswered = publishedTest.questions.every((q) => Boolean(mcAnswers[q.id]))
+        if (!allAnswered) {
+          setTestErr(t('ui_learn_test_answer_all', { defaultValue: 'Please answer every question.' }))
+          return
+        }
+      }
+      setSubmittingTest(true)
+      setTestErr('')
       setTestSubmitResult(null)
-      setTestErr(e instanceof Error ? e.message : 'Submit failed')
-    } finally {
-      setSubmittingTest(false)
-    }
-  }, [course, fallbackAnswer, qc])
+      try {
+        const res = await submitTestAnswers(course.id, mcAnswers, { timedOut })
+        setTestSubmitResult(res)
+        setSubmitted(true)
+        if (res.passed) {
+          const cert = await issueCertificate(course.id)
+          setFreshCert(cert)
+          await qc.invalidateQueries({ queryKey: qk.certificates })
+        } else {
+          await qc.invalidateQueries({ queryKey: qk.progress(courseId) })
+        }
+      } catch (e) {
+        setSubmitted(false)
+        setTestSubmitResult(null)
+        if (timedOut) autoSubmitOnTimeout.current = false
+        setTestErr(e instanceof Error ? e.message : 'Submit failed')
+      } finally {
+        setSubmittingTest(false)
+      }
+    },
+    [course, mcAnswers, publishedTest, qc, courseId],
+  )
+
+  const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
+  const testTimer = useTestTimer(
+    publishedTest?.timeLimitMinutes,
+    showTest && customTestReady && !submitted && !submittingTest,
+  )
+
+  useEffect(() => {
+    if (!testTimer.expired || !showTest || !customTestReady || submitted || submittingTest) return
+    if (autoSubmitOnTimeout.current) return
+    autoSubmitOnTimeout.current = true
+    void submitCustomTest({ timedOut: true })
+  }, [
+    testTimer.expired,
+    showTest,
+    customTestReady,
+    submitted,
+    submittingTest,
+    submitCustomTest,
+  ])
 
   if (!user) {
     return (
@@ -256,26 +341,25 @@ export function LearnPage() {
   }
 
   const openTest = () => {
+    if (!contentComplete || !customTestReady) return
     setMcAnswers({})
-    setFallbackAnswer(null)
     setSubmitted(false)
     setSubmittingTest(false)
     setTestSubmitResult(null)
     setTestErr('')
     setFreshCert(null)
+    autoSubmitOnTimeout.current = false
     setShowTest(true)
   }
 
-  const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
   const customPassed = customTestReady && submitted && testSubmitResult?.passed === true
-  const fallbackPassed = !customTestReady && submitted && testSubmitResult?.passed === true
 
   const slideNum = videoCourse ? 1 : Math.min(slideIndex + 1, totalSlides)
-  const isLastSlide = videoCourse ? contentComplete : slideIndex >= totalSlides - 1
+  const isLastSlide = videoCourse ? contentComplete || videoDoneLocal : slideIndex >= totalSlides - 1
+  const pptxNavLocked = Boolean(pptxDeck && !pptxReady)
+
   const progressPct = videoCourse
-    ? contentComplete
-      ? 100
-      : 0
+    ? videoWatchPct
     : Math.round(((slideIndex + 1) / totalSlides) * 100)
 
   const passCert =
@@ -284,16 +368,8 @@ export function LearnPage() {
       : certs.filter((x) => x.courseId === course.id).at(-1)
 
   if (showTest) {
-    const passed = customTestReady ? customPassed : fallbackPassed
-    const retryTest = () => {
-      setSubmitted(false)
-      setSubmittingTest(false)
-      setTestSubmitResult(null)
-      setFallbackAnswer(null)
-      setMcAnswers({})
-      setTestErr('')
-      setFreshCert(null)
-    }
+    const passed = customPassed
+    const testLocked = testTimer.expired || submittingTest
     return (
       <KnowledgeCheckView
         course={course}
@@ -301,29 +377,24 @@ export function LearnPage() {
         categoryList={categoryList}
         mcAnswers={mcAnswers}
         setMcAnswers={setMcAnswers}
-        fallbackAnswer={fallbackAnswer}
-        setFallbackAnswer={setFallbackAnswer}
         submitted={submitted}
         submitting={submittingTest}
         passed={passed}
         testErr={testErr}
         testSubmitResult={testSubmitResult}
+        testLocked={testLocked}
+        timer={testTimer}
         passCert={passCert}
         onSubmitCustom={() => void submitCustomTest()}
-        onSubmitFallback={() => void submitFallbackTest()}
-        onRetry={retryTest}
-        onBackToCourse={() => {
-          setShowTest(false)
-          retryTest()
-        }}
+        onReturnToSlides={returnToSlidesAfterFail}
       />
     )
   }
 
   return (
-    <div className="min-h-[72vh] bg-slate-50 py-8 sm:py-12">
-      <Container>
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="bg-slate-50 py-4 sm:py-6">
+      <Container className="flex h-[calc(100svh-10rem)] max-h-[calc(100svh-10rem)] min-h-[20rem] flex-col gap-4 sm:h-[calc(100svh-9rem)] sm:max-h-[calc(100svh-9rem)]">
+        <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <p className="font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">{t('LearnPage_305_now_learning_08b44848c4')}</p>
             <h1 className="mt-1 break-words font-display text-lg font-semibold text-brand-900 sm:text-xl md:text-2xl">
@@ -338,7 +409,7 @@ export function LearnPage() {
           </Link>
         </div>
 
-        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-200/90">
+        <div className="h-1.5 shrink-0 overflow-hidden rounded-full bg-slate-200/90">
           <motion.div
             className="h-full rounded-full bg-gradient-to-r from-sky-500 to-amber-400"
             initial={false}
@@ -347,8 +418,8 @@ export function LearnPage() {
           />
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-[0_20px_50px_-28px_rgba(15,23,42,0.15)] ring-1 ring-slate-200/60">
-          <div className="relative flex aspect-[16/9] flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100/90 p-2 text-center sm:p-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-[0_20px_50px_-28px_rgba(15,23,42,0.15)] ring-1 ring-slate-200/60">
+          <div className="learn-slide-stage relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100/90 p-2 sm:p-4">
             <div
               className="pointer-events-none absolute inset-0 opacity-40 grid-pattern"
               style={{
@@ -360,7 +431,7 @@ export function LearnPage() {
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: reduce ? 0 : 0.18, ease: easeOut }}
-              className="relative flex h-full min-h-[min(70vh,520px)] w-full flex-col"
+              className="learn-slide-frame overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-slate-200/80"
             >
               <CourseSlideViewer
                 slide={currentSlide}
@@ -368,10 +439,14 @@ export function LearnPage() {
                 totalSlides={totalSlides}
                 pptxSlideIndex={pptxDeck ? slideIndex : 0}
                 onVideoEnded={videoCourse ? markVideoComplete : undefined}
+                videoResumeTimeSec={videoCourse ? (progressRow?.audioTimeSec ?? 0) : 0}
+                onVideoProgress={videoCourse ? handleVideoProgress : undefined}
+                onPptxReadyChange={pptxDeck ? setPptxReady : undefined}
+                className="h-full w-full"
               />
             </motion.div>
           </div>
-          <div className="flex flex-col gap-4 border-t border-slate-200/90 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 sm:px-8">
+          <div className="flex shrink-0 flex-col gap-4 border-t border-slate-200/90 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 sm:px-8">
             {videoCourse ? (
               <>
                 <span className="text-center text-sm text-slate-600 sm:text-left">
@@ -383,10 +458,16 @@ export function LearnPage() {
                         defaultValue: 'Watch the full video to unlock the knowledge check.',
                       })}
                 </span>
-                {contentComplete ? (
+                {contentComplete && customTestReady ? (
                   <Button className="!rounded-xl sm:shrink-0" onClick={openTest}>
                     {t('ui_learn_take_knowledge_check')}
                   </Button>
+                ) : contentComplete ? (
+                  <span className="text-center text-sm text-amber-800 sm:text-left">
+                    {t('ui_learn_no_test_configured', {
+                      defaultValue: 'Knowledge check is not set up for this course yet.',
+                    })}
+                  </span>
                 ) : null}
               </>
             ) : (
@@ -395,7 +476,7 @@ export function LearnPage() {
                   <Button
                     variant="secondary"
                     className="!rounded-xl"
-                    disabled={slideIndex <= 0}
+                    disabled={slideIndex <= 0 || pptxNavLocked}
                     onClick={() => setSlideIndex((i) => Math.max(0, i - 1))}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -404,20 +485,31 @@ export function LearnPage() {
                   <Button
                     variant="secondary"
                     className="!rounded-xl"
-                    disabled={isLastSlide}
+                    disabled={isLastSlide || pptxNavLocked}
                     onClick={() => setSlideIndex((i) => Math.min(totalSlides - 1, i + 1))}
                   >
                     {t('ui_learn_next')}
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                {isLastSlide ? (
+                {isLastSlide && customTestReady ? (
                   <Button className="!rounded-xl sm:shrink-0" onClick={openTest}>
                     {t('ui_learn_take_knowledge_check')}
                   </Button>
+                ) : isLastSlide ? (
+                  <span className="text-center text-sm text-amber-800 sm:text-left">
+                    {t('ui_learn_no_test_configured', {
+                      defaultValue: 'Knowledge check is not set up for this course yet.',
+                    })}
+                  </span>
                 ) : (
                   <span className="text-center text-sm text-slate-600 sm:text-left">
-                    {t('LearnPage_389_complete_all_slides_to_unlock_the_test_0825f886f3')}
+                    {progressRow && !progressRow.completedSlides && progressRow.slideIndex === 0
+                      ? t('ui_learn_retake_slides_hint', {
+                          defaultValue:
+                            'Review all slides again from the start to unlock the knowledge check.',
+                        })
+                      : t('LearnPage_389_complete_all_slides_to_unlock_the_test_0825f886f3')}
                   </span>
                 )}
               </>

@@ -6,8 +6,6 @@ import { prefetchPptxBuffer } from '@/lib/pptxDeckCache'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import type { CourseSlide } from '@/types'
 
-const HEAVY_DECK_SLIDES = 15
-
 type Props = {
   slide: CourseSlide
   /** Blob URL for instant preview right after upload. */
@@ -16,22 +14,19 @@ type Props = {
 
 export function AdminCourseDeckPreview({ slide, blobPreviewUrl }: Props) {
   const [index, setIndex] = useState(0)
+  const [pptxReady, setPptxReady] = useState(false)
   const src = blobPreviewUrl ?? resolveMediaUrl(slide.url)
   const fileUrl = resolveMediaUrl(slide.url)
   const pptxTotal = slide.deckSlideCount && slide.deckSlideCount > 0 ? slide.deckSlideCount : 1
-  const heavyDeck = pptxTotal > HEAVY_DECK_SLIDES
-  const [showPreview, setShowPreview] = useState(!heavyDeck)
 
   useEffect(() => {
     setIndex(0)
-    setShowPreview(!heavyDeck)
-  }, [slide.url, blobPreviewUrl, heavyDeck])
+    setPptxReady(false)
+  }, [slide.url, blobPreviewUrl])
 
   useEffect(() => {
-    if (slide.type === 'pptx' && heavyDeck && !showPreview) {
-      prefetchPptxBuffer(blobPreviewUrl ?? slide.url)
-    }
-  }, [slide.type, slide.url, blobPreviewUrl, heavyDeck, showPreview])
+    if (slide.type === 'pptx') prefetchPptxBuffer(blobPreviewUrl ?? slide.url)
+  }, [slide.type, slide.url, blobPreviewUrl])
 
   if (slide.type === 'pptx') {
     return (
@@ -58,52 +53,36 @@ export function AdminCourseDeckPreview({ slide, blobPreviewUrl }: Props) {
           ) : null}
         </div>
 
-        {!showPreview ? (
-          <div className="mt-3 rounded-lg border border-dashed border-violet-200 bg-white px-3 py-4 text-center">
-            <p className="text-xs text-slate-600">
-              Large deck ({pptxTotal} slides). Load preview when ready — it may take a moment.
-            </p>
+        <div className="learn-slide-stage mt-3 h-[min(280px,45vh)] min-h-[180px] w-full overflow-hidden rounded-lg bg-white">
+          <div className="learn-slide-frame mx-auto h-full max-h-full w-full overflow-hidden">
+            <PptxSlideViewer url={src} slideIndex={index} compact className="h-full w-full" onReadyChange={setPptxReady} />
+          </div>
+        </div>
+        {pptxTotal > 1 ? (
+          <div className="mt-3 flex items-center justify-center gap-3">
             <Button
               type="button"
               variant="secondary"
-              className="mt-3 !rounded-lg !py-2 !text-xs"
-              onClick={() => setShowPreview(true)}
+              className="!rounded-lg !py-1.5 !text-xs"
+              disabled={index <= 0 || !pptxReady}
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
             >
-              Load slide preview
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs font-medium text-slate-600">
+              {index + 1} / {pptxTotal}
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              className="!rounded-lg !py-1.5 !text-xs"
+              disabled={index >= pptxTotal - 1 || !pptxReady}
+              onClick={() => setIndex((i) => Math.min(pptxTotal - 1, i + 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        ) : (
-          <>
-            <div className="mt-3 max-h-[280px] overflow-hidden rounded-lg bg-white">
-              <PptxSlideViewer url={src} slideIndex={index} compact />
-            </div>
-            {pptxTotal > 1 ? (
-              <div className="mt-3 flex items-center justify-center gap-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="!rounded-lg !py-1.5 !text-xs"
-                  disabled={index <= 0}
-                  onClick={() => setIndex((i) => Math.max(0, i - 1))}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-xs font-medium text-slate-600">
-                  {index + 1} / {pptxTotal}
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="!rounded-lg !py-1.5 !text-xs"
-                  disabled={index >= pptxTotal - 1}
-                  onClick={() => setIndex((i) => Math.min(pptxTotal - 1, i + 1))}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : null}
-          </>
-        )}
+        ) : null}
       </div>
     )
   }

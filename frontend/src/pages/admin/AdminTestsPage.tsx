@@ -31,6 +31,7 @@ function emptyTest(courseId: string): AdminTest {
     courseId,
     title: '',
     passPercent: 80,
+    timeLimitMinutes: 0,
     published: false,
     updatedAt: new Date().toISOString(),
     questions: [newQuestion()],
@@ -42,6 +43,10 @@ function validateTest(test: AdminTest): string | null {
   if (!test.courseId) return 'Select a course.'
   if (Number.isNaN(test.passPercent) || test.passPercent < 0 || test.passPercent > 100) {
     return 'Pass threshold must be between 0 and 100.'
+  }
+  const limit = test.timeLimitMinutes ?? 0
+  if (Number.isNaN(limit) || limit < 0 || limit > 480) {
+    return 'Time limit must be 0 (no limit) or between 1 and 480 minutes.'
   }
   if (test.questions.length < 1) return 'Add at least one question.'
   for (let i = 0; i < test.questions.length; i++) {
@@ -75,7 +80,10 @@ export function AdminTestsPage() {
   }
 
   const openEdit = (row: AdminTest) => {
-    setDraft(JSON.parse(JSON.stringify(row)) as AdminTest)
+    setDraft({
+      ...(JSON.parse(JSON.stringify(row)) as AdminTest),
+      timeLimitMinutes: row.timeLimitMinutes ?? 0,
+    })
     setErr('')
     setModal('edit')
   }
@@ -92,6 +100,7 @@ export function AdminTestsPage() {
       ...draft,
       title: draft.title.trim(),
       passPercent: Math.min(100, Math.max(0, Math.round(draft.passPercent))),
+      timeLimitMinutes: Math.min(480, Math.max(0, Math.round(draft.timeLimitMinutes ?? 0))),
       updatedAt: new Date().toISOString(),
     }
     const v = validateTest(next)
@@ -207,6 +216,7 @@ export function AdminTestsPage() {
               <th className="px-4 py-3">{t('AdminTestsPage_204_course_72d8afd16e')}</th>
               <th className="px-4 py-3">{t('AdminTestsPage_205_pass_ac67fa1740')}</th>
               <th className="px-4 py-3">{t('AdminTestsPage_206_questions_3619dca933')}</th>
+              <th className="px-4 py-3">{t('ui_admin_test_time_limit', { defaultValue: 'Time limit' })}</th>
               <th className="px-4 py-3">{t('AdminTestsPage_207_status_fef601f192')}</th>
               <th className="px-4 py-3 text-right">{t('AdminTestsPage_208_actions_0d1e9ef6f2')}</th>
             </tr>
@@ -214,13 +224,13 @@ export function AdminTestsPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                   Loading…
                 </td>
               </tr>
             ) : tests.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                   No tests yet. Create one with real questions and choices; learners see it when the test is published for that course.
                 </td>
               </tr>
@@ -231,6 +241,14 @@ export function AdminTestsPage() {
                   <td className="px-4 py-3 text-slate-600">{courseTitle(row.courseId)}</td>
                   <td className="px-4 py-3">{row.passPercent}%</td>
                   <td className="px-4 py-3">{row.questions?.length ?? 0}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {(row.timeLimitMinutes ?? 0) > 0
+                      ? t('ui_admin_test_time_minutes', {
+                          defaultValue: '{{n}} min',
+                          n: row.timeLimitMinutes,
+                        })
+                      : t('ui_admin_test_time_none', { defaultValue: 'No limit' })}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={
@@ -303,6 +321,24 @@ export function AdminTestsPage() {
                   onChange={(e) => setDraft({ ...draft, passPercent: Number(e.target.value) })}
                 />
                 <p className="mt-1 text-[11px] text-slate-500">{t('AdminTestsPage_301_e_g_80_means_at_least_80_of_questions_must_be_an_367de2b246')}</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  {t('ui_admin_test_time_limit', { defaultValue: 'Time limit (minutes)' })}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={480}
+                  className="input-pro mt-1.5 w-full"
+                  value={draft.timeLimitMinutes ?? 0}
+                  onChange={(e) => setDraft({ ...draft, timeLimitMinutes: Number(e.target.value) })}
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {t('ui_admin_test_time_help', {
+                    defaultValue: '0 = no limit. When time runs out, unanswered questions count as wrong and selections are scored automatically.',
+                  })}
+                </p>
               </div>
             </div>
 

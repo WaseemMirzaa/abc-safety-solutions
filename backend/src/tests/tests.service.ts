@@ -44,23 +44,37 @@ export class TestsService {
     return Math.round((100 * correct) / test.questions.length)
   }
 
-  async submit(userId: string, courseId: string, answers: Record<string, string>) {
+  async submit(userId: string, courseId: string, answers: Record<string, string>, timedOut = false) {
     const test = await this.publishedForCourse(courseId)
     if (!test) throw new NotFoundException('No published test')
-    const missing = test.questions.filter((q) => !answers[q.id]?.trim())
-    if (missing.length > 0) {
-      throw new BadRequestException('Answer every question before submitting.')
+    const prog = await this.progress.get(userId, courseId)
+    if (!prog.completedSlides) {
+      throw new BadRequestException('Complete all course slides before taking the knowledge check.')
+    }
+    if (!timedOut) {
+      const missing = test.questions.filter((q) => !answers[q.id]?.trim())
+      if (missing.length > 0) {
+        throw new BadRequestException('Answer every question before submitting.')
+      }
     }
     const pct = this.score(test, answers)
     const passed = pct >= test.passPercent
-    await this.progress.setTestPassed(userId, courseId, passed)
-    return { passPercent: test.passPercent, scorePercent: pct, passed }
+    if (passed) {
+      await this.progress.setTestPassed(userId, courseId, true)
+    } else {
+      await this.progress.requireContentReview(userId, courseId)
+    }
+    return { passPercent: test.passPercent, scorePercent: pct, passed, timedOut }
   }
 
   async submitNoTestPass(userId: string, courseId: string, passed: boolean) {
     const test = await this.publishedForCourse(courseId)
     if (test) throw new BadRequestException('Use /tests/submit for this course')
-    await this.progress.setTestPassed(userId, courseId, passed)
+    if (passed) {
+      await this.progress.setTestPassed(userId, courseId, true)
+    } else {
+      await this.progress.requireContentReview(userId, courseId)
+    }
     return { passed }
   }
 }

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer'
-import { IsArray, IsBoolean, IsInt, IsString, Max, Min, ValidateNested } from 'class-validator'
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator'
 
 export class TestAnswerOptionDto {
   @IsString()
@@ -39,6 +39,12 @@ export class AdminTestDto {
   @Min(1)
   @Max(100)
   passPercent: number
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(480)
+  timeLimitMinutes?: number
 
   @IsBoolean()
   published: boolean
