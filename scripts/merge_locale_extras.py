@@ -35,7 +35,7 @@ EXTRAS: dict[str, str] = {
     "ui_courses_slide_label": "Slide {{n}}",
     "ui_media_upload": "Upload",
     "ui_media_url": "URL",
-    "ui_media_intro": "Upload files (stored as data URLs in this browser, max ~2 MB) or register external URLs. Production will use S3 + signed URLs.",
+    "ui_media_intro": "Upload files to the server or add an external HTTPS URL.",
     "ui_media_empty": "No media yet. Upload an image or paste a CDN URL.",
     "ui_course_detail_back": "Back to catalog",
     "ui_course_detail_back_arrow": "← Back to catalog",

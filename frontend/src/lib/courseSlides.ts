@@ -37,18 +37,18 @@ export function getCourseSlideCount(course: Course): number {
 }
 
 export function slideTypeFromFile(file: File): CourseSlideType | null {
-  if (file.type.startsWith('image/')) return 'image'
-  if (file.type === 'application/pdf') return 'pdf'
-  if (file.type.startsWith('video/')) return 'video'
   const name = file.name.toLowerCase()
+  const mime = (file.type ?? '').toLowerCase()
+  if (mime.startsWith('image/')) return 'image'
+  if (mime === 'application/pdf') return 'pdf'
+  if (mime.startsWith('video/')) return 'video'
+  if (name.endsWith('.pptx') || mime.includes('presentationml.presentation')) return 'pptx'
+  if (name.endsWith('.ppt') || mime === 'application/vnd.ms-powerpoint') return 'ppt'
   if (
-    file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    (mime === 'application/zip' || mime === 'application/x-zip-compressed' || mime === 'application/octet-stream') &&
     name.endsWith('.pptx')
   ) {
     return 'pptx'
-  }
-  if (file.type === 'application/vnd.ms-powerpoint' || name.endsWith('.ppt')) {
-    return 'ppt'
   }
   return null
 }

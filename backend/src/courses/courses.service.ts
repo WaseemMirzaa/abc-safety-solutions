@@ -78,8 +78,9 @@ export class CoursesService {
     return list.map((c) => this.map(c))
   }
 
+  /** Admin UI lists — published catalog only (drafts are hidden until published). */
   async findAllAdmin(): Promise<CourseDto[]> {
-    const list = await this.courses.find({ order: { title: 'ASC' } })
+    const list = await this.courses.find({ where: { published: true }, order: { title: 'ASC' } })
     return list.map((c) => this.map(c))
   }
 

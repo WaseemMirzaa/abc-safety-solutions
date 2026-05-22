@@ -39,28 +39,40 @@ export function mediaKindFromFilename(filename: string): UploadMediaKind | null 
 }
 
 export function mediaKindFromMime(mime: string, filename?: string): UploadMediaKind | null {
-  if (UPLOAD_MIMES.image.test(mime)) return 'image'
-  if (UPLOAD_MIMES.pdf.test(mime)) return 'pdf'
-  if (UPLOAD_MIMES.video.test(mime)) return 'video'
-  if (UPLOAD_MIMES.pptx.test(mime)) return 'pptx'
-  if (UPLOAD_MIMES.ppt.test(mime)) return 'ppt'
-  if (!mime || mime === 'application/octet-stream') {
+  const m = (mime ?? '').toLowerCase()
+  if (UPLOAD_MIMES.image.test(m)) return 'image'
+  if (UPLOAD_MIMES.pdf.test(m)) return 'pdf'
+  if (UPLOAD_MIMES.video.test(m)) return 'video'
+  if (UPLOAD_MIMES.pptx.test(m)) return 'pptx'
+  if (UPLOAD_MIMES.ppt.test(m)) return 'ppt'
+  // Browsers often send .pptx as zip or octet-stream
+  if (m === 'application/zip' || m === 'application/x-zip-compressed') {
+    const fromName = filename ? mediaKindFromFilename(filename) : null
+    if (fromName === 'pptx' || fromName === 'ppt') return fromName
+  }
+  if (!m || m === 'application/octet-stream') {
     return filename ? mediaKindFromFilename(filename) : null
   }
   return null
 }
 
-export function maxBytesForKind(kind: UploadMediaKind): number {
-  if (kind === 'image') return 5 * 1024 * 1024
-  if (kind === 'pdf') return 50 * 1024 * 1024
-  if (kind === 'video') return 100 * 1024 * 1024
-  if (kind === 'pptx' || kind === 'ppt') return 100 * 1024 * 1024
-  return 0
-}
-
-export function maxBytesForMime(mime: string, filename?: string): number {
-  const kind = mediaKindFromMime(mime, filename)
-  return kind ? maxBytesForKind(kind) : 0
+/** Multer fileFilter — rejects unsupported types before save. */
+export function multerFileFilter(
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) {
+  const kind = mediaKindFromMime(file.mimetype, file.originalname)
+  if (!kind) {
+    cb(
+      new Error(
+        'Allowed types: images, PDF, PowerPoint (.pptx or .ppt), and video (MP4, WebM, etc.).',
+      ),
+      false,
+    )
+    return
+  }
+  cb(null, true)
 }
 
 /** Site root from .env, e.g. http://2.24.110.154 (no trailing slash). */
@@ -81,11 +93,6 @@ export function assertAllowedUpload(file: Express.Multer.File) {
     throw new BadRequestException(
       'Allowed types: images, PDF, PowerPoint (.pptx or .ppt), and video (MP4, WebM, etc.).',
     )
-  }
-  const max = maxBytesForKind(kind)
-  if (file.size > max) {
-    const mb = Math.round(max / 1024 / 1024)
-    throw new BadRequestException(`File too large. Max ${mb} MB for ${kind} uploads.`)
   }
   return kind
 }

@@ -1,4 +1,4 @@
-import { apiJson, ApiError, adminUploadFile, adminUploadImage, publicJson } from './client'
+import { apiJson, ApiError, adminUploadFile, adminUploadImage, adminUploadMedia, publicJson } from './client'
 import type {
   AdminDirectoryUser,
   AdminTest,
@@ -18,6 +18,8 @@ export type EnrollmentRow = {
   orderId: string
   refunded: boolean
   purchasedAt: string
+  /** Server-computed: paid Stripe session or free course. */
+  hasAccess?: boolean
   course: Course | null
 }
 
@@ -396,4 +398,4 @@ export async function completeStripeCheckout(sessionId: string): Promise<{ ok: b
   })
 }
 
-export { adminUploadFile, adminUploadImage }
+export { adminUploadFile, adminUploadImage, adminUploadMedia } from './client'

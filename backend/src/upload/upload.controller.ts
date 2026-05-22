@@ -4,8 +4,7 @@ import { AuthGuard } from '@nestjs/passport'
 import { AdminGuard } from '../common/admin.guard'
 import {
   assertAllowedUpload,
-  maxBytesForKind,
-  mediaKindFromMime,
+  multerFileFilter,
   uploadDiskStorage,
   uploadUrlForFile,
 } from './upload-storage'
@@ -13,44 +12,25 @@ import {
 @Controller('admin/upload')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class UploadController {
+  /** Images (legacy path). Accepts same types as /file so older admin builds still work. */
   @Post('image')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: uploadDiskStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        if (mediaKindFromMime(file.mimetype, file.originalname) !== 'image') {
-          cb(new Error('Images only'), false)
-          return
-        }
-        cb(null, true)
-      },
+      fileFilter: multerFileFilter,
     }),
   )
   uploadImage(@UploadedFile() file: Express.Multer.File) {
-    assertAllowedUpload(file)
-    return { url: uploadUrlForFile(file.filename), fileName: file.originalname, kind: 'image' as const }
+    const kind = assertAllowedUpload(file)
+    return { url: uploadUrlForFile(file.filename), fileName: file.originalname, kind }
   }
 
-  /** Images, PDFs (full deck with embedded video/images), and video files for course slides. */
+  /** Images, PDFs, PowerPoint, and video for course slides / media library. */
   @Post('file')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: uploadDiskStorage(),
-      limits: { fileSize: 100 * 1024 * 1024 },
-      fileFilter: (_req, file, cb) => {
-        const kind = mediaKindFromMime(file.mimetype, file.originalname)
-        if (!kind) {
-          cb(new Error('Allowed: images, PDF, .pptx/.ppt, video/*'), false)
-          return
-        }
-        const max = maxBytesForKind(kind)
-        if (file.size > max) {
-          cb(new Error(`File exceeds ${Math.round(max / 1024 / 1024)} MB limit`), false)
-          return
-        }
-        cb(null, true)
-      },
+      fileFilter: multerFileFilter,
     }),
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {

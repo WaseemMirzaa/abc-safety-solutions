@@ -26,6 +26,7 @@ import { easeOut, transition } from '@/lib/motionPresets'
 import type { AdminTest, Certificate } from '@/types'
 import { t } from '@/i18n/t'
 import { displayCourseTitle } from '@/lib/courseDisplay'
+import { findEnrollment, hasCourseAccess } from '@/lib/courseAccess'
 
 function scoreMeetsPassThreshold(test: AdminTest, answers: Record<string, string>): boolean {
   if (!test.questions.length) return false
@@ -55,9 +56,10 @@ export function LearnPage() {
     enabled: Boolean(user && courseId),
   })
 
-  const purchased = Boolean(
-    course && enrollments.some((e) => e.courseId === course.id && !e.refunded),
-  )
+  const enrollment = course ? findEnrollment(enrollments, course.id) : undefined
+  const hasAccess =
+    enrollment?.hasAccess ??
+    (enrollment && course ? hasCourseAccess(enrollment, course) : false)
 
   const { data: categoryList = [] } = useQuery({
     queryKey: qk.categories,
@@ -68,19 +70,19 @@ export function LearnPage() {
   const { data: progressRow, isFetched: progressReady } = useQuery({
     queryKey: qk.progress(courseId),
     queryFn: () => fetchMyProgress(courseId),
-    enabled: Boolean(user && courseId && purchased),
+    enabled: Boolean(user && courseId && hasAccess),
   })
 
   const { data: publishedTest } = useQuery({
     queryKey: qk.publishedTest(courseId),
     queryFn: () => fetchPublishedTestForCourse(courseId),
-    enabled: Boolean(user && courseId && purchased),
+    enabled: Boolean(user && courseId && hasAccess),
   })
 
   const { data: certs = [] } = useQuery({
     queryKey: qk.certificates,
     queryFn: fetchMyCertificates,
-    enabled: Boolean(user && courseId && purchased),
+    enabled: Boolean(user && courseId && hasAccess),
   })
 
   const saveProgress = useMutation({
@@ -186,14 +188,19 @@ export function LearnPage() {
     )
   }
 
-  if (!purchased) {
+  if (!hasAccess) {
+    const checkoutHref = `/checkout?course=${encodeURIComponent(course.slug)}`
     return (
       <div className="py-20">
         <Container className="max-w-lg">
           <h1 className="font-display text-xl font-bold text-brand-900">{t('LearnPage_100_not_enrolled_597ec4b0de')}</h1>
-          <p className="mt-2 text-slate-600">{t('ui_learn_enroll_first')}</p>
-          <Link to={`/courses/${course.slug}`}>
-            <Button className="mt-6">{t('LearnPage_103_view_course_4787a51af8')}</Button>
+          <p className="mt-2 text-slate-600">
+            {course.priceCents > 0 ? t('ui_learn_pay_first') : t('ui_learn_enroll_first')}
+          </p>
+          <Link to={course.priceCents > 0 ? checkoutHref : `/courses/${course.slug}`}>
+            <Button className="mt-6">
+              {course.priceCents > 0 ? t('ui_checkout_pay_stripe') : t('LearnPage_103_view_course_4787a51af8')}
+            </Button>
           </Link>
         </Container>
       </div>

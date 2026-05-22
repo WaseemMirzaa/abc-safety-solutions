@@ -1,3 +1,5 @@
+import { logError } from '@/lib/log'
+
 export const TOKEN_KEY = 'abc_access_token'
 
 export function getToken(): string | null {
@@ -45,7 +47,9 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* keep raw */
     }
-    throw new ApiError(res.status, msg)
+    const apiErr = new ApiError(res.status, msg)
+    logError('api', apiErr, { path, status: res.status })
+    throw apiErr
   }
   if (!text) return undefined as T
   return JSON.parse(text) as T
@@ -69,7 +73,9 @@ export async function publicJson<T>(path: string, init?: RequestInit): Promise<T
     } catch {
       /* keep raw */
     }
-    throw new ApiError(res.status, msg)
+    const apiErr = new ApiError(res.status, msg)
+    logError('api:public', apiErr, { path, status: res.status })
+    throw apiErr
   }
   if (!text) return undefined as T
   return JSON.parse(text) as T
@@ -97,7 +103,9 @@ async function adminUpload(path: string, file: File): Promise<{ url: string; fil
     } catch {
       /* */
     }
-    throw new ApiError(res.status, msg)
+    const apiErr = new ApiError(res.status, msg)
+    logError('api:upload', apiErr, { path, status: res.status, file: file.name })
+    throw apiErr
   }
   return JSON.parse(text) as { url: string; fileName: string; kind?: string }
 }
@@ -106,8 +114,17 @@ export async function adminUploadImage(file: File): Promise<{ url: string; fileN
   return adminUpload('/api/admin/upload/image', file)
 }
 
-/** Images, PDFs (up to 50 MB), videos (up to 100 MB) for course slides. */
+/** Images, PDFs, videos, and PowerPoint for course slides / media library. */
 export async function adminUploadFile(file: File): Promise<{ url: string; fileName: string; kind: string }> {
   const r = await adminUpload('/api/admin/upload/file', file)
   return { url: r.url, fileName: r.fileName, kind: r.kind ?? 'image' }
+}
+
+/** Picks /file or /image (both accept the same types on the server). */
+export async function adminUploadMedia(file: File): Promise<{ url: string; fileName: string; kind: string }> {
+  if (file.type.startsWith('image/')) {
+    const r = await adminUploadImage(file)
+    return { url: r.url, fileName: r.fileName, kind: 'image' }
+  }
+  return adminUploadFile(file)
 }

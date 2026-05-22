@@ -3,16 +3,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Image as ImageIcon, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { adminCreateMedia, adminDeleteMedia, adminUploadImage, fetchMediaAssets } from '@/api/localData'
+import { adminCreateMedia, adminDeleteMedia, adminUploadMedia, fetchMediaAssets } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { inferMediaKind } from '@/lib/readFileAsDataUrl'
 import type { MediaAsset } from '@/types'
 import { fieldClass } from '@/lib/adminForm'
+import { logError } from '@/lib/log'
 import { t } from '@/i18n/t'
 
 const kinds: MediaAsset['kind'][] = ['image', 'audio', 'document', 'other']
-
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 export function AdminMediaPage() {
   const qc = useQueryClient()
@@ -49,18 +48,23 @@ export function AdminMediaPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadErr('')
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setUploadErr('File too large (max 5 MB).')
-      return
-    }
     try {
-      const r = await adminUploadImage(file)
+      const r = await adminUploadMedia(file)
       setUrl(r.url)
-      setKind(inferMediaKind(file.type || 'application/octet-stream'))
+      const uploadKind = r.kind
+      setKind(
+        uploadKind === 'pdf' || uploadKind === 'pptx' || uploadKind === 'ppt'
+          ? 'document'
+          : uploadKind === 'video'
+            ? 'other'
+            : inferMediaKind(file.type || 'application/octet-stream'),
+      )
       setFileName(file.name)
       if (!label.trim()) setLabel(file.name.replace(/\.[^.]+$/, ''))
     } catch (err) {
-      setUploadErr(err instanceof Error ? err.message : 'Could not read file.')
+      const msg = err instanceof Error ? err.message : 'Could not read file.'
+      setUploadErr(msg)
+      logError('admin:media-upload', err, { file: file.name, type: file.type })
     }
   }
 
@@ -183,9 +187,15 @@ export function AdminMediaPage() {
           <div className="space-y-6">
             <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_168_upload_file_cd5a443e57')}</p>
-              <input ref={fileRef} type="file" accept="image/*,audio/*,.pdf,.mp3,.wav,.m4a" className="sr-only" onChange={onPickFile} />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,audio/*,.pdf,.pptx,.ppt,video/*,.mp4,.webm"
+                className="sr-only"
+                onChange={onPickFile}
+              />
               <p className="mt-2 text-xs text-slate-500">
-                Images, audio, or PDF — max {(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)} MB.
+                Images, PDF, video, or PowerPoint — stored on the server under /uploads/.
               </p>
               {uploadErr ? <p className="mt-2 text-sm font-medium text-red-600">{uploadErr}</p> : null}
               <Button type="button" variant="secondary" className="mt-3 gap-2" onClick={() => fileRef.current?.click()}>

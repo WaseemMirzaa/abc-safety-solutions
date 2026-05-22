@@ -27,8 +27,12 @@ export class StripeService {
     this.stripe = key ? new Stripe(key) : null
   }
 
+  /** True only when flag is on AND secret key is present. */
   enabled() {
-    return this.config.get<string>('STRIPE_ENABLED', 'false') === 'true'
+    return (
+      this.config.get<string>('STRIPE_ENABLED', 'false') === 'true' &&
+      Boolean(this.config.get<string>('STRIPE_SECRET_KEY', '')?.trim())
+    )
   }
 
   private client(): Stripe {

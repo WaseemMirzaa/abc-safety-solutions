@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { adminDeleteTest, adminSaveTest, fetchAdminTests, fetchAllCoursesAdmin } from '@/api/localData'
+import { adminDeleteTest, adminSaveTest, fetchAdminTests, fetchPublishedCourses } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import type { AdminTest, TestAnswerOption, TestQuestion } from '@/types'
 import { t } from '@/i18n/t'
@@ -60,7 +60,7 @@ function validateTest(test: AdminTest): string | null {
 export function AdminTestsPage() {
   const qc = useQueryClient()
   const { data: tests = [], isLoading } = useQuery({ queryKey: qk.adminTests, queryFn: fetchAdminTests })
-  const { data: courseList = [] } = useQuery({ queryKey: qk.adminCourses, queryFn: fetchAllCoursesAdmin })
+  const { data: courseList = [] } = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
 
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<AdminTest | null>(null)

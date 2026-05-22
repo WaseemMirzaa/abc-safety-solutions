@@ -3,15 +3,18 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
 import { Repository } from 'typeorm'
 import { ProgressEntity } from '../entities/progress.entity'
+import { EnrollmentsService } from '../enrollments/enrollments.service'
 
 @Injectable()
 export class ProgressService {
   constructor(
     @InjectRepository(ProgressEntity)
     private readonly progress: Repository<ProgressEntity>,
+    private readonly enrollments: EnrollmentsService,
   ) {}
 
   async get(userId: string, courseId: string) {
+    await this.enrollments.assertEnrolled(userId, courseId)
     let row = await this.progress.findOne({ where: { userId, courseId } })
     if (!row) {
       row = this.progress.create({

@@ -11,13 +11,20 @@
    - Events: `checkout.session.completed`
    - Copy the **Signing secret** (`whsec_…`)
 
-## 2. Server `.env` (project root on VPS)
+## 2. Server `.env` (`backend/.env` on VPS — PM2 runs from `backend/`)
 
 ```env
 STRIPE_ENABLED=true
 STRIPE_SECRET_KEY=sk_test_xxxxxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxx
-FRONTEND_URL=h http://2.24.110.154/api/stripe/webhook
+FRONTEND_URL=http://2.24.110.154
+```
+
+Check API sees Stripe:
+
+```bash
+curl -s http://2.24.110.154/api/stripe/config
+# {"enabled":true}
 ```
 
 Run DB migration after pull:
@@ -40,10 +47,11 @@ Rebuild and deploy the frontend static files after changing this.
 
 ## 4. Flow
 
-1. Learner signs in → course → **Enroll** / checkout.
+1. Learner signs in → course → **Purchase** (Stripe Checkout).
 2. API creates or reuses a **Stripe Customer** (`users.stripeCustomerId`).
-3. Stripe Checkout opens with the course **price from the database** (`priceCent ths`).
-4. On payment, **webhook** enrolls the user; the success page also calls `/api/stripe/session/complete` as a backup.
+3. Stripe Checkout opens with the course **price from the database** (`priceCents`).
+4. On payment, **webhook** enrolls the user (`orderId` = `cs_…` session id). **Continue to course** only appears after that.
+5. Free enroll (`POST /enrollments/enroll`) is allowed only when `priceCents` is 0.
 
 ## 5. Local webhook testing
 

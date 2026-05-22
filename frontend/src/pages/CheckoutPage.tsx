@@ -5,7 +5,14 @@ import { Button } from '@/components/Button'
 import { CreditCard } from 'lucide-react'
 import { t } from '@/i18n/t'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchCourseBySlug, fetchStripeConfig, purchaseCourse, createStripeCheckoutSession } from '@/api/localData'
+import {
+  createStripeCheckoutSession,
+  fetchCourseBySlug,
+  fetchMyEnrollments,
+  fetchStripeConfig,
+  purchaseCourse,
+} from '@/api/localData'
+import { findEnrollment, hasCourseAccess } from '@/lib/courseAccess'
 import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { useState } from 'react'
@@ -31,6 +38,12 @@ export function CheckoutPage() {
     enabled: Boolean(courseSlug),
   })
 
+  const { data: enrollments = [] } = useQuery({
+    queryKey: qk.enrollments,
+    queryFn: fetchMyEnrollments,
+    enabled: Boolean(user && courseSlug),
+  })
+
   const { data: stripeConfig } = useQuery({
     queryKey: ['stripe', 'config'],
     queryFn: fetchStripeConfig,
@@ -38,15 +51,26 @@ export function CheckoutPage() {
   })
 
   const stripeEnabled = stripeConfig?.enabled ?? viteStripe
+  const enrollment = course ? findEnrollment(enrollments, course.id) : undefined
+  const alreadyPaid =
+    enrollment?.hasAccess ?? (enrollment && course ? hasCourseAccess(enrollment, course) : false)
 
   const loginHref = `/login?redirect=${encodeURIComponent(`/checkout?course=${encodeURIComponent(courseSlug)}`)}`
 
   async function pay() {
     if (!user || !course) return
+    if (alreadyPaid) {
+      navigate(`/learn/${course.id}`)
+      return
+    }
     setErr(null)
     setBusy(true)
     try {
-      if (stripeEnabled && course.priceCents > 0) {
+      if (course.priceCents > 0) {
+        if (!stripeEnabled) {
+          setErr(t('ui_checkout_stripe_fail'))
+          return
+        }
         const { url } = await createStripeCheckoutSession(course.id)
         if (url) window.location.href = url
         else setErr(t('ui_checkout_stripe_fail'))
@@ -57,11 +81,8 @@ export function CheckoutPage() {
         navigate('/my-courses')
       }
     } catch (e) {
-      if (e instanceof ApiError && e.status === 400 && stripeEnabled) {
-        setErr(t('ui_checkout_stripe_fail'))
-      } else {
-        setErr(t('ui_checkout_err'))
-      }
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : t('ui_checkout_err')
+      setErr(stripeEnabled ? msg : t('ui_checkout_err'))
     } finally {
       setBusy(false)
     }
@@ -93,6 +114,16 @@ export function CheckoutPage() {
           </div>
         )}
         <div className="card-elevated mt-8 space-y-4 p-6">
+          {course && course.priceCents > 0 && !alreadyPaid ? (
+            <p className="text-xs text-slate-600">
+              {stripeEnabled
+                ? 'Stripe Checkout opens when you click Purchase below. Course access is granted only after payment succeeds.'
+                : t('ui_checkout_stripe_fail')}
+            </p>
+          ) : null}
+          {alreadyPaid ? (
+            <p className="text-xs text-emerald-800">Payment complete — you can open the course.</p>
+          ) : null}
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
           {!ready ? null : !user ? (
             <>
@@ -106,9 +137,11 @@ export function CheckoutPage() {
               <Button className="w-full" disabled={busy} onClick={() => void pay()}>
                 {busy
                   ? t('ui_checkout_busy')
-                  : stripeEnabled
-                    ? t('ui_checkout_pay_stripe')
-                    : t('ui_checkout_enroll_btn')}
+                  : alreadyPaid
+                    ? t('CourseDetailPage_134_continue_to_course_6b6b6ed6e8')
+                    : course.priceCents > 0
+                      ? t('ui_checkout_pay_stripe')
+                      : t('ui_checkout_enroll_btn')}
               </Button>
             </>
           ) : null}

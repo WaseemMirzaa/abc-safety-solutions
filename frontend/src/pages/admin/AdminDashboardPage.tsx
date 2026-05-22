@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchPublishedCourses,
-  fetchAllCoursesAdmin,
   fetchCategories,
   fetchMediaAssets,
   fetchAdminTests,
@@ -16,7 +15,6 @@ import { t } from '@/i18n/t'
 
 export function AdminDashboardPage() {
   const qPub = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
-  const qAll = useQuery({ queryKey: qk.adminCourses, queryFn: fetchAllCoursesAdmin })
   const qCat = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
   const qMedia = useQuery({ queryKey: qk.adminMedia, queryFn: fetchMediaAssets })
   const qTests = useQuery({ queryKey: qk.adminTests, queryFn: fetchAdminTests })
@@ -29,7 +27,6 @@ export function AdminDashboardPage() {
 
   const loading =
     qPub.isPending ||
-    qAll.isPending ||
     qCat.isPending ||
     qMedia.isPending ||
     qTests.isPending ||
@@ -38,7 +35,6 @@ export function AdminDashboardPage() {
     qStats.isPending
 
   const published = qPub.data ?? []
-  const all = qAll.data ?? []
   const allCats = qCat.data ?? []
   const media = qMedia.data ?? []
   const tests = qTests.data ?? []
@@ -47,7 +43,6 @@ export function AdminDashboardPage() {
 
   const metrics = [
     { label: t('ui_metric_published_courses'), value: published.length },
-    { label: t('ui_metric_total_courses'), value: all.length },
     { label: t('ui_metric_categories'), value: allCats.length },
     { label: t('ui_metric_enrollments'), value: purchases },
     { label: t('ui_metric_certificates_issued'), value: certs },

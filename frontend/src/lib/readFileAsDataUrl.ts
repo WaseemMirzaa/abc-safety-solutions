@@ -1,13 +1,5 @@
-export function readFileAsDataUrl(file: File, maxBytes: number): Promise<string> {
+export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    if (file.size > maxBytes) {
-      reject(
-        new Error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB. Max allowed is ${(maxBytes / 1024 / 1024).toFixed(0)} MB.`,
-        ),
-      )
-      return
-    }
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
     reader.onerror = () => reject(new Error('Could not read file.'))

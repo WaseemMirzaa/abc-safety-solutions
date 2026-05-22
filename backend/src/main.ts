@@ -1,16 +1,40 @@
 import { NestFactory } from '@nestjs/core'
-import { ValidationPipe } from '@nestjs/common'
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common'
 import { AppModule } from './app.module'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import * as express from 'express'
 
 async function bootstrap() {
+  const bootLog = new Logger('Bootstrap')
   const uploadDir = join(process.cwd(), (process.env.UPLOAD_DIR ?? './uploads').replace(/^\.\//, ''))
   if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true })
 
   const app = await NestFactory.create(AppModule, { rawBody: true })
-  app.getHttpAdapter().getInstance().use('/uploads', express.static(uploadDir))
+  const http = app.getHttpAdapter().getInstance()
+  http.use('/uploads', express.static(uploadDir))
+  // Multer fileFilter errors are plain Error — return 400 JSON so the admin UI can show them
+  http.use(
+    (
+      err: Error & { status?: number },
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction,
+    ) => {
+      if (err?.message && !err.status && !res.headersSent) {
+        const msg = err.message
+        if (
+          /allowed types|images only|file exceeds|too large/i.test(msg) ||
+          msg.startsWith('Allowed')
+        ) {
+          bootLog.warn(`Upload rejected ${req.method} ${req.url}: ${msg}`)
+          const body = new BadRequestException(msg).getResponse()
+          return res.status(400).json(body)
+        }
+      }
+      next(err)
+    },
+  )
   app.setGlobalPrefix('api')
   app.useGlobalPipes(
     new ValidationPipe({

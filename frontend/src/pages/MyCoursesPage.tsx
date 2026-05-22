@@ -10,6 +10,7 @@ import { PageHeaderSkeleton, MyCourseRowSkeleton } from '@/components/ui/Skeleto
 import { useAuth } from '@/contexts/AuthContext'
 import { getCourseSlideCount } from '@/lib/courseSlides'
 import { fetchMyEnrollments, fetchMyProgress, fetchPublishedCourses } from '@/api/localData'
+import { hasCourseAccess } from '@/lib/courseAccess'
 import { qk } from '@/api/queryKeys'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { BookOpen } from 'lucide-react'
@@ -85,7 +86,11 @@ export function MyCoursesPage() {
 
   const byId = new Map(courses.map((c) => [c.id, c]))
   const mine = enrollments
-    .filter((e) => !e.refunded)
+    .filter((e) => {
+      if (e.refunded) return false
+      const c = e.course ?? byId.get(e.courseId)
+      return e.hasAccess ?? (c ? hasCourseAccess(e, c) : false)
+    })
     .map((e) => e.course ?? byId.get(e.courseId))
     .filter(Boolean) as typeof courses
 

@@ -41,17 +41,10 @@ curl -I http://2.24.110.154/uploads/   # 404 is OK if no file; must not be SPA H
 
 ## Size limits
 
-| Type | Max size |
-|------|----------|
-| Images (hero) | 5 MB |
-| PDF | 50 MB |
-| `.pptx` / `.ppt` | 100 MB |
-| Video | 100 MB |
-
-Nginx must allow large bodies:
+The API does not enforce per-type file size caps on multipart uploads. Limit uploads only at the reverse proxy or disk if needed:
 
 ```nginx
-client_max_body_size 110M;
+client_max_body_size 0;   # 0 = no nginx body size limit (see deploy/nginx-pm2.conf)
 ```
 
 ## Backup
@@ -68,6 +61,6 @@ Replacing a `.pptx` in Admin does **not** delete the old file on disk (orphans a
 
 | Problem | Fix |
 |---------|-----|
-| Upload fails / 413 | Increase nginx `client_max_body_size` to `110M` and reload nginx |
+| Upload fails / 413 | Raise or disable nginx `client_max_body_size` (e.g. `0`) and reload nginx |
 | Preview 404 | Confirm `pm2 restart abc-api` and file exists under `backend/uploads/` |
 | Wrong image URL | Use `/uploads/...` paths; avoid hard-coding `PUBLIC_BASE_URL` to another host |

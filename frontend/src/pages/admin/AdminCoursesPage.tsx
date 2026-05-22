@@ -5,6 +5,8 @@ import { AdminModal } from '@/components/admin/AdminModal'
 import { AdminCourseDeckPreview } from '@/components/admin/AdminCourseDeckPreview'
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
+import { ApiError } from '@/api/client'
+import { logError } from '@/lib/log'
 import {
   adminCreateCourse,
   adminDeleteCourse,
@@ -41,7 +43,7 @@ function emptyCustomCourse(categoryId: string): Course {
     slideCount: 1,
     certificateValidityDays: null,
     imageUrl: 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/Occupational-Health-Safety-Training-min.jpg',
-    published: false,
+    published: true,
   }
 }
 
@@ -249,10 +251,9 @@ export function AdminCoursesPage() {
     setUploading(true)
     try {
       revokeDeckBlob()
-      const deckSlideCount = await countPptxSlides(file)
       setDeckBlobUrl(URL.createObjectURL(file))
       const { url, fileName } = await adminUploadFile(file)
-      revokeDeckBlob()
+      const deckSlideCount = await countPptxSlides(file)
       patchDraft({
         slides: [
           {
@@ -266,7 +267,14 @@ export function AdminCoursesPage() {
         slideCount: deckSlideCount,
       })
     } catch (err) {
-      setSlideUploadErr(err instanceof Error ? err.message : 'Upload failed.')
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Upload failed.'
+      setSlideUploadErr(msg)
+      logError('admin:pptx-upload', err, { file: file.name, type: file.type })
       revokeDeckBlob()
     } finally {
       setUploading(false)
