@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { randomUUID } from 'node:crypto'
+import { randomInt, randomUUID } from 'node:crypto'
 import { Repository } from 'typeorm'
 import { CertificateEntity } from '../entities/certificate.entity'
 import { CourseEntity } from '../entities/course.entity'
@@ -8,6 +8,9 @@ import { CategoryEntity } from '../entities/category.entity'
 import { ProgressEntity } from '../entities/progress.entity'
 import { CourseTestEntity } from '../entities/course-test.entity'
 import { EnrollmentsService } from '../enrollments/enrollments.service'
+
+const MIN_CERTIFICATE_NUMBER = 100_001
+const MAX_CERTIFICATE_NUMBER = 9_999_999
 
 @Injectable()
 export class CertificatesService {
@@ -29,15 +32,49 @@ export class CertificatesService {
     return this.certs.find({ where: { userId }, order: { issuedAt: 'DESC' } })
   }
 
-  /** Public lookup by opaque certificate id (UUID). */
+  private async findByPublicId(idOrNumber: string): Promise<CertificateEntity | null> {
+    const raw = idOrNumber.trim().replace(/^#/, '')
+    if (!raw) return null
+    if (/^\d+$/.test(raw)) {
+      const byNumber = await this.certs.findOne({ where: { certificateNumber: parseInt(raw, 10) } })
+      if (byNumber) return byNumber
+    }
+    return this.certs.findOne({ where: { id: raw } })
+  }
+
+  /** Random numeric ID in [#100001, #9999999]; retries if already in DB, then sequential fallback. */
+  private async allocateCertificateNumber(): Promise<number> {
+    for (let attempt = 0; attempt < 64; attempt++) {
+      const n = randomInt(MIN_CERTIFICATE_NUMBER, MAX_CERTIFICATE_NUMBER + 1)
+      const taken = await this.certs.exist({ where: { certificateNumber: n } })
+      if (!taken) return n
+    }
+    const row = await this.certs
+      .createQueryBuilder('c')
+      .select('MAX(c.certificateNumber)', 'max')
+      .getRawOne<{ max: string | number | null }>()
+    const max = Number(row?.max ?? 0)
+    const next = Math.max(MIN_CERTIFICATE_NUMBER, max + 1)
+    if (next > MAX_CERTIFICATE_NUMBER) {
+      throw new BadRequestException('Could not allocate certificate number')
+    }
+    const taken = await this.certs.exist({ where: { certificateNumber: next } })
+    if (!taken) return next
+    throw new BadRequestException('Could not allocate certificate number')
+  }
+
+  /** Public lookup by certificate number (#100001) or legacy UUID. */
   async verifyPublic(id: string) {
-    const cert = await this.certs.findOne({ where: { id } })
+    const cert = await this.findByPublicId(id)
     if (!cert) throw new NotFoundException('Certificate not found')
     return {
       valid: true,
-      certificateId: cert.id,
+      certificateId: String(cert.certificateNumber),
+      certificateNumber: cert.certificateNumber,
       courseName: cert.courseName,
       issuedTo: cert.userName,
+      certificationText: cert.certificationText,
+      categoryId: cert.categoryId,
       issuedAt: cert.issuedAt instanceof Date ? cert.issuedAt.toISOString() : String(cert.issuedAt),
       expiresAt: cert.expiresAt ? (cert.expiresAt instanceof Date ? cert.expiresAt.toISOString() : String(cert.expiresAt)) : null,
     }
@@ -70,8 +107,10 @@ export class CertificatesService {
       expiresAt.setUTCDate(expiresAt.getUTCDate() + course.certificateValidityDays)
     }
 
+    const certificateNumber = await this.allocateCertificateNumber()
     const row = this.certs.create({
       id: randomUUID(),
+      certificateNumber,
       userId,
       courseId,
       categoryId: course.categoryId,

@@ -1,3 +1,4 @@
+import { clsx } from 'clsx'
 import { Clock } from 'lucide-react'
 import { t } from '@/i18n/t'
 
@@ -9,26 +10,38 @@ type Props = {
   urgent: boolean
   critical: boolean
   label: string
+  className?: string
 }
 
-export function TestTimerBar({ remainingSec, totalSec, progressPct, expired, urgent, critical, label }: Props) {
+export function TestTimerBar({
+  remainingSec,
+  totalSec,
+  progressPct,
+  expired,
+  urgent,
+  critical,
+  label,
+  className,
+}: Props) {
   const barClass = expired
     ? 'bg-rose-500'
     : critical
       ? 'bg-rose-500'
       : urgent
         ? 'bg-amber-500'
-        : 'bg-gradient-to-r from-sky-500 to-violet-500'
+        : 'bg-gradient-to-r from-sky-400 to-sky-600'
 
   return (
     <div
-      className={`mt-6 overflow-hidden rounded-2xl border shadow-sm ring-1 ${
+      className={clsx(
+        'overflow-hidden rounded-2xl border shadow-sm ring-1',
         expired
           ? 'border-rose-200 bg-rose-50/90 ring-rose-100'
           : critical
             ? 'border-rose-200/80 bg-white ring-rose-100/80'
-            : 'border-slate-200/90 bg-white ring-slate-100'
-      }`}
+            : 'border-slate-200/90 bg-white ring-slate-100',
+        className,
+      )}
       role="timer"
       aria-live="polite"
       aria-atomic="true"

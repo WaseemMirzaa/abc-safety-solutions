@@ -1,5 +1,12 @@
-/** Primary wordmark — matches client site colors (sky blue #0099FF). Served locally for reliability. */
+/** Official wordmark from abcsafetysolutions.com (light variant for public portal). */
+export const brandLogoCustomer =
+  'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
+
+/** Local copy for favicon and admin shell (same asset as brandLogoCustomer). */
 export const brandLogoLight = '/brand/logo-light.png'
+
+/** Legal / certificate display name (exact casing). */
+export const certificateBrandName = 'ABC Safety Solutions'
 
 /** Imagery from [ABC Safety Solutions](https://abcsafetysolutions.com/training-certification/) (client site). */
 const B = 'https://abcsafetysolutions.com/wp-content/uploads'

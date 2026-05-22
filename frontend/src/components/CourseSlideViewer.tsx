@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { FileText, Presentation } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import type { CourseSlide } from '@/types'
 import { PptxSlideViewer } from '@/components/PptxSlideViewer'
+import { LearnSlideChrome } from '@/components/learn/LearnSlideChrome'
 import { VideoSlidePlayer } from '@/components/learn/VideoSlidePlayer'
 import { prefetchPptxBuffer } from '@/lib/pptxDeckCache'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
@@ -20,6 +21,12 @@ type Props = {
   onVideoProgress?: (maxTimeSec: number, durationSec: number) => void
   /** True when a .pptx deck has finished loading. */
   onPptxReadyChange?: (ready: boolean) => void
+  onPptxSlideCount?: (count: number) => void
+  /** Learn page: full-bleed deck, chrome overlay, no duplicate hints. */
+  learnDeck?: boolean
+  /** Learn page: media fills the frame (video/PDF/PPTX); no slide counter on video. */
+  learnMode?: boolean
+  pptxLoading?: boolean
   className?: string
 }
 
@@ -33,9 +40,20 @@ export function CourseSlideViewer({
   videoResumeTimeSec = 0,
   onVideoProgress,
   onPptxReadyChange,
+  onPptxSlideCount,
+  learnDeck = false,
+  learnMode = false,
+  pptxLoading = false,
   className = '',
 }: Props) {
   const src = slide ? resolveMediaUrl(slide.url) : ''
+  const slideType = slide?.type
+  const isVideo = slideType === 'video'
+  const isPdf = slideType === 'pdf'
+  const isPptx = slideType === 'pptx'
+  const isPptxLearn = learnDeck && isPptx
+  const contentFullBleed = learnMode && (isVideo || isPdf || isPptx || slideType === 'image')
+  const showSlideLabel = !isVideo && !(learnMode && (isPdf || isPptx))
 
   useEffect(() => {
     if (slide?.type === 'pptx') {
@@ -49,11 +67,25 @@ export function CourseSlideViewer({
     <div
       className={`relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden ${className}`}
     >
-      <p className="pointer-events-none absolute left-2 top-2 z-10 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:left-3 sm:top-3 sm:text-xs">
-        {t('ui_learn_slide_progress', { n: slideNum, total: totalSlides })}
-      </p>
+      {isPptxLearn ? (
+        <LearnSlideChrome slideNum={slideNum} totalSlides={totalSlides} loading={pptxLoading} />
+      ) : showSlideLabel ? (
+        <p className="pointer-events-none absolute left-2 top-2 z-10 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:left-3 sm:top-3 sm:text-xs">
+          {t('ui_learn_slide_progress', { n: slideNum, total: totalSlides })}
+        </p>
+      ) : null}
 
-      <div className="flex h-full min-h-0 w-full flex-1 items-center justify-center p-8 pt-10 pb-9 sm:p-10 sm:pt-11 sm:pb-10">
+      <div
+        className={`flex h-full min-h-0 w-full flex-1 items-center justify-center overflow-hidden ${
+          isPptxLearn
+            ? 'min-h-0 bg-slate-900/5 p-1 pt-12 pb-1'
+            : contentFullBleed
+              ? 'min-h-0 p-0'
+              : slide?.type === 'pptx'
+                ? 'min-h-0 p-2 pt-9 pb-8 sm:p-3 sm:pt-10 sm:pb-9'
+                : 'p-8 pt-10 pb-9 sm:p-10 sm:pt-11 sm:pb-10'
+        }`}
+      >
         {!slide ? (
           <div className="max-w-xl px-2 text-center">
             <p className="font-display text-lg font-medium leading-snug text-brand-900 sm:text-xl">
@@ -65,7 +97,11 @@ export function CourseSlideViewer({
           <iframe
             title={slide.title ?? `Slide ${slideNum} PDF`}
             src={`${src}#view=FitH&toolbar=1`}
-            className="h-full w-full min-h-0 rounded-lg bg-white ring-1 ring-slate-200/60"
+            className={
+              contentFullBleed
+                ? 'h-full w-full min-h-0 border-0 bg-white'
+                : 'h-full w-full min-h-0 rounded-lg bg-white ring-1 ring-slate-200/60'
+            }
           />
         ) : slide.type === 'ppt' ? (
           <div className="max-w-lg px-4 text-center">
@@ -84,6 +120,7 @@ export function CourseSlideViewer({
             slideIndex={pptxSlideIndex}
             className="h-full w-full min-h-0"
             onReadyChange={onPptxReadyChange}
+            onSlideCount={onPptxSlideCount}
           />
         ) : slide.type === 'video' ? (
           <VideoSlidePlayer
@@ -92,26 +129,25 @@ export function CourseSlideViewer({
             initialMaxTimeSec={videoResumeTimeSec}
             onProgress={onVideoProgress}
             onComplete={(watchedSec, durationSec) => onVideoEnded?.(watchedSec, durationSec)}
+            frameOnly={learnMode}
           />
         ) : (
           <img
             src={src}
             alt={slide.title ?? ''}
-            className="max-h-full max-w-full rounded-lg object-contain shadow-sm ring-1 ring-slate-200/80"
+            className={
+              contentFullBleed
+                ? 'h-full w-full min-h-0 object-contain'
+                : 'max-h-full max-w-full rounded-lg object-contain shadow-sm ring-1 ring-slate-200/80'
+            }
           />
         )}
       </div>
 
-      {slide?.type === 'pdf' ? (
+      {slide?.type === 'pdf' && !contentFullBleed ? (
         <p className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow-sm ring-1 ring-slate-200/80 sm:text-xs">
           <FileText className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
           {t('ui_learn_pdf_hint')}
-        </p>
-      ) : null}
-      {slide?.type === 'pptx' ? (
-        <p className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow-sm ring-1 ring-slate-200/80 sm:text-xs">
-          <Presentation className="h-3.5 w-3.5 shrink-0 text-violet-700" aria-hidden />
-          {t('ui_learn_pptx_hint', { defaultValue: 'Use Previous / Next to move through the presentation.' })}
         </p>
       ) : null}
     </div>

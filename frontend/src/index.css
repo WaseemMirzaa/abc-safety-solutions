@@ -118,7 +118,14 @@
   }
   .skeleton-bar {
     border-radius: 0.5rem;
-    background: linear-gradient(90deg, rgb(226 232 240 / 0.95), rgb(241 245 249), rgb(226 232 240 / 0.95));
+    background: linear-gradient(
+      90deg,
+      rgb(226 232 240 / 0.95),
+      rgb(224 242 254 / 0.95),
+      rgb(241 245 249),
+      rgb(224 242 254 / 0.95),
+      rgb(226 232 240 / 0.95)
+    );
     background-size: 200% 100%;
     animation: shimmer-slide 1.75s ease-in-out infinite;
   }
@@ -138,19 +145,62 @@
   }
 }
 
-/* PPTX preview (pptx-preview) — avoid black placeholder breaking admin modal */
+/* PPTX preview (pptx-preview) — fit slide in frame, no internal scroll or built-in nav */
+.pptx-deck-viewer {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+.pptx-deck-viewer > *:not(.pptx-preview-wrapper) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+.pptx-deck-viewer .pptx-preview-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
 .pptx-deck-viewer canvas {
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
   background: #fff !important;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+}
+.pptx-deck-viewer .pptx-preview-pagination,
+.pptx-deck-viewer .pptx-preview-wrapper + div,
+.pptx-deck-viewer button,
+.pptx-deck-viewer [class*="pagination"] {
+  display: none !important;
 }
 .pptx-deck-viewer--compact .pptx-preview-wrapper {
-  max-height: 200px;
-  overflow: hidden;
+  max-height: 100%;
 }
 
 @media print {
   @page {
     size: landscape;
-    margin: 0.35in;
+    margin: 0;
+  }
+  html.print-certificate-active,
+  body.print-certificate-active {
+    height: 100% !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
   }
   body.print-certificate-active * {
     visibility: hidden !important;
@@ -162,19 +212,41 @@
   body.print-certificate-active .certificate-print-surface {
     position: fixed;
     inset: 0;
-    margin: 0 auto;
-    display: flex;
+    z-index: 99999;
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    max-width: none;
-    padding: 0;
-    background: white;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    page-break-before: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
   }
   body.print-certificate-active .certificate-document {
-    max-width: 100% !important;
-    width: 100%;
-    box-shadow: none;
+    box-sizing: border-box;
+    width: min(100vw, calc(100vh * 900 / 686)) !important;
+    height: min(100vh, calc(100vw * 686 / 900)) !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 auto !important;
+    aspect-ratio: 900 / 686;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    page-break-before: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body.print-certificate-active .certificate-document img {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
 
@@ -202,4 +274,27 @@ body.test-secure-mode .knowledge-check-secure canvas {
   max-width: 100%;
   max-height: 100%;
   aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+.learn-slide-frame--deck {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
+}
+.learn-slide-frame--video {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
+  background: #000;
+}
+.learn-slide-stage--deck {
+  padding: 0.25rem;
+}
+.learn-slide-frame .pptx-deck-viewer,
+.learn-slide-frame .pptx-deck-viewer * {
+  overflow: hidden !important;
 }

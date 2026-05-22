@@ -22,7 +22,7 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
 
   return (
     <div
-      className="absolute inset-0 z-20 flex flex-col items-center justify-center overflow-hidden rounded-[inherit] bg-gradient-to-br from-violet-50/95 via-white/92 to-sky-50/90 backdrop-blur-[1px]"
+      className="absolute inset-0 z-20 flex flex-col items-center justify-center overflow-hidden rounded-[inherit] bg-gradient-to-br from-sky-50/95 via-white/92 to-sky-50/90 backdrop-blur-[1px]"
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -32,7 +32,7 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           background:
-            'radial-gradient(circle at 25% 15%, rgba(139,92,246,0.14), transparent 42%), radial-gradient(circle at 75% 85%, rgba(56,189,248,0.16), transparent 48%)',
+            'radial-gradient(circle at 25% 15%, rgba(56,189,248,0.18), transparent 42%), radial-gradient(circle at 75% 85%, rgba(14,165,233,0.14), transparent 48%)',
         }}
       />
 
@@ -41,7 +41,7 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
           {[0, 1, 2].map((i) => (
             <motion.div
               key={i}
-              className="absolute rounded-lg border border-violet-200/60 bg-white/80 shadow-md"
+              className="absolute rounded-lg border border-sky-200/60 bg-white/80 shadow-md"
               style={{
                 width: compact ? 48 : 72,
                 height: compact ? 32 : 48,
@@ -64,7 +64,7 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
           {!reduce ? (
             <>
               <motion.span
-                className="absolute inset-0 rounded-full border-2 border-violet-300/50"
+                className="absolute inset-0 rounded-full border-2 border-sky-300/50"
                 animate={{ scale: [1, 1.18, 1], opacity: [0.45, 0.1, 0.45] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               />
@@ -82,7 +82,7 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
               cy="36"
               r="32"
               fill="none"
-              className="stroke-violet-500 transition-[stroke-dashoffset] duration-300 ease-out"
+              className="stroke-sky-500 transition-[stroke-dashoffset] duration-300 ease-out"
               strokeWidth="4"
               strokeLinecap="round"
               strokeDasharray={2 * Math.PI * 32}
@@ -90,11 +90,11 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
             />
           </svg>
           <motion.span
-            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg ring-1 ring-violet-100"
+            className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg ring-1 ring-sky-100"
             animate={reduce ? undefined : { scale: [1, 1.04, 1] }}
             transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Presentation className="h-5 w-5 text-violet-600" aria-hidden />
+            <Presentation className="h-5 w-5 text-sky-600" aria-hidden />
           </motion.span>
         </div>
 
@@ -102,7 +102,7 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
           {[0, 1, 2, 3, 4].map((i) => (
             <motion.span
               key={i}
-              className="h-1 w-1 rounded-full bg-violet-500 sm:h-1.5 sm:w-1.5"
+              className="h-1 w-1 rounded-full bg-sky-500 sm:h-1.5 sm:w-1.5"
               animate={reduce ? undefined : { opacity: [0.2, 1, 0.2], scale: [0.8, 1.15, 0.8] }}
               transition={{ duration: 0.75, repeat: Infinity, delay: i * 0.1, ease: 'easeInOut' }}
             />
@@ -112,13 +112,13 @@ export function PresentationLoader({ phase, downloadPct, compact = false }: Prop
         <div className="mt-4 h-2 w-44 max-w-[min(88vw,14rem)] overflow-hidden rounded-full bg-slate-200/90 shadow-inner sm:w-52">
           {phase === 'processing' && !reduce ? (
             <motion.div
-              className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-violet-500 to-transparent"
+              className="h-full w-1/3 rounded-full bg-gradient-to-r from-transparent via-sky-500 to-transparent"
               animate={{ x: ['-120%', '280%'] }}
               transition={{ duration: 1.25, repeat: Infinity, ease: 'easeInOut' }}
             />
           ) : (
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-violet-500 via-sky-500 to-violet-400"
+              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-sky-500 to-sky-600"
               initial={{ width: '8%' }}
               animate={{ width: `${Math.max(10, pct ?? 15)}%` }}
               transition={{ duration: 0.35, ease: 'easeOut' }}

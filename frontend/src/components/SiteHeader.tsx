@@ -6,7 +6,7 @@ import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { t } from '@/i18n/t'
-import { brandLogoLight } from '@/config/brandAssets'
+import { brandLogoCustomer } from '@/config/brandAssets'
 
 const navPublic = [
   { to: '/courses', labelKey: 'ui_nav_courses' },
@@ -37,9 +37,9 @@ export function SiteHeader() {
           to="/"
           className="group flex min-w-0 max-w-[min(100%,14rem)] shrink items-center gap-2 rounded-xl py-1 pr-1 ring-1 ring-slate-200/80 transition hover:ring-[color:var(--color-abc-blue)]/35 sm:max-w-none sm:gap-3 sm:pr-2"
         >
-          <span className="flex h-[3.25rem] shrink-0 items-center rounded-lg bg-slate-50/80 px-2 sm:h-[3.75rem] sm:px-2.5">
+          <span className="flex h-[3.25rem] shrink-0 items-center overflow-hidden rounded-lg bg-black px-2 sm:h-[3.75rem] sm:px-2.5">
             <img
-              src={brandLogoLight}
+              src={brandLogoCustomer}
               alt={t('ui_brand_logo_alt')}
               className="h-[2.65rem] w-auto max-w-[10.5rem] object-contain object-left sm:h-[3.25rem] sm:max-w-[12.5rem] md:max-w-[14rem]"
             />

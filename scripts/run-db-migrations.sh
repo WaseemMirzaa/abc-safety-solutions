@@ -111,6 +111,18 @@ migrate_courses_popular() {
   fi
 }
 
+migrate_progress_max_slide() {
+  local exists
+  exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='progress' AND COLUMN_NAME='maxSlideIndex';")"
+  if [ "${exists:-0}" = "0" ]; then
+    echo "   007_add_progress_max_slide.sql — adding column maxSlideIndex"
+    mysql_scalar "ALTER TABLE progress ADD COLUMN maxSlideIndex INT NOT NULL DEFAULT 0;" >/dev/null
+    mysql_scalar "UPDATE progress SET maxSlideIndex = GREATEST(maxSlideIndex, slideIndex);" >/dev/null
+  else
+    echo "   007_add_progress_max_slide.sql — maxSlideIndex already exists (skip)"
+  fi
+}
+
 migrate_test_time_limit() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='course_tests' AND COLUMN_NAME='timeLimitMinutes';")"
@@ -119,6 +131,29 @@ migrate_test_time_limit() {
     mysql_scalar "ALTER TABLE course_tests ADD COLUMN timeLimitMinutes INT NOT NULL DEFAULT 0;" >/dev/null
   else
     echo "   006_add_test_time_limit.sql — timeLimitMinutes already exists (skip)"
+  fi
+}
+
+migrate_certificate_number() {
+  local exists
+  exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='certificates' AND COLUMN_NAME='certificateNumber';")"
+  if [ "${exists:-0}" = "0" ]; then
+    echo "   008_add_certificate_number.sql — adding column certificateNumber"
+    mysql_scalar "ALTER TABLE certificates ADD COLUMN certificateNumber INT NULL;" >/dev/null
+  else
+    echo "   008_add_certificate_number.sql — certificateNumber column exists"
+  fi
+  local nulls
+  nulls="$(mysql_scalar "SELECT COUNT(*) FROM certificates WHERE certificateNumber IS NULL;")"
+  if [ "${nulls:-0}" != "0" ]; then
+    echo "   008_add_certificate_number.sql — backfilling ${nulls} row(s) from #100001"
+    mysql_scalar "SET @n := 100000; UPDATE certificates SET certificateNumber = (@n := @n + 1) WHERE certificateNumber IS NULL ORDER BY issuedAt ASC;" >/dev/null
+  fi
+  local uk
+  uk="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='certificates' AND COLUMN_NAME='certificateNumber' AND NON_UNIQUE=0;")"
+  if [ "${uk:-0}" = "0" ]; then
+    mysql_scalar "ALTER TABLE certificates MODIFY COLUMN certificateNumber INT NOT NULL;" >/dev/null
+    mysql_scalar "ALTER TABLE certificates ADD UNIQUE KEY UQ_certificates_certificateNumber (certificateNumber);" >/dev/null
   fi
 }
 
@@ -157,6 +192,8 @@ for f in "${files[@]}"; do
     004_add_course_languages.sql) migrate_course_languages ;;
     005_add_courses_popular.sql) migrate_courses_popular ;;
     006_add_test_time_limit.sql) migrate_test_time_limit ;;
+    007_add_progress_max_slide.sql) migrate_progress_max_slide ;;
+    008_add_certificate_number.sql) migrate_certificate_number ;;
     *)
       echo "   $base"
       mysql_file "$f"

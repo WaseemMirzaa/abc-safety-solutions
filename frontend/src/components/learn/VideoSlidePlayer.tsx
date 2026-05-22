@@ -22,6 +22,8 @@ type Props = {
   initialMaxTimeSec?: number
   onProgress?: (maxTimeSec: number, durationSec: number) => void
   onComplete: (watchedSec: number, durationSec: number) => void
+  /** Learn page: video only inside the frame; progress UI lives in the page footer. */
+  frameOnly?: boolean
 }
 
 /** Requires watching through to the end; blocks skipping ahead in the native controls. */
@@ -31,6 +33,7 @@ export function VideoSlidePlayer({
   initialMaxTimeSec = 0,
   onProgress,
   onComplete,
+  frameOnly = false,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const maxWatchedRef = useRef(Math.max(0, initialMaxTimeSec))
@@ -124,6 +127,27 @@ export function VideoSlidePlayer({
     }
     syncMaxWatchedToDuration(duration)
     tryComplete(video)
+  }
+
+  if (frameOnly) {
+    return (
+      <video
+        ref={videoRef}
+        key={src}
+        src={src}
+        title={title}
+        controls
+        playsInline
+        controlsList="nodownload"
+        onTimeUpdate={handleTimeUpdate}
+        onSeeking={handleSeeking}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleEnded}
+        className="h-full w-full min-h-0 object-contain bg-black"
+      >
+        <track kind="captions" />
+      </video>
+    )
   }
 
   return (

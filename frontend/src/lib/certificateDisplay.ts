@@ -21,8 +21,34 @@ export function certExpiryState(expiresAt: string | null | undefined): CertExpir
   return new Date(expiresAt!) < new Date() ? 'expired' : 'active'
 }
 
-export function findCertificateById(certs: Certificate[], id: string): Certificate | undefined {
-  return certs.find((c) => c.id === id)
+export function formatCertificateNumber(n: number): string {
+  return `#${n}`
+}
+
+export function certificateDisplayId(cert: Certificate): string {
+  if (cert.certificateNumber != null) return formatCertificateNumber(cert.certificateNumber)
+  return cert.id
+}
+
+export function certificateCopyText(cert: Certificate): string {
+  if (cert.certificateNumber != null) return formatCertificateNumber(cert.certificateNumber)
+  return cert.id
+}
+
+export function certificateRouteParam(cert: Certificate): string {
+  if (cert.certificateNumber != null) return String(cert.certificateNumber)
+  return cert.id
+}
+
+export function findCertificateById(certs: Certificate[], param: string): Certificate | undefined {
+  const raw = param.trim().replace(/^#/, '')
+  return certs.find(
+    (c) =>
+      c.id === param ||
+      c.id === raw ||
+      (c.certificateNumber != null &&
+        (String(c.certificateNumber) === raw || String(c.certificateNumber) === param)),
+  )
 }
 
 /** Line shown on the certificate; prefers snapshot at issue, else category list lookup. */

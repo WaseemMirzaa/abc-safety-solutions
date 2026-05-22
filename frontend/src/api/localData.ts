@@ -193,8 +193,11 @@ export async function fetchMyOrders(): Promise<MyOrderRow[]> {
 export type CertificateVerifyResult = {
   valid: boolean
   certificateId: string
+  certificateNumber?: number
   courseName: string
   issuedTo: string
+  certificationText?: string | null
+  categoryId?: string
   issuedAt: string
   expiresAt: string | null
 }
@@ -218,6 +221,7 @@ export async function fetchMyProgress(courseId: string): Promise<ProgressRow> {
   const row = await apiJson<{
     courseId: string
     slideIndex: number
+    maxSlideIndex?: number
     audioTimeSec: number
     completedSlides: boolean
     testPassed?: boolean
@@ -226,6 +230,7 @@ export async function fetchMyProgress(courseId: string): Promise<ProgressRow> {
   return {
     courseId: row.courseId,
     slideIndex: row.slideIndex,
+    maxSlideIndex: row.maxSlideIndex ?? row.slideIndex,
     audioTimeSec: row.audioTimeSec,
     completedSlides: row.completedSlides,
     testPassed: row.testPassed,

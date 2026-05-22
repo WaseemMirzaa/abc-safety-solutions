@@ -67,6 +67,7 @@ export type Purchase = {
 export type Progress = {
   courseId: string
   slideIndex: number
+  maxSlideIndex?: number
   audioTimeSec: number
   updatedAt: string
   completedSlides: boolean
@@ -75,6 +76,8 @@ export type Progress = {
 
 export type Certificate = {
   id: string
+  /** Public numeric ID; shown as #100001. */
+  certificateNumber?: number
   courseId: string
   courseName: string
   userName: string

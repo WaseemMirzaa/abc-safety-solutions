@@ -1,16 +1,14 @@
 import { Link, useSearchParams } from 'react-router-dom'
-import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
-import { displayCourseTitle } from '@/lib/courseDisplay'
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
+import { MyCourseRow } from '@/components/MyCourseRow'
 import { PageHeaderSkeleton, MyCourseRowSkeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/contexts/AuthContext'
-import { getCourseSlideCount } from '@/lib/courseSlides'
-import { completeStripeCheckout, fetchMyEnrollments, fetchMyProgress, fetchPublishedCourses } from '@/api/localData'
+import { completeStripeCheckout, fetchMyEnrollments, fetchPublishedCourses } from '@/api/localData'
 import { ApiError } from '@/api/client'
 import { hasCourseAccess } from '@/lib/courseAccess'
 import { qk } from '@/api/queryKeys'
@@ -18,48 +16,6 @@ import { listContainer, listItem } from '@/lib/motionPresets'
 import { BookOpen } from 'lucide-react'
 import type { Course } from '@/types'
 import type { EnrollmentRow } from '@/api/localData'
-
-function EnrolledCourseRow({ course }: { course: Course }) {
-  const { data: prog } = useQuery({
-    queryKey: qk.progress(course.id),
-    queryFn: () => fetchMyProgress(course.id),
-    staleTime: 15_000,
-  })
-  return (
-    <motion.li
-      variants={listItem}
-      layout
-      className="card-elevated flex flex-col gap-6 p-6 transition hover:border-amber-200/50 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="flex gap-5">
-        <img src={course.imageUrl} alt="" className="h-24 w-36 rounded-2xl object-cover ring-1 ring-slate-200/80" />
-        <div>
-          <h2 className="font-display text-lg font-semibold text-brand-900">
-            {displayCourseTitle(course)}
-          </h2>
-          <p
-            className={clsx(
-              'mt-2 text-sm',
-              prog && (prog.slideIndex > 0 || prog.completedSlides) ? 'font-semibold text-sky-700' : 'text-slate-500',
-            )}
-          >
-            {prog && (prog.slideIndex > 0 || prog.completedSlides)
-              ? t('ui_mycourses_resume', {
-                  slide: prog.slideIndex + 1,
-                  total: getCourseSlideCount(course),
-                })
-              : t('ui_not_started')}
-          </p>
-        </div>
-      </div>
-      <Link to={`/learn/${course.id}`}>
-        <Button className="w-full sm:w-auto">
-          {prog && (prog.slideIndex > 0 || prog.completedSlides) ? t('ui_continue') : t('ui_start')}
-        </Button>
-      </Link>
-    </motion.li>
-  )
-}
 
 function enrollmentHasAccess(e: EnrollmentRow, coursesById: Map<string, Course>): boolean {
   if (e.refunded) return false
@@ -145,8 +101,11 @@ export function MyCoursesPage() {
         ) : (
           <>
             <h1 className="font-display text-4xl font-bold tracking-tight text-brand-900">{t('MyCoursesPage_47_my_learning_c07f056316')}</h1>
-            <p className="mt-3 max-w-xl text-slate-600">
-              Progress syncs on this device. NestJS will unify across web and app.
+            <p className="mt-3 max-w-xl text-sm text-slate-600">
+              {t('ui_mycourses_subtitle', {
+                defaultValue:
+                  'Track slide or video progress, see what is left, and review knowledge-check details before you continue.',
+              })}
             </p>
           </>
         )}
@@ -194,7 +153,7 @@ export function MyCoursesPage() {
             animate="show"
           >
             {mine.map((c) => (
-              <EnrolledCourseRow key={c.id} course={c} />
+              <MyCourseRow key={c.id} course={c} />
             ))}
           </motion.ul>
         )}

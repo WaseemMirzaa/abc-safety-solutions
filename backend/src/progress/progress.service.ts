@@ -22,6 +22,7 @@ export class ProgressService {
         userId,
         courseId,
         slideIndex: 0,
+        maxSlideIndex: 0,
         audioTimeSec: 0,
         completedSlides: false,
         testPassed: false,
@@ -38,8 +39,9 @@ export class ProgressService {
   ) {
     const row = await this.get(userId, courseId)
     row.slideIndex = body.slideIndex
+    row.maxSlideIndex = Math.max(row.maxSlideIndex ?? 0, body.slideIndex)
     row.audioTimeSec = body.audioTimeSec
-    row.completedSlides = body.completedSlides
+    if (body.completedSlides) row.completedSlides = true
     return this.progress.save(row)
   }
 
@@ -55,6 +57,7 @@ export class ProgressService {
     row.completedSlides = false
     row.testPassed = false
     row.slideIndex = 0
+    row.maxSlideIndex = 0
     row.audioTimeSec = 0
     return this.progress.save(row)
   }

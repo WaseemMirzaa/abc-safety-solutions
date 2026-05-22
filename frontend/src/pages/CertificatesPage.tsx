@@ -8,7 +8,15 @@ import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { fetchCategories, fetchMyCertificates } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { certExpiryState, certificateHasExpiry, formatCertDate } from '@/lib/certificateDisplay'
+import {
+  certExpiryState,
+  certificateCopyText,
+  certificateDisplayId,
+  certificateHasExpiry,
+  certificateRouteParam,
+  formatCertDate,
+} from '@/lib/certificateDisplay'
+import { CopyCertificateIdButton } from '@/components/CopyCertificateIdButton'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
@@ -109,6 +117,7 @@ export function CertificatesPage() {
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-5 py-3">{t('ui_cert_list_col_course')}</th>
+                    <th className="px-5 py-3">{t('ui_cert_list_col_id', { defaultValue: 'Certificate ID' })}</th>
                     <th className="px-5 py-3">{t('ui_cert_list_col_issued')}</th>
                     {listShowsExpiry ? (
                       <>
@@ -129,6 +138,14 @@ export function CertificatesPage() {
                       className="border-b border-slate-100 last:border-0 transition hover:bg-sky-50/40"
                     >
                       <td className="px-5 py-4 font-medium text-brand-900">{c.courseName}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-sm font-semibold text-slate-800">
+                            {certificateDisplayId(c)}
+                          </span>
+                          <CopyCertificateIdButton text={certificateCopyText(c)} />
+                        </div>
+                      </td>
                       <td className="px-5 py-4 text-slate-600">{formatCertDate(c.issuedAt)}</td>
                       {listShowsExpiry ? (
                         <>
@@ -142,7 +159,7 @@ export function CertificatesPage() {
                       ) : null}
                       <td className="px-5 py-4 text-right">
                         <Link
-                          to={`/certificates/${encodeURIComponent(c.id)}`}
+                          to={`/certificates/${encodeURIComponent(certificateRouteParam(c))}`}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700"
                         >
                           <Eye className="h-3.5 w-3.5" />
@@ -166,6 +183,12 @@ export function CertificatesPage() {
                   className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm"
                 >
                   <p className="font-semibold text-brand-900">{c.courseName}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm font-semibold text-slate-800">
+                      {certificateDisplayId(c)}
+                    </span>
+                    <CopyCertificateIdButton text={certificateCopyText(c)} />
+                  </div>
                   <dl
                     className={clsx(
                       'mt-3 gap-2 text-xs text-slate-600',
@@ -191,7 +214,7 @@ export function CertificatesPage() {
                   >
                     <ExpiryBadge expiresAt={c.expiresAt} />
                     <Link
-                      to={`/certificates/${encodeURIComponent(c.id)}`}
+                      to={`/certificates/${encodeURIComponent(certificateRouteParam(c))}`}
                       className="inline-flex items-center gap-1 text-sm font-semibold text-sky-700"
                     >
                       {t('ui_cert_list_view')}

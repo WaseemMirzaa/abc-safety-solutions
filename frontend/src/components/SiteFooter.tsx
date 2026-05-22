@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Container } from '@/components/Container'
 import { Phone, Mail, MapPin, ArrowUpRight } from 'lucide-react'
 import { t } from '@/i18n/t'
-import { brandLogoLight } from '@/config/brandAssets'
+import { brandLogoCustomer } from '@/config/brandAssets'
 
 export function SiteFooter() {
   return (
@@ -18,7 +18,7 @@ export function SiteFooter() {
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-5">
             <img
-              src={brandLogoLight}
+              src={brandLogoCustomer}
               alt=""
               className="h-12 w-auto max-w-[13rem] object-contain object-left opacity-95 sm:h-14 sm:max-w-[15rem]"
             />

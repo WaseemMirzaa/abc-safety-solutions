@@ -15,6 +15,10 @@ export class ProgressEntity {
   @Column({ type: 'int', default: 0 })
   slideIndex: number
 
+  /** Highest slide index the learner has reached (for completion %). */
+  @Column({ type: 'int', default: 0 })
+  maxSlideIndex: number
+
   @Column({ type: 'int', default: 0 })
   audioTimeSec: number
 

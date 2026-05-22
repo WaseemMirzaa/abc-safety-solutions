@@ -1,7 +1,7 @@
 import { clsx } from 'clsx'
 import { useTranslation } from 'react-i18next'
-import { brandLogoLight } from '@/config/brandAssets'
-import { formatCertDate, resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
+import { brandLogoCustomer, certificateBrandName } from '@/config/brandAssets'
+import { certificateDisplayId, formatCertDate, resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
 import { localizedCategoryCertLine } from '@/lib/catalogLocale'
 import type { Category, Certificate } from '@/types'
 
@@ -67,7 +67,7 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
         )}
       >
         <img
-          src={brandLogoLight}
+          src={brandLogoCustomer}
           alt={t('ui_cert_logo_alt')}
           className={clsx(
             'object-contain',
@@ -126,7 +126,15 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
 
         <p
           className={clsx(
-            'mt-4 font-sans font-bold uppercase tracking-[0.2em] text-black/80',
+            'font-cert-script mt-4 leading-none text-black',
+            compact ? 'text-3xl' : 'text-4xl sm:text-5xl md:text-[3.25rem]',
+          )}
+        >
+          {certificateBrandName}
+        </p>
+        <p
+          className={clsx(
+            'mt-3 font-sans font-bold uppercase tracking-[0.2em] text-black/80',
             compact ? 'text-[8px]' : 'text-[9px] sm:text-[10px]',
           )}
         >
@@ -134,8 +142,8 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
         </p>
         <p
           className={clsx(
-            'font-cert-script mt-1 leading-none text-black',
-            compact ? 'text-3xl' : 'text-4xl sm:text-5xl md:text-[3.25rem]',
+            'mt-1 font-cert-serif font-semibold uppercase leading-snug text-black',
+            compact ? 'text-sm' : 'text-base sm:text-lg md:text-xl',
           )}
         >
           {displayUserName}
@@ -187,14 +195,14 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
             compact ? 'text-[8px]' : 'text-[9px] sm:text-[10px]',
           )}
         >
-          <p className="font-semibold">{t('ui_cert_badge_brand')}, Inc.</p>
+          <p className="font-semibold">{certificateBrandName}, Inc.</p>
           <p>{COMPANY_ADDRESS}</p>
           <p>
             {t('ui_cert_footer_phone', { defaultValue: 'Phone' })}: {COMPANY_PHONE} |{' '}
             {t('ui_cert_footer_email', { defaultValue: 'Email' })}: {COMPANY_EMAIL}
           </p>
           <p className="mt-1 font-mono text-[8px] text-black/50">
-            {t('ui_cert_id_prefix')} {cert.id}
+            {t('ui_cert_id_prefix')} {certificateDisplayId(cert)}
           </p>
         </div>
       </div>
@@ -204,6 +212,7 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
 
 export const SAMPLE_CERTIFICATE: Certificate = {
   id: 'SAMPLE-CERT-PREVIEW',
+  certificateNumber: 100001,
   courseId: 'sample',
   courseName: 'Occupational Safety & Health Awareness',
   userName: 'Jordan Sample',

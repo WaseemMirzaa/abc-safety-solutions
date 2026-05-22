@@ -38,7 +38,7 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
 
   const inner = (
     <>
-      <Link to={`/courses/${course.slug}`} className="relative block aspect-[16/10] overflow-hidden bg-slate-200">
+      <Link to={`/courses/${course.slug}`} className="relative block aspect-[5/3] overflow-hidden bg-slate-200">
         <motion.img
           src={displayCourseImageUrl(course) || course.imageUrl}
           alt=""
@@ -51,41 +51,43 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent opacity-80" />
         {cat ? (
-          <span className="absolute left-4 top-4 max-w-[85%] rounded-full border border-white/20 bg-black/35 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-md">
+          <span className="absolute left-3 top-3 max-w-[85%] rounded-full border border-white/25 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-md">
             {shortCat}
           </span>
         ) : null}
       </Link>
-      <div className="flex flex-1 flex-col p-6 sm:p-7">
+      <div className="flex flex-col gap-0 p-4 sm:p-[1.125rem]">
         <Link
           to={`/courses/${course.slug}`}
-          className="font-display text-lg font-semibold leading-snug text-brand-900 transition group-hover:text-amber-800"
+          className="font-display text-base font-semibold leading-snug tracking-tight text-brand-900 transition group-hover:text-amber-800"
         >
           {displayCourseTitle(course)}
         </Link>
-        <p className="mt-3 line-clamp-2 flex-1 text-sm leading-relaxed text-slate-600">
-          {displayCourseSummary(course)}
-        </p>
-        <div className="mt-5 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-            <Clock className="h-3.5 w-3.5 text-sky-600" />
+        {displayCourseSummary(course) ? (
+          <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-slate-600">
+            {displayCourseSummary(course)}
+          </p>
+        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2 py-0.5 text-slate-600">
+            <Clock className="h-3 w-3 text-sky-600" />
             {t('ui_course_card_hours_est', { hours: Math.round(course.durationMinutes / 60) })}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
-            <Layers className="h-3.5 w-3.5 text-sky-600" />
+          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2 py-0.5 text-slate-600">
+            <Layers className="h-3 w-3 text-sky-600" />
             {slideCount != null
               ? t('ui_course_card_slide_count', { count: slideCount })
               : t('ui_course_card_self_paced', { defaultValue: 'Self-paced' })}
           </span>
         </div>
-        <div className="mt-6 flex items-end justify-between gap-4 border-t border-slate-100 pt-5">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{t('CourseCard_69_from_e291070e50')}</p>
-            <p className="font-display text-2xl font-bold tracking-tight text-brand-900">{formatPrice(course.priceCents)}</p>
+        <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-slate-100/90 pt-2.5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('CourseCard_69_from_e291070e50')}</p>
+            <p className="font-display text-xl font-bold leading-none tracking-tight text-brand-900">{formatPrice(course.priceCents)}</p>
           </div>
           <Link
             to={`/courses/${course.slug}`}
-            className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-4 py-2.5 text-sm font-semibold text-brand-950 shadow-md shadow-amber-900/20 ring-1 ring-amber-400/40 transition hover:from-amber-300 hover:to-amber-500 active:scale-[0.98] motion-reduce:active:scale-100"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-gradient-to-b from-amber-400 to-amber-600 px-3.5 py-2 text-sm font-semibold text-brand-950 shadow-md shadow-amber-900/15 ring-1 ring-amber-400/40 transition hover:from-amber-300 hover:to-amber-500 active:scale-[0.98] motion-reduce:active:scale-100"
           >
             {t('ui_course_card_details')}
             <ArrowUpRight className="h-4 w-4 opacity-80" />

@@ -28,4 +28,8 @@ export class CertificateEntity {
 
   @Column({ type: 'datetime', nullable: true })
   expiresAt: Date | null
+
+  /** Public numeric ID shown as #100001; unique across all certificates. */
+  @Column({ type: 'int', unique: true })
+  certificateNumber: number
 }

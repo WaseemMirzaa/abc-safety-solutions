@@ -30,10 +30,10 @@ export function AdminCourseDeckPreview({ slide, blobPreviewUrl }: Props) {
 
   if (slide.type === 'pptx') {
     return (
-      <div className="mt-4 overflow-hidden rounded-xl border border-violet-200 bg-violet-50/30 p-3 ring-1 ring-violet-100">
+      <div className="mt-4 overflow-hidden rounded-xl border border-sky-200 bg-sky-50/30 p-3 ring-1 ring-sky-100">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-800">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-800">
               Presentation {pptxTotal > 1 ? `· ${pptxTotal} slides` : ''}
             </p>
             {slide.title ? (

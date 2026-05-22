@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { init } from 'pptx-preview'
 import { PresentationLoader } from '@/components/learn/PresentationLoader'
 import { getOrFetchPptxBuffer, prefetchPptxBuffer } from '@/lib/pptxDeckCache'
+import { fitPresentationBox, scalePptxCanvasToFit } from '@/lib/pptxFitBox'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import { t } from '@/i18n/t'
 
@@ -11,6 +12,8 @@ type Props = {
   className?: string
   compact?: boolean
   onReadyChange?: (ready: boolean) => void
+  /** Fired when the deck is ready with the real slide count from the .pptx file. */
+  onSlideCount?: (count: number) => void
 }
 
 type Phase = 'downloading' | 'processing' | 'ready' | 'error'
@@ -18,12 +21,10 @@ type Phase = 'downloading' | 'processing' | 'ready' | 'error'
 function measureHost(host: HTMLElement | null, compact: boolean) {
   const w = host?.clientWidth || host?.offsetWidth || 0
   const h = host?.clientHeight || host?.offsetHeight || 0
-  const width = w > 0 ? w : compact ? 480 : 960
-  const height = h > 0 ? h : compact ? 200 : Math.round((width * 9) / 16)
-  return {
-    width: compact ? Math.max(280, Math.min(640, width)) : Math.max(320, width),
-    height: Math.max(compact ? 160 : 200, height),
+  if (w > 0 && h > 0) {
+    return fitPresentationBox(w, h)
   }
+  return fitPresentationBox(compact ? 480 : 960, compact ? 200 : 540)
 }
 
 /** Renders one slide from a .pptx deck (prev/next controlled by parent). Auto-loads on mount. */
@@ -33,16 +34,24 @@ export function PptxSlideViewer({
   className = '',
   compact = false,
   onReadyChange,
+  onSlideCount,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const previewerRef = useRef<ReturnType<typeof init> | null>(null)
+  const slideIndexRef = useRef(slideIndex)
   const [phase, setPhase] = useState<Phase>('downloading')
   const [err, setErr] = useState('')
   const [downloadPct, setDownloadPct] = useState(0)
   const [reloadToken, setReloadToken] = useState(0)
 
+  slideIndexRef.current = slideIndex
+
   const resolved = resolveMediaUrl(url)
+
+  const applyCanvasFit = useCallback(() => {
+    scalePptxCanvasToFit(containerRef.current)
+  }, [])
 
   useEffect(() => {
     prefetchPptxBuffer(url)
@@ -110,9 +119,14 @@ export function PptxSlideViewer({
         await previewer.preview(buf)
         if (cancelled) return
 
-        const idx = Math.min(slideIndex, Math.max(0, previewer.slideCount - 1))
+        const max = Math.max(0, previewer.slideCount - 1)
+        const idx = Math.min(slideIndexRef.current, max)
         previewer.renderSingleSlide(idx)
-        if (!cancelled) setPhase('ready')
+        if (!cancelled) {
+          if (previewer.slideCount > 0) onSlideCount?.(previewer.slideCount)
+          setPhase('ready')
+          requestAnimationFrame(() => applyCanvasFit())
+        }
       } catch (e) {
         if (!cancelled) {
           setErr(e instanceof Error ? e.message : 'Failed to load PPTX')
@@ -129,17 +143,26 @@ export function PptxSlideViewer({
       previewer?.destroy()
       previewerRef.current = null
     }
-  }, [url, reloadToken, compact])
+  }, [url, reloadToken, compact, applyCanvasFit])
 
   useEffect(() => {
     if (phase !== 'ready' || !previewerRef.current) return
     const max = Math.max(0, previewerRef.current.slideCount - 1)
     previewerRef.current.renderSingleSlide(Math.min(slideIndex, max))
-  }, [slideIndex, phase])
+    requestAnimationFrame(() => applyCanvasFit())
+  }, [slideIndex, phase, applyCanvasFit])
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host || phase !== 'ready') return
+    const ro = new ResizeObserver(() => applyCanvasFit())
+    ro.observe(host)
+    return () => ro.disconnect()
+  }, [phase, applyCanvasFit])
 
   const containerClass = compact
-    ? 'pptx-deck-viewer pptx-deck-viewer--compact absolute inset-0 mx-auto overflow-hidden rounded-lg bg-white [&_.pptx-preview-pagination]:hidden [&_.pptx-preview-wrapper+div]:hidden'
-    : 'pptx-deck-viewer absolute inset-0 mx-auto overflow-hidden rounded-lg bg-white [&_.pptx-preview-pagination]:hidden [&_.pptx-preview-wrapper+div]:hidden [&_.pptx-preview-wrapper]:!max-h-full [&_.pptx-preview-wrapper]:!max-w-full [&_canvas]:!max-h-full [&_canvas]:!max-w-full [&_canvas]:!object-contain'
+    ? 'pptx-deck-viewer pptx-deck-viewer--compact'
+    : 'pptx-deck-viewer'
 
   const isLoading = phase === 'downloading' || phase === 'processing'
   const showDeck = phase === 'ready'
@@ -150,7 +173,7 @@ export function PptxSlideViewer({
       className={
         compact
           ? `relative h-full min-h-[160px] w-full ${className}`
-          : `relative flex h-full min-h-0 w-full flex-col ${className}`
+          : `relative h-full min-h-0 w-full ${className}`
       }
     >
       {isLoading && !err ? (
@@ -177,7 +200,7 @@ export function PptxSlideViewer({
       ) : null}
       <div
         ref={containerRef}
-        className={`${containerClass} ${showDeck ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`${containerClass} ${showDeck ? 'opacity-100' : 'pointer-events-none opacity-0'} absolute inset-0`}
         aria-hidden={!showDeck}
       />
     </div>

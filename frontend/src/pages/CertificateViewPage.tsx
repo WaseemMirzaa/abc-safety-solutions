@@ -7,12 +7,15 @@ import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { fetchCategories, fetchMyCertificates } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { findCertificateById } from '@/lib/certificateDisplay'
+import { certificateCopyText, certificateDisplayId, findCertificateById } from '@/lib/certificateDisplay'
+import { CopyCertificateIdButton } from '@/components/CopyCertificateIdButton'
 import { t } from '@/i18n/t'
 
 function printCertificate() {
+  document.documentElement.classList.add('print-certificate-active')
   document.body.classList.add('print-certificate-active')
   const cleanup = () => {
+    document.documentElement.classList.remove('print-certificate-active')
     document.body.classList.remove('print-certificate-active')
   }
   window.addEventListener('afterprint', cleanup, { once: true })
@@ -68,8 +71,8 @@ export function CertificateViewPage() {
   }
 
   return (
-    <div className="py-10 sm:py-14">
-      <Container>
+    <div className="py-10 sm:py-14 print:py-0">
+      <Container className="print:max-w-none print:px-0">
         <div className="print:hidden flex flex-wrap items-center justify-between gap-4">
           <Link
             to="/certificates"
@@ -78,13 +81,19 @@ export function CertificateViewPage() {
             <ArrowLeft className="h-4 w-4" />
             {t('ui_cert_view_back_list')}
           </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-mono text-sm font-semibold text-slate-700">
+              {certificateDisplayId(cert)}
+            </span>
+            <CopyCertificateIdButton text={certificateCopyText(cert)} />
+          </div>
           <Button type="button" className="gap-2" onClick={printCertificate}>
             <Printer className="h-4 w-4" />
             {t('ui_certificates_print_pdf')}
           </Button>
         </div>
 
-        <div className="certificate-print-surface mx-auto mt-8 max-w-4xl rounded-lg bg-white p-2 sm:p-4">
+        <div className="certificate-print-surface mx-auto mt-8 max-w-4xl rounded-lg bg-white p-2 shadow-sm sm:p-4 print:mt-0 print:max-w-none print:rounded-none print:p-0 print:shadow-none">
           <CertificateVisual cert={cert} categories={categoryList} />
         </div>
       </Container>

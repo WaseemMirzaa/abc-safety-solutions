@@ -16,10 +16,25 @@ import {
 } from '@/lib/catalogLocale'
 import { t } from '@/i18n/t'
 
+/** Title case for catalog cards, detail, learn (e.g. "hyper" → "Hyper"). */
+export function toInitCap(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) return trimmed
+  return trimmed
+    .split(/\s+/)
+    .map((word) => {
+      if (!word.length) return word
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
+    .join(' ')
+}
+
 /** Title shown on catalog, detail, learn — DB value for admin-created courses. */
 export function displayCourseTitle(course: Course): string {
-  if (isSeedCourseId(course.id)) return localizedCourseTitle(course.slug, course.title)
-  return course.title.trim() || course.slug
+  const raw = isSeedCourseId(course.id)
+    ? localizedCourseTitle(course.slug, course.title)
+    : course.title.trim() || course.slug
+  return toInitCap(raw)
 }
 
 export function displayCourseSummary(course: Course): string {
@@ -34,8 +49,8 @@ export function displayCourseDescription(course: Course): string {
 }
 
 export function displayCategoryName(cat: Category): string {
-  if (isSeedCategoryId(cat.id)) return localizedCategoryName(cat.id, cat.name)
-  return cat.name
+  const raw = isSeedCategoryId(cat.id) ? localizedCategoryName(cat.id, cat.name) : cat.name
+  return toInitCap(raw)
 }
 
 export function displayCourseImageUrl(course: Course): string {

@@ -13,6 +13,7 @@ import {
   purchaseCourse,
 } from '@/api/localData'
 import { findEnrollment, hasCourseAccess } from '@/lib/courseAccess'
+import { displayCourseTitle } from '@/lib/courseDisplay'
 import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { useState } from 'react'
@@ -109,7 +110,7 @@ export function CheckoutPage() {
           <p className="mt-4 text-sm text-red-600">{t('ui_checkout_err')}</p>
         ) : (
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="font-display text-lg font-semibold text-brand-900">{course.title}</p>
+            <p className="font-display text-lg font-semibold text-brand-900">{displayCourseTitle(course)}</p>
             <p className="mt-2 font-display text-2xl font-bold text-brand-900">{formatPrice(course.priceCents)}</p>
           </div>
         )}

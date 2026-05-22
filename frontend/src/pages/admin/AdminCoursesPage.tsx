@@ -779,14 +779,14 @@ export function AdminCoursesPage() {
                     ) : null}
                   </div>
                   <div
-                    className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-violet-100"
+                    className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-sky-100"
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={uploadProgress}
                     role="progressbar"
                   >
                     <div
-                      className={`h-full rounded-full bg-violet-600 transition-[width] duration-150 ease-out ${
+                      className={`h-full rounded-full bg-sky-600 transition-[width] duration-150 ease-out ${
                         uploadPhase === 'processing' ? 'animate-pulse w-full' : ''
                       }`}
                       style={uploadPhase === 'upload' ? { width: `${uploadProgress}%` } : undefined}

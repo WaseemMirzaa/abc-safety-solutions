@@ -7,18 +7,17 @@ export function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
 export function CourseCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm">
-      <div className="aspect-[16/10] w-full skeleton-bar rounded-none" />
-      <div className="space-y-3 p-6 sm:p-7">
-        <Skeleton className="h-5 w-4/5" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/5" />
-        <div className="flex gap-2 pt-2">
-          <Skeleton className="h-7 w-20 rounded-full" />
-          <Skeleton className="h-7 w-24 rounded-full" />
+      <div className="aspect-[5/3] w-full skeleton-bar rounded-none" />
+      <div className="space-y-2 p-4 sm:p-[1.125rem]">
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-3.5 w-full" />
+        <div className="flex gap-1.5 pt-0.5">
+          <Skeleton className="h-6 w-[4.5rem] rounded-full" />
+          <Skeleton className="h-6 w-20 rounded-full" />
         </div>
-        <div className="flex justify-between border-t border-slate-100 pt-5">
-          <Skeleton className="h-8 w-24" />
-          <Skeleton className="h-10 w-28 rounded-xl" />
+        <div className="flex justify-between border-t border-slate-100 pt-2.5">
+          <Skeleton className="h-7 w-20" />
+          <Skeleton className="h-9 w-24 rounded-lg" />
         </div>
       </div>
     </div>
@@ -63,15 +62,22 @@ export function TableSkeletonRows({ rows = 6 }: { rows?: number }) {
 /** My learning row placeholder */
 export function MyCourseRowSkeleton() {
   return (
-    <div className="card-elevated flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
-      <div className="flex gap-5">
-        <Skeleton className="h-24 w-36 shrink-0 rounded-2xl" />
-        <div className="flex-1 space-y-3 py-1">
-          <Skeleton className="h-5 w-3/5 max-w-md" />
-          <Skeleton className="h-4 w-48" />
+    <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="flex flex-1 gap-4">
+          <Skeleton className="h-20 w-28 shrink-0 rounded-xl sm:h-[5.25rem] sm:w-32" />
+          <div className="flex-1 space-y-2.5">
+            <Skeleton className="h-5 w-2/5 max-w-xs" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <Skeleton className="h-6 w-28 rounded-full" />
+            </div>
+            <Skeleton className="h-1.5 w-full max-w-sm rounded-full" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
         </div>
+        <Skeleton className="h-10 w-full rounded-xl sm:w-28" />
       </div>
-      <Skeleton className="h-11 w-full rounded-xl sm:w-32" />
     </div>
   )
 }

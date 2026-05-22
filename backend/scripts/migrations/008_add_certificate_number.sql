@@ -1,0 +1,1 @@
+-- certificateNumber: public numeric ID (#100001+). Applied via scripts/run-db-migrations.sh

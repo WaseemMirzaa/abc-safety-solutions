@@ -6,8 +6,8 @@ import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { authPatchMe, fetchMyOrders } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { ExternalLink, FileText, Receipt, User } from 'lucide-react'
-import { resolveMediaUrl } from '@/lib/mediaUrl'
+import { User } from 'lucide-react'
+import { OrderHistorySection } from '@/components/OrderHistorySection'
 import { t } from '@/i18n/t'
 
 export function AccountPage() {
@@ -60,7 +60,7 @@ export function AccountPage() {
 
   return (
     <div className="py-12 sm:py-16 lg:py-20">
-      <Container className="max-w-3xl">
+      <Container className="max-w-4xl">
         <h1 className="font-display text-4xl font-bold text-brand-900">{t('AccountPage_30_account_68f2e455fe')}</h1>
         <p className="mt-2 text-slate-600">{t('AccountPage_31_profile_and_order_history_will_sync_from_the_ser_87ddd7d4b9')}</p>
 
@@ -101,99 +101,10 @@ export function AccountPage() {
             </div>
           </dl>
           {profileErr ? <p className="mt-4 text-sm text-red-600">{profileErr}</p> : null}
-          {isAdmin ? (
-            <p className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-xs text-amber-950">
-              {t('ui_account_admin_profile_locked')}
-            </p>
-          ) : (
-            <p className="mt-6 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-3 text-xs text-amber-950">
-              Password reset, email verification, and legal name for certificates will be API-driven.
-            </p>
-          )}
         </div>
 
-        <div className="card-elevated mt-8 p-6 sm:p-8">
-          <div className="flex items-center gap-3 text-brand-900">
-            <Receipt className="h-5 w-5 text-sky-600" />
-            <h2 className="font-display text-lg font-semibold">{t('AccountPage_orders_heading')}</h2>
-          </div>
-          {orders.length === 0 ? (
-            <p className="mt-6 text-sm text-slate-600">{t('AccountPage_59_no_purchases_recorded_in_this_browser_280a162f8c')}</p>
-          ) : (
-            <ul className="mt-6 space-y-4">
-              {orders.map((o) => (
-                <li
-                  key={`${o.orderId}-${o.purchasedAt}`}
-                  className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 text-sm"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row">
-                    {o.courseImageUrl ? (
-                      <img
-                        src={resolveMediaUrl(o.courseImageUrl)}
-                        alt=""
-                        className="h-20 w-28 shrink-0 rounded-xl object-cover ring-1 ring-slate-200/80"
-                      />
-                    ) : null}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-display text-base font-semibold text-brand-900">{o.courseTitle}</p>
-                      {o.courseSummary ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">{o.courseSummary}</p>
-                      ) : null}
-                      <p className="mt-2 text-slate-600">{new Date(o.purchasedAt).toLocaleString()}</p>
-                      <p className="mt-1 font-mono text-[10px] text-slate-400">{o.orderId}</p>
-                      <p className="mt-2 font-semibold text-slate-800">
-                        {(o.amountCents / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' })}
-                        {o.refunded ? <span className="ml-2 font-normal text-amber-800">· refunded</span> : null}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {o.receiptUrl ? (
-                          <a
-                            href={o.receiptUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Receipt
-                          </a>
-                        ) : null}
-                        {o.invoiceUrl ? (
-                          <a
-                            href={o.invoiceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            Invoice
-                          </a>
-                        ) : null}
-                        {o.invoicePdf ? (
-                          <a
-                            href={o.invoicePdf}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            PDF
-                          </a>
-                        ) : null}
-                        {o.courseSlug ? (
-                          <Link
-                            to={`/learn/${o.courseId}`}
-                            className="inline-flex items-center rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100"
-                          >
-                            Open course
-                          </Link>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="mt-8">
+          <OrderHistorySection orders={orders} />
         </div>
       </Container>
     </div>

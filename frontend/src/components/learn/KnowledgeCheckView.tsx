@@ -5,7 +5,6 @@ import {
   BookOpen,
   CheckCircle2,
   Circle,
-  ShieldAlert,
   Trophy,
   XCircle,
 } from 'lucide-react'
@@ -16,6 +15,7 @@ import { Button } from '@/components/Button'
 import { TestTimerBar } from '@/components/learn/TestTimerBar'
 import { scoreKnowledgeCheck, correctOptionId } from '@/lib/knowledgeCheckScoring'
 import { displayCourseTitle } from '@/lib/courseDisplay'
+import { certificateRouteParam } from '@/lib/certificateDisplay'
 import { easeOut, transition } from '@/lib/motionPresets'
 import type { AdminTest, Category, Certificate, Course, TestAnswerOption, TestQuestion } from '@/types'
 import { t } from '@/i18n/t'
@@ -248,22 +248,6 @@ export function KnowledgeCheckView({
             </h1>
             <p className="mt-2 break-words text-sm text-slate-600">{displayCourseTitle(course)}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-lg border border-amber-200/90 bg-amber-50 px-2.5 py-1.5 text-[10px] font-semibold text-amber-950">
-              <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {t('ui_learn_test_no_screenshots', { defaultValue: 'Screenshots disabled during test' })}
-            </span>
-            {!submitted ? (
-              <button
-                type="button"
-                onClick={onReturnToSlides}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                {t('ui_learn_back_to_slides', { defaultValue: 'Back to course' })}
-              </button>
-            ) : null}
-          </div>
         </div>
 
         {testErr ? (
@@ -271,15 +255,21 @@ export function KnowledgeCheckView({
         ) : null}
 
         {timer.enabled && test && !submitted ? (
-          <TestTimerBar
-            remainingSec={timer.remainingSec}
-            totalSec={timer.totalSec}
-            progressPct={timer.progressPct}
-            expired={timer.expired}
-            urgent={timer.urgent}
-            critical={timer.critical}
-            label={timer.label}
-          />
+          <div
+            className="sticky top-[5.25rem] z-40 -mx-4 border-b border-slate-200/70 bg-slate-50/95 px-4 py-2 backdrop-blur-md sm:top-[5.75rem] sm:-mx-6 sm:px-6"
+            aria-label={t('ui_learn_test_time_sticky', { defaultValue: 'Test timer' })}
+          >
+            <TestTimerBar
+              remainingSec={timer.remainingSec}
+              totalSec={timer.totalSec}
+              progressPct={timer.progressPct}
+              expired={timer.expired}
+              urgent={timer.urgent}
+              critical={timer.critical}
+              label={timer.label}
+              className="shadow-md"
+            />
+          </div>
         ) : null}
 
         {!submitted && test ? (
@@ -396,7 +386,7 @@ export function KnowledgeCheckView({
               ) : null}
               <div className="flex flex-wrap justify-center gap-3">
                 {passCert ? (
-                  <Link to={`/certificates/${encodeURIComponent(passCert.id)}`}>
+                  <Link to={`/certificates/${encodeURIComponent(certificateRouteParam(passCert))}`}>
                     <Button>{t('ui_cert_list_view')}</Button>
                   </Link>
                 ) : null}

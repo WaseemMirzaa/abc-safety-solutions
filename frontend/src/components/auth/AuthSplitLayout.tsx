@@ -1,11 +1,11 @@
 import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
-import { brandLogoLight } from '@/config/brandAssets'
+import { brandLogoCustomer } from '@/config/brandAssets'
 
 export function AuthLogo({ variant = 'light', className }: { variant?: 'light' | 'dark'; className?: string }) {
   return (
     <img
-      src={brandLogoLight}
+      src={brandLogoCustomer}
       alt={t('ui_brand_logo_alt')}
       className={clsx(
         'block h-12 w-auto max-w-[13rem] object-contain object-left sm:h-14 sm:max-w-[15rem] md:h-[3.75rem] md:max-w-[17rem]',
