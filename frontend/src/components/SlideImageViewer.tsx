@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 
 type Props = {
@@ -30,10 +30,9 @@ export function SlideImageViewer({
   const isLoaded = loadedSrc === src
   const prefetchedRef = useRef<Set<string>>(new Set())
 
-  // Report slide count once on mount
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (slideImages.length > 0) onSlideCount?.(slideImages.length)
-  }, [slideImages.length, onSlideCount])
+  }, [slideImages, onSlideCount])
 
   // Notify parent that the slide is not ready whenever src changes
   useEffect(() => {

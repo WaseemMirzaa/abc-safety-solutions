@@ -3,6 +3,7 @@ import { isSeedCategoryId, isSeedCourseId } from '@/data/catalog'
 import {
   getCourseSlideCount,
   getCourseSlides,
+  getDeckLearnerSlideCount,
   getPptxDeckSlide,
   isPptxDeckCourse,
   isVideoCourse,
@@ -65,6 +66,8 @@ export function displaySlideCount(course: Course): number | null {
   if (!slides.length) return null
   if (isVideoCourse(course)) return 1
   const deck = getPptxDeckSlide(course)
+  const learnerCount = getDeckLearnerSlideCount(course)
+  if (learnerCount > 0) return learnerCount
   if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
   if (isPptxDeckCourse(course)) return getCourseSlideCount(course)
   return slides.length

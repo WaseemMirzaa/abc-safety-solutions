@@ -17,6 +17,29 @@ export function getPptxDeckSlide(course: Course): CourseSlide | undefined {
   return getCourseSlides(course).find((s) => s.type === 'pptx' || s.type === 'ppt')
 }
 
+/** Learner-facing slide total for a deck (prefer server-rendered PNG count). */
+export function getDeckLearnerSlideCount(course: Course): number {
+  if (isVideoCourse(course)) return 1
+  const slides = getCourseSlides(course)
+  const deck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt')
+  if (deck) {
+    const rendered = deck.renderedSlideUrls?.filter(Boolean).length ?? 0
+    if (rendered > 0) return rendered
+    if (deck.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
+    return Math.max(1, course.slideCount || 1)
+  }
+  if (slides.length > 0) {
+    if (slides.every((s) => s.type === 'pptx' || s.type === 'ppt')) return Math.max(1, course.slideCount)
+    return slides.length
+  }
+  return Math.max(1, course.slideCount)
+}
+
+export function getDeckRenderedSlideUrls(course: Course): string[] {
+  const deck = getPptxDeckSlide(course)
+  return deck?.renderedSlideUrls?.filter(Boolean) ?? []
+}
+
 export function getVideoSlide(course: Course): CourseSlide | undefined {
   return getCourseSlides(course).find((s) => s.type === 'video')
 }
@@ -44,16 +67,7 @@ export function isLegacyPptDeck(course: Course): boolean {
 }
 
 export function getCourseSlideCount(course: Course): number {
-  if (isVideoCourse(course)) return 1
-  const slides = getCourseSlides(course)
-  const deck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt')
-  if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
-  if (deck && course.slideCount >= 1) return course.slideCount
-  if (slides.length > 0) {
-    if (slides.every((s) => s.type === 'pptx' || s.type === 'ppt')) return Math.max(1, course.slideCount)
-    return slides.length
-  }
-  return Math.max(1, course.slideCount)
+  return getDeckLearnerSlideCount(course)
 }
 
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.ogg', '.m4v', '.avi', '.mkv'] as const

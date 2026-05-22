@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { FileText } from 'lucide-react'
 import type { CourseSlide } from '@/types'
 import { PptxSlideViewer } from '@/components/PptxSlideViewer'
@@ -59,7 +59,16 @@ export function CourseSlideViewer({
   const showSlideLabel = !isVideo && !(learnMode && (isPdf || isPptx))
 
   // When server-side rendered images are available use them directly (fastest path).
-  const renderedImages = slide?.renderedSlideUrls?.length ? slide.renderedSlideUrls : null
+  const renderedImages = (() => {
+    const urls = slide?.renderedSlideUrls?.filter(Boolean) ?? []
+    return urls.length > 0 ? urls : null
+  })()
+
+  useLayoutEffect(() => {
+    if (renderedImages?.length) {
+      onPptxSlideCount?.(renderedImages.length)
+    }
+  }, [renderedImages, onPptxSlideCount])
 
   useEffect(() => {
     // Only prefetch PPTX buffer when there are no rendered images (fallback path)

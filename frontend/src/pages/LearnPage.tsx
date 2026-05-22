@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -25,6 +25,8 @@ import { CourseSlideViewer } from '@/components/CourseSlideViewer'
 import {
   getCourseSlideCount,
   getCourseSlides,
+  getDeckLearnerSlideCount,
+  getDeckRenderedSlideUrls,
   getPptxDeckSlide,
   getVideoSlide,
   isVideoCourse,
@@ -131,13 +133,16 @@ export function LearnPage() {
   const [slideFullscreen, setSlideFullscreen] = useState(false)
 
   const videoCourse = course ? isVideoCourse(course) : false
-  const catalogSlideCount = course ? getCourseSlideCount(course) : 1
-  const totalSlides =
-    pptxSlideCount && pptxSlideCount > 0
-      ? pptxSlideCount
-      : catalogSlideCount
   const courseSlides = course ? getCourseSlides(course) : []
   const pptxDeck = course && !videoCourse ? getPptxDeckSlide(course) : undefined
+  const deckRenderedUrls = course ? getDeckRenderedSlideUrls(course) : []
+  const catalogSlideCount = course ? getDeckLearnerSlideCount(course) : 1
+  const totalSlides = useMemo(() => {
+    if (videoCourse) return 1
+    if (deckRenderedUrls.length > 0) return deckRenderedUrls.length
+    if (pptxSlideCount && pptxSlideCount > 0) return pptxSlideCount
+    return Math.max(1, catalogSlideCount)
+  }, [videoCourse, deckRenderedUrls.length, pptxSlideCount, catalogSlideCount])
   const videoSlide = course && videoCourse ? getVideoSlide(course) : undefined
   const currentSlide = videoSlide ?? pptxDeck ?? courseSlides[slideIndex]
   const savedVideoSec = progressRow?.audioTimeSec ?? 0
@@ -152,9 +157,15 @@ export function LearnPage() {
   }, [contentComplete])
 
   useEffect(() => {
-    if (!pptxSlideCount || pptxSlideCount < 1) return
-    setSlideIndex((i) => Math.min(i, pptxSlideCount - 1))
-  }, [pptxSlideCount])
+    if (deckRenderedUrls.length > 0) {
+      setPptxSlideCount(deckRenderedUrls.length)
+    }
+  }, [deckRenderedUrls.length])
+
+  useEffect(() => {
+    if (totalSlides < 1) return
+    setSlideIndex((i) => Math.min(i, totalSlides - 1))
+  }, [totalSlides])
 
   useEffect(() => {
     setVideoDoneLocal(false)

@@ -351,11 +351,13 @@ export function AdminCoursesPage() {
   const effectiveSlideCount =
     deliveryMode === 'video'
       ? 1
-      : pptxDeck?.deckSlideCount && pptxDeck.deckSlideCount > 0
-        ? pptxDeck.deckSlideCount
-        : slideList.length > 0
-          ? slideList.length
-          : draft?.slideCount ?? 1
+      : (pptxDeck?.renderedSlideUrls?.filter(Boolean).length ?? 0) > 0
+        ? (pptxDeck?.renderedSlideUrls?.filter(Boolean).length ?? 0)
+        : pptxDeck?.deckSlideCount && pptxDeck.deckSlideCount > 0
+          ? pptxDeck.deckSlideCount
+          : slideList.length > 0
+            ? slideList.length
+            : draft?.slideCount ?? 1
 
   const switchDeliveryMode = (mode: CourseContentMode) => {
     if (mode === deliveryMode) return
