@@ -1,22 +1,71 @@
+const RELOAD_COUNT_KEY = 'abc_auto_reload_count'
+const RELOAD_TS_KEY = 'abc_auto_reload_ts'
+const MAX_RELOADS = 6
+const RELOAD_WINDOW_MS = 10 * 60 * 1000
+
+function mayReload(): boolean {
+  const now = Date.now()
+  const ts = Number(sessionStorage.getItem(RELOAD_TS_KEY) ?? '0')
+  let count = Number(sessionStorage.getItem(RELOAD_COUNT_KEY) ?? '0')
+  if (!ts || now - ts > RELOAD_WINDOW_MS) {
+    count = 0
+    sessionStorage.setItem(RELOAD_TS_KEY, String(now))
+  }
+  if (count >= MAX_RELOADS) return false
+  sessionStorage.setItem(RELOAD_COUNT_KEY, String(count + 1))
+  sessionStorage.setItem(RELOAD_TS_KEY, String(now))
+  return true
+}
+
+function scheduleReload(_reason: string) {
+  if (!mayReload()) return
+  window.setTimeout(() => window.location.reload(), 400)
+}
+
+function messageFromReason(reason: unknown): string {
+  if (typeof reason === 'string') return reason
+  if (reason && typeof reason === 'object' && 'message' in reason) {
+    return String((reason as Error).message)
+  }
+  return String(reason ?? '')
+}
+
+const CHUNK_RE =
+  /Failed to fetch dynamically imported module|Loading chunk [\w-]+ failed|Importing a module script failed|ChunkLoadError/i
+
+const BOOT_RE =
+  /Failed to fetch|NetworkError|Load failed|net::ERR_|dynamically imported module/i
+
 /**
- * Recover from stale caches / failed lazy chunks after deploy by reloading once.
- * @see https://vite.dev/guide/build#load-error-handling
+ * Recover from stale caches / failed chunks after deploy by reloading (capped per session).
  */
 export function installReloadOnFailedLoad() {
-  window.addEventListener('vite:preloadError', () => {
-    window.location.reload()
+  window.addEventListener('load', () => {
+    sessionStorage.removeItem(RELOAD_COUNT_KEY)
+    sessionStorage.removeItem(RELOAD_TS_KEY)
+  })
+
+  window.addEventListener('vite:preloadError', () => scheduleReload('vite:preloadError'))
+
+  window.addEventListener('error', (ev) => {
+    const msg = ev.message ?? ''
+    if (CHUNK_RE.test(msg) || /Loading module/i.test(msg)) {
+      scheduleReload('window.error')
+    }
   })
 
   window.addEventListener('unhandledrejection', (ev) => {
-    const r = ev.reason
-    const msg = typeof r === 'string' ? r : (r && typeof r === 'object' && 'message' in r ? String((r as Error).message) : String(r))
-    if (
-      /Failed to fetch dynamically imported module|Loading chunk [\w-]+ failed|Importing a module script failed/i.test(
-        msg,
-      )
-    ) {
+    const msg = messageFromReason(ev.reason)
+    if (CHUNK_RE.test(msg) || BOOT_RE.test(msg)) {
       ev.preventDefault()
-      window.location.reload()
+      scheduleReload('unhandledrejection')
     }
   })
+
+  // Stuck blank shell after deploy (no root content)
+  window.setTimeout(() => {
+    const root = document.getElementById('root')
+    if (!root || root.childElementCount > 0) return
+    scheduleReload('empty-root')
+  }, 12_000)
 }

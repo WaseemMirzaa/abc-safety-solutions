@@ -1,16 +1,32 @@
-/** Resolve upload/media URLs for display and fetch (relative or absolute). */
+/** Resolve upload/media URLs for display and fetch (always same-origin for /uploads). */
 export function resolveMediaUrl(url: string): string {
   const trimmed = url?.trim() ?? ''
   if (!trimmed) return ''
   if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  if (trimmed.startsWith('/uploads/')) return trimmed
-  try {
+
+  let path = trimmed
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const u = new URL(trimmed)
+      if (u.pathname.startsWith('/uploads/')) path = u.pathname
+      else return trimmed
+    } catch {
+      return trimmed
+    }
+  } else if (!path.startsWith('/')) {
+    path = path.startsWith('uploads/') ? `/${path}` : `/${path.replace(/^\//, '')}`
+  }
+
+  if (path.startsWith('/uploads/') && typeof window !== 'undefined') {
+    return `${window.location.origin}${path}`
+  }
+  if (path.startsWith('/')) {
     const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-    const u = new URL(trimmed, base)
-    if (u.pathname.startsWith('/uploads/')) return u.pathname
-  } catch {
-    if (trimmed.startsWith('/')) return trimmed
+    try {
+      return new URL(path, base).href
+    } catch {
+      return path
+    }
   }
   return trimmed
 }

@@ -1,4 +1,5 @@
 import { logError } from '@/lib/log'
+import { withRetries } from '@/lib/retry'
 
 export const TOKEN_KEY = 'abc_access_token'
 
@@ -25,7 +26,7 @@ function apiBase(): string {
   return (import.meta.env.VITE_API_URL as string | undefined) ?? ''
 }
 
-export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiJsonOnce<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   const token = getToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
@@ -33,7 +34,14 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (body && !(body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
-  const res = await fetch(`${apiBase()}${path}`, { ...init, headers, credentials: 'include' })
+  let res: Response
+  try {
+    res = await fetch(`${apiBase()}${path}`, { ...init, headers, credentials: 'include' })
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error('Network error')
+    ;(err as Error & { status?: number }).status = 0
+    throw err
+  }
   const text = await res.text()
   if (res.status === 401) {
     setToken(null)
@@ -53,6 +61,21 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!text) return undefined as T
   return JSON.parse(text) as T
+}
+
+export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const safeToRetry = method === 'GET' || method === 'HEAD'
+  if (!safeToRetry) return apiJsonOnce<T>(path, init)
+  return withRetries(() => apiJsonOnce<T>(path, init), {
+    attempts: 4,
+    delayMs: 1000,
+    backoff: true,
+    shouldRetry: (err) => {
+      if (err instanceof ApiError) return err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504
+      return true
+    },
+  })
 }
 
 /** Unauthenticated JSON (e.g. public certificate verify). */
@@ -104,8 +127,7 @@ function parseUploadError(status: number, text: string): string {
   return msg
 }
 
-/** XHR upload — not tied to React lifecycle; no timeout so background tabs can finish large files. */
-export function xhrUploadForm(
+function xhrUploadFormOnce(
   path: string,
   file: File,
   onProgress?: (progress: UploadProgress) => void,
@@ -146,6 +168,26 @@ export function xhrUploadForm(
     xhr.addEventListener('error', () => reject(new Error('Network error during upload.')))
     xhr.addEventListener('abort', () => reject(new Error('Upload cancelled.')))
     xhr.send(fd)
+  })
+}
+
+/** XHR upload with retries on network / gateway errors (not on 4xx except 0). */
+export function xhrUploadForm(
+  path: string,
+  file: File,
+  onProgress?: (progress: UploadProgress) => void,
+): Promise<{ url: string; fileName: string; kind?: string }> {
+  return withRetries(() => xhrUploadFormOnce(path, file, onProgress), {
+    attempts: 4,
+    delayMs: 2000,
+    backoff: true,
+    shouldRetry: (err) => {
+      if (err instanceof ApiError) {
+        if (err.status === 413 || err.status === 401 || err.status === 403) return false
+        return err.status >= 502 || err.status === 0
+      }
+      return true
+    },
   })
 }
 
