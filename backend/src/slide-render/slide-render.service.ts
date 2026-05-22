@@ -114,4 +114,17 @@ export class SlideRenderService {
     this.logger.log(`Generated ${urls.length} slide images for ${fileId}`)
     return urls
   }
+
+  /** Returns URLs for PNGs already on disk (no LibreOffice run). */
+  async listRenderedSlideUrls(fileId: string): Promise<string[]> {
+    const subDir = join('slides', fileId)
+    const absDir = join(uploadDir(), subDir)
+    if (!existsSync(absDir)) return []
+
+    const files = (await readdir(absDir))
+      .filter((f) => /\.png$/i.test(f))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+
+    return files.map((f) => uploadUrlForFile(`${subDir}/${f}`))
+  }
 }

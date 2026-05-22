@@ -135,6 +135,7 @@ export function AdminCoursesPage() {
     if (!deckUploadJob || !draft) return
     if (deckUploadJob.status === 'done') {
       applyPendingUploadToDraft()
+      revokeDeckBlob()
       setSlideUploadErr('')
       setDeckUploadJobId(null)
     }
@@ -292,14 +293,17 @@ export function AdminCoursesPage() {
     }
     setSlugErr('')
     setFieldErrors({})
+    const renderedCount = presentationDeck?.renderedSlideUrls?.filter(Boolean).length ?? 0
     const slideCount =
       deliveryMode === 'video'
         ? 1
-        : presentationDeck?.deckSlideCount
-          ? presentationDeck.deckSlideCount
-          : slides.length > 0
-            ? slides.length
-            : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
+        : renderedCount > 0
+          ? renderedCount
+          : presentationDeck?.deckSlideCount
+            ? presentationDeck.deckSlideCount
+            : slides.length > 0
+              ? slides.length
+              : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
     const cv = draft.certificateValidityDays
     const certificateValidityDays =
       cv === null || cv === undefined || Number.isNaN(Number(cv)) || Number(cv) <= 0
@@ -381,6 +385,22 @@ export function AdminCoursesPage() {
       slides: patch.slides !== undefined ? patch.slides : draft.slides,
       slideImageUrls: undefined,
     })
+  }
+
+  const mergeRenderedUrlsOnDeck = (urls: string[]) => {
+    if (!draft || urls.length === 0) return
+    const slides = draft.slides ?? []
+    const deckIdx = slides.findIndex((s) => s.type === 'pptx' || s.type === 'ppt')
+    if (deckIdx < 0) return
+    const deck = slides[deckIdx]
+    if ((deck.renderedSlideUrls?.filter(Boolean).length ?? 0) > 0) return
+    const nextSlides = [...slides]
+    nextSlides[deckIdx] = {
+      ...deck,
+      renderedSlideUrls: urls,
+      deckSlideCount: urls.length,
+    }
+    patchDraft({ slides: nextSlides, slideCount: urls.length })
   }
 
   const removeDeck = () => {
@@ -813,7 +833,11 @@ export function AdminCoursesPage() {
                   <p className="mt-1 text-xs text-slate-600">
                     {pptxDeck.deckSlideCount ?? '?'} slides
                   </p>
-                  <AdminCourseDeckPreview slide={pptxDeck} blobPreviewUrl={deckBlobUrl} />
+                  <AdminCourseDeckPreview
+                    slide={pptxDeck}
+                    blobPreviewUrl={deckUploading ? deckBlobUrl : null}
+                    onRenderedUrlsResolved={mergeRenderedUrlsOnDeck}
+                  />
                 </div>
               ) : null}
               {videoDeck && deliveryMode === 'video' ? (

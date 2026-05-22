@@ -118,7 +118,8 @@ function savePendingMediaUpload(payload: PendingMediaUpload) {
  * Returns the generated image URLs, or an empty array when LibreOffice is
  * not installed on the server (graceful fallback to client-side pptx-preview).
  */
-async function requestSlideRender(fileUrl: string): Promise<string[]> {
+/** Server-side LibreOffice PNGs for an uploaded deck URL (reuses cached images when present). */
+export async function fetchRenderedSlideUrls(fileUrl: string): Promise<string[]> {
   try {
     const res = await apiJson<{ slideImageUrls: string[] }>('/api/admin/upload/render-slides', {
       method: 'POST',
@@ -208,7 +209,7 @@ export function startCourseDeckUpload(
       // Run slide count (client-side JSZip) and server-side rendering in parallel
       const [countResult, renderResult] = await Promise.allSettled([
         slideType === 'pptx' ? countPptxSlides(file) : Promise.resolve(1),
-        (slideType === 'pptx' || slideType === 'ppt') ? requestSlideRender(url) : Promise.resolve([]),
+        (slideType === 'pptx' || slideType === 'ppt') ? fetchRenderedSlideUrls(url) : Promise.resolve([]),
       ])
 
       if (countResult.status === 'fulfilled') deckSlideCount = countResult.value

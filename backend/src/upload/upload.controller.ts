@@ -92,8 +92,10 @@ export class UploadController {
 
     // Use the UUID portion of the filename (without extension) as a stable directory key
     const fileId = relPath.replace(/[^a-zA-Z0-9\-_]/g, '_')
-    const slideImageUrls = await this.slideRender.renderSlides(filePath, fileId)
+    const existing = await this.slideRender.listRenderedSlideUrls(fileId)
+    if (existing.length > 0) return { slideImageUrls: existing }
 
+    const slideImageUrls = await this.slideRender.renderSlides(filePath, fileId)
     return { slideImageUrls }
   }
 }
