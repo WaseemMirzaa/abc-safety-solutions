@@ -138,6 +138,15 @@
   }
 }
 
+/* PPTX preview (pptx-preview) — avoid black placeholder breaking admin modal */
+.pptx-deck-viewer canvas {
+  background: #fff !important;
+}
+.pptx-deck-viewer--compact .pptx-preview-wrapper {
+  max-height: 200px;
+  overflow: hidden;
+}
+
 @media print {
   @page {
     size: landscape;

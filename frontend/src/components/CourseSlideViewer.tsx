@@ -1,8 +1,12 @@
+import { useEffect } from 'react'
 import { FileText, Film, Presentation } from 'lucide-react'
 import type { CourseSlide } from '@/types'
 import { PptxSlideViewer } from '@/components/PptxSlideViewer'
+import { prefetchPptxBuffer } from '@/lib/pptxDeckCache'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import { t } from '@/i18n/t'
+
+const HEAVY_DECK_SLIDES = 8
 
 type Props = {
   slide: CourseSlide | undefined
@@ -25,6 +29,12 @@ export function CourseSlideViewer({
   className = '',
 }: Props) {
   const src = slide ? resolveMediaUrl(slide.url) : ''
+  const heavyPptx =
+    slide?.type === 'pptx' && (slide.deckSlideCount ?? 0) > HEAVY_DECK_SLIDES
+
+  useEffect(() => {
+    if (slide?.type === 'pptx') prefetchPptxBuffer(slide.url)
+  }, [slide?.url, slide?.type])
 
   return (
     <div className={`relative flex h-full w-full max-h-full flex-col items-center justify-center ${className}`}>
@@ -60,7 +70,12 @@ export function CourseSlideViewer({
           </p>
         </div>
       ) : slide.type === 'pptx' ? (
-        <PptxSlideViewer url={slide.url} slideIndex={pptxSlideIndex} className="flex-1" />
+        <PptxSlideViewer
+          url={slide.url}
+          slideIndex={pptxSlideIndex}
+          className="flex-1"
+          deferLoad={heavyPptx}
+        />
       ) : slide.type === 'video' ? (
         <video
           key={src}

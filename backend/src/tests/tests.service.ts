@@ -47,6 +47,10 @@ export class TestsService {
   async submit(userId: string, courseId: string, answers: Record<string, string>) {
     const test = await this.publishedForCourse(courseId)
     if (!test) throw new NotFoundException('No published test')
+    const missing = test.questions.filter((q) => !answers[q.id]?.trim())
+    if (missing.length > 0) {
+      throw new BadRequestException('Answer every question before submitting.')
+    }
     const pct = this.score(test, answers)
     const passed = pct >= test.passPercent
     await this.progress.setTestPassed(userId, courseId, passed)

@@ -3,9 +3,9 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { CertificateVisual } from '@/components/CertificateVisual'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
+import { KnowledgeCheckView } from '@/components/learn/KnowledgeCheckView'
 import {
   fetchCategories,
   fetchCourseById,
@@ -28,21 +28,11 @@ import {
   isVideoCourse,
 } from '@/lib/courseSlides'
 import { useAuth } from '@/contexts/AuthContext'
-import { easeOut, transition } from '@/lib/motionPresets'
-import type { AdminTest, Certificate } from '@/types'
+import { easeOut } from '@/lib/motionPresets'
+import type { Certificate } from '@/types'
 import { t } from '@/i18n/t'
 import { displayCourseTitle } from '@/lib/courseDisplay'
 import { findEnrollment, hasCourseAccess } from '@/lib/courseAccess'
-
-function scoreMeetsPassThreshold(test: AdminTest, answers: Record<string, string>): boolean {
-  if (!test.questions.length) return false
-  let correct = 0
-  for (const q of test.questions) {
-    const pick = answers[q.id]
-    if (q.options.some((o) => o.id === pick && o.isCorrect)) correct++
-  }
-  return (100 * correct) / test.questions.length >= test.passPercent
-}
 
 export function LearnPage() {
   const reduce = useReducedMotion()
@@ -101,6 +91,12 @@ export function LearnPage() {
   const [fallbackAnswer, setFallbackAnswer] = useState<'a' | 'b' | null>(null)
   const [mcAnswers, setMcAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [submittingTest, setSubmittingTest] = useState(false)
+  const [testSubmitResult, setTestSubmitResult] = useState<{
+    passed: boolean
+    scorePercent: number
+    passPercent: number
+  } | null>(null)
   const [testErr, setTestErr] = useState('')
   const [freshCert, setFreshCert] = useState<Certificate | null>(null)
   const [videoDoneLocal, setVideoDoneLocal] = useState(false)
@@ -154,32 +150,53 @@ export function LearnPage() {
 
   const submitCustomTest = useCallback(async () => {
     if (!publishedTest?.questions.length || !course) return
-    setSubmitted(true)
+    const allAnswered = publishedTest.questions.every((q) => Boolean(mcAnswers[q.id]))
+    if (!allAnswered) {
+      setTestErr(t('ui_learn_test_answer_all', { defaultValue: 'Please answer every question.' }))
+      return
+    }
+    setSubmittingTest(true)
     setTestErr('')
+    setTestSubmitResult(null)
     try {
       const res = await submitTestAnswers(course.id, mcAnswers)
+      setTestSubmitResult(res)
+      setSubmitted(true)
       if (res.passed) {
         const cert = await issueCertificate(course.id)
         setFreshCert(cert)
         await qc.invalidateQueries({ queryKey: qk.certificates })
       }
     } catch (e) {
+      setSubmitted(false)
+      setTestSubmitResult(null)
       setTestErr(e instanceof Error ? e.message : 'Submit failed')
+    } finally {
+      setSubmittingTest(false)
     }
   }, [course, mcAnswers, publishedTest, qc])
 
   const submitFallbackTest = useCallback(async () => {
-    if (!course) return
-    setSubmitted(true)
+    if (!course || !fallbackAnswer) return
+    setSubmittingTest(true)
     setTestErr('')
-    if (fallbackAnswer !== 'a') return
+    setTestSubmitResult(null)
+    const passed = fallbackAnswer === 'a'
     try {
-      await submitNoTestPass(course.id, true)
-      const cert = await issueCertificate(course.id)
-      setFreshCert(cert)
-      await qc.invalidateQueries({ queryKey: qk.certificates })
+      const res = await submitNoTestPass(course.id, passed)
+      setTestSubmitResult({ passed: res.passed, scorePercent: passed ? 100 : 0, passPercent: 100 })
+      setSubmitted(true)
+      if (res.passed) {
+        const cert = await issueCertificate(course.id)
+        setFreshCert(cert)
+        await qc.invalidateQueries({ queryKey: qk.certificates })
+      }
     } catch (e) {
+      setSubmitted(false)
+      setTestSubmitResult(null)
       setTestErr(e instanceof Error ? e.message : 'Submit failed')
+    } finally {
+      setSubmittingTest(false)
     }
   }, [course, fallbackAnswer, qc])
 
@@ -242,18 +259,16 @@ export function LearnPage() {
     setMcAnswers({})
     setFallbackAnswer(null)
     setSubmitted(false)
+    setSubmittingTest(false)
+    setTestSubmitResult(null)
     setTestErr('')
     setFreshCert(null)
     setShowTest(true)
   }
 
   const customTestReady = Boolean(publishedTest && publishedTest.questions.length > 0)
-  const allMcAnswered =
-    customTestReady &&
-    publishedTest!.questions.every((q) => Boolean(mcAnswers[q.id]))
-  const customPassed =
-    customTestReady && submitted && scoreMeetsPassThreshold(publishedTest!, mcAnswers)
-  const fallbackPassed = submitted && fallbackAnswer === 'a'
+  const customPassed = customTestReady && submitted && testSubmitResult?.passed === true
+  const fallbackPassed = !customTestReady && submitted && testSubmitResult?.passed === true
 
   const slideNum = videoCourse ? 1 : Math.min(slideIndex + 1, totalSlides)
   const isLastSlide = videoCourse ? contentComplete : slideIndex >= totalSlides - 1
@@ -270,146 +285,38 @@ export function LearnPage() {
 
   if (showTest) {
     const passed = customTestReady ? customPassed : fallbackPassed
+    const retryTest = () => {
+      setSubmitted(false)
+      setSubmittingTest(false)
+      setTestSubmitResult(null)
+      setFallbackAnswer(null)
+      setMcAnswers({})
+      setTestErr('')
+      setFreshCert(null)
+    }
     return (
-      <motion.div
-        className="min-h-[70vh] bg-gradient-to-b from-slate-100 to-slate-50 py-12 sm:py-16"
-        initial={reduce ? false : { opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={transition.page}
-      >
-        <Container className="w-full min-w-0 max-w-2xl">
-          <h1 className="font-display text-2xl font-bold text-brand-900 sm:text-3xl">{t('LearnPage_173_knowledge_check_e4ec131477')}</h1>
-          <p className="mt-2 break-words text-sm text-slate-600">
-            {displayCourseTitle(course)}
-          </p>
-          {publishedTest?.title ? (
-            <p className="mt-1 text-xs font-medium text-sky-800">{publishedTest.title}</p>
-          ) : null}
-          {testErr ? <p className="mt-2 text-sm text-red-600">{testErr}</p> : null}
-          <div className="card-elevated mt-8 min-w-0 overflow-x-hidden p-4 sm:p-8">
-            {customTestReady && publishedTest ? (
-              <>
-                <p className="text-xs text-slate-500">
-                  {t('ui_learn_test_intro_before')}
-                  <strong className="text-brand-800">{publishedTest.passPercent}%</strong>
-                  {t('ui_learn_test_intro_after')}
-                </p>
-                <div className="mt-8 space-y-10">
-                  {publishedTest.questions.map((q, qi) => (
-                    <div key={q.id}>
-                      <p className="break-words font-medium leading-relaxed text-slate-800">
-                        <span className="mr-2 text-sky-700">{qi + 1}.</span>
-                        {q.prompt}
-                      </p>
-                      <div className="mt-4 space-y-2">
-                        {q.options.map((o) => (
-                          <label
-                            key={o.id}
-                            className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30"
-                          >
-                            <input
-                              type="radio"
-                              name={q.id}
-                              checked={mcAnswers[q.id] === o.id}
-                              onChange={() => setMcAnswers((prev) => ({ ...prev, [q.id]: o.id }))}
-                              className="mt-0.5 shrink-0 accent-sky-600"
-                            />
-                            <span className="min-w-0 flex-1 break-words text-sm">{o.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {!submitted ? (
-                  <Button className="mt-10" disabled={!allMcAnswered} onClick={() => void submitCustomTest()}>
-                    {t('ui_learn_submit_answers')}
-                  </Button>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-amber-800/90">{t('ui_learn_no_test_warning')}</p>
-                <p className="mt-6 font-medium leading-relaxed text-slate-800">{t('ui_learn_sample_question_title')}</p>
-                <div className="mt-6 space-y-3">
-                  <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
-                    <input
-                      type="radio"
-                      name="fallback-q"
-                      checked={fallbackAnswer === 'a'}
-                      onChange={() => setFallbackAnswer('a')}
-                      className="mt-0.5 shrink-0 accent-sky-600"
-                    />
-                    <span className="min-w-0 flex-1 break-words text-sm">{t('LearnPage_234_protect_workers_and_prevent_incidents_7bf8112ad7')}</span>
-                  </label>
-                  <label className="flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-300/80 hover:bg-sky-50/30">
-                    <input
-                      type="radio"
-                      name="fallback-q"
-                      checked={fallbackAnswer === 'b'}
-                      onChange={() => setFallbackAnswer('b')}
-                      className="mt-0.5 shrink-0 accent-sky-600"
-                    />
-                    <span className="min-w-0 flex-1 break-words text-sm">{t('LearnPage_244_reduce_paperwork_only_d19268d9e2')}</span>
-                  </label>
-                </div>
-                {!submitted ? (
-                  <Button className="mt-8" disabled={!fallbackAnswer} onClick={() => void submitFallbackTest()}>
-                    {t('ui_learn_submit_answers')}
-                  </Button>
-                ) : null}
-              </>
-            )}
-
-            {submitted && passed ? (
-              <div className="mt-8 space-y-6">
-                <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-4 text-center text-sm text-emerald-950 sm:px-5">
-                  <strong>{t('LearnPage_258_congratulations_you_passed_70ea555952')}</strong> {t('ui_learn_pass_saved_blurb')}
-                </div>
-                {passCert ? (
-                  <CertificateVisual
-                    cert={passCert}
-                    categories={categoryList}
-                    variant="compact"
-                    className="mx-auto w-full min-w-0 max-w-full shadow-md sm:max-w-xl"
-                  />
-                ) : null}
-                <div className="flex flex-wrap justify-center gap-3">
-                  {passCert ? (
-                    <Link to={`/certificates/${encodeURIComponent(passCert.id)}`}>
-                      <Button>{t('ui_cert_list_view')}</Button>
-                    </Link>
-                  ) : null}
-                  <Link to="/certificates">
-                    <Button variant={passCert ? 'secondary' : undefined}>{t('LearnPage_270_view_all_certificates_7adad16f2a')}</Button>
-                  </Link>
-                  <Link to="/my-courses">
-                    <Button variant="secondary">{t('LearnPage_273_my_learning_06b8911395')}</Button>
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-            {submitted && !passed ? (
-              <div className="mt-8 rounded-2xl border border-red-200/80 bg-red-50/90 p-5 text-sm text-red-900">
-                {t('ui_learn_fail_message')}
-                <Button
-                  className="mt-5"
-                  variant="secondary"
-                  onClick={() => {
-                    setSubmitted(false)
-                    setFallbackAnswer(null)
-                    setMcAnswers({})
-                    setTestErr('')
-                    setFreshCert(null)
-                  }}
-                >
-                  {t('ui_learn_retry')}
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        </Container>
-      </motion.div>
+      <KnowledgeCheckView
+        course={course}
+        publishedTest={publishedTest}
+        categoryList={categoryList}
+        mcAnswers={mcAnswers}
+        setMcAnswers={setMcAnswers}
+        fallbackAnswer={fallbackAnswer}
+        setFallbackAnswer={setFallbackAnswer}
+        submitted={submitted}
+        submitting={submittingTest}
+        passed={passed}
+        testErr={testErr}
+        testSubmitResult={testSubmitResult}
+        passCert={passCert}
+        onSubmitCustom={() => void submitCustomTest()}
+        onSubmitFallback={() => void submitFallbackTest()}
+        onRetry={retryTest}
+        onBackToCourse={() => {
+          setShowTest(false)
+          retryTest()
+        }}
+      />
     )
   }
 

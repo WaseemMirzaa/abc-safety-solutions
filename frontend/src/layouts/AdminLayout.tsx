@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   BookOpen,
   ClipboardList,
-  Image as ImageIcon,
   LayoutDashboard,
   ShoppingBag,
   Tags,
@@ -22,7 +21,6 @@ const side = [
   { to: '/admin/courses', label: 'Courses', icon: BookOpen, end: false },
   { to: '/admin/categories', label: 'Categories', icon: Tags, end: false },
   { to: '/admin/tests', label: 'Tests', icon: ClipboardList, end: false },
-  { to: '/admin/media', label: 'Media', icon: ImageIcon, end: false },
   { to: '/admin/users', label: 'Users', icon: Users, end: false },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, end: false },
 ] as const
