@@ -195,7 +195,7 @@ export function AdminMediaPage() {
                 onChange={onPickFile}
               />
               <p className="mt-2 text-xs text-slate-500">
-                Images, PDF, video, or PowerPoint — stored on the server under /uploads/.
+                Images, PDF, video, or PowerPoint — up to 1 GB (nginx limit), stored under /uploads/.
               </p>
               {uploadErr ? <p className="mt-2 text-sm font-medium text-red-600">{uploadErr}</p> : null}
               <Button type="button" variant="secondary" className="mt-3 gap-2" onClick={() => fileRef.current?.click()}>

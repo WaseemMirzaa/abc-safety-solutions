@@ -96,12 +96,19 @@ async function adminUpload(path: string, file: File): Promise<{ url: string; fil
   const text = await res.text()
   if (!res.ok) {
     let msg = text || res.statusText
-    try {
-      const j = JSON.parse(text) as { message?: string | string[] }
-      if (Array.isArray(j.message)) msg = j.message.join(', ')
-      else if (typeof j.message === 'string') msg = j.message
-    } catch {
-      /* */
+    if (res.status === 413) {
+      msg =
+        'File too large for nginx (413). On the server run: sudo cp deploy/nginx-pm2.conf /etc/nginx/sites-available/abc-safety && sudo nginx -t && sudo systemctl reload nginx'
+    } else {
+      try {
+        const j = JSON.parse(text) as { message?: string | string[] }
+        if (Array.isArray(j.message)) msg = j.message.join(', ')
+        else if (typeof j.message === 'string') msg = j.message
+      } catch {
+        if (text.includes('413') && text.includes('Too Large')) {
+          msg = 'Upload rejected by nginx (413). Increase client_max_body_size on the server and reload nginx.'
+        }
+      }
     }
     const apiErr = new ApiError(res.status, msg)
     logError('api:upload', apiErr, { path, status: res.status, file: file.name })

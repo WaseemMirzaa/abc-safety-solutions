@@ -44,7 +44,14 @@ curl -I http://2.24.110.154/uploads/   # 404 is OK if no file; must not be SPA H
 The API does not enforce per-type file size caps on multipart uploads. Limit uploads only at the reverse proxy or disk if needed:
 
 ```nginx
-client_max_body_size 0;   # 0 = no nginx body size limit (see deploy/nginx-pm2.conf)
+client_max_body_size 1g;   # in deploy/nginx-pm2.conf (server + location /api/)
+```
+
+After changing nginx on the VPS:
+
+```bash
+sudo cp /opt/abc-safety-solutions/deploy/nginx-pm2.conf /etc/nginx/sites-available/abc-safety
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ## Backup
@@ -61,6 +68,6 @@ Replacing a `.pptx` in Admin does **not** delete the old file on disk (orphans a
 
 | Problem | Fix |
 |---------|-----|
-| Upload fails / 413 | Raise or disable nginx `client_max_body_size` (e.g. `0`) and reload nginx |
+| Upload fails / 413 | Copy `deploy/nginx-pm2.conf`, set `client_max_body_size 1g`, `nginx -t`, reload nginx; disable `sites-enabled/default` if it still listens on port 80 |
 | Preview 404 | Confirm `pm2 restart abc-api` and file exists under `backend/uploads/` |
 | Wrong image URL | Use `/uploads/...` paths; avoid hard-coding `PUBLIC_BASE_URL` to another host |
