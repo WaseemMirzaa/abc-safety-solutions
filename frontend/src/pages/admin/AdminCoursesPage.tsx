@@ -73,11 +73,16 @@ export function AdminCoursesPage() {
   const [slugErr, setSlugErr] = useState('')
   const [slideUploadErr, setSlideUploadErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [uploadJobId, setUploadJobId] = useState<string | null>(null)
-  const uploadJob = useAdminUploadJob(uploadJobId)
-  const uploading = uploadJob?.status === 'uploading' || uploadJob?.status === 'processing'
-  const uploadProgress = uploadJob?.percent ?? 0
-  const uploadPhase = uploadJob?.phase ?? 'upload'
+  const [deckUploadJobId, setDeckUploadJobId] = useState<string | null>(null)
+  const [heroUploadJobId, setHeroUploadJobId] = useState<string | null>(null)
+  const deckUploadJob = useAdminUploadJob(deckUploadJobId)
+  const heroUploadJob = useAdminUploadJob(heroUploadJobId)
+  const deckUploading =
+    deckUploadJob?.status === 'uploading' || deckUploadJob?.status === 'processing'
+  const heroUploading = heroUploadJob?.status === 'uploading'
+  const uploading = deckUploading || heroUploading
+  const uploadProgress = deckUploading ? (deckUploadJob?.percent ?? 0) : (heroUploadJob?.percent ?? 0)
+  const uploadPhase = deckUploadJob?.phase ?? 'upload'
   const [deckBlobUrl, setDeckBlobUrl] = useState<string | null>(null)
   const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
   const pptxInputRef = useRef<HTMLInputElement>(null)
@@ -125,23 +130,30 @@ export function AdminCoursesPage() {
   }, [modal, draft?.id])
 
   useEffect(() => {
-    if (!uploadJob || !draft) return
-    if (uploadJob.status === 'done') {
-      const pending = readPendingCourseUpload()
-      if (pending && pending.draftId === draft.id) {
-        applyPendingUploadToDraft()
-      } else if (uploadJob.result?.url && uploadJob.result.kind === 'image') {
-        setDraft((prev) => (prev ? { ...prev, imageUrl: uploadJob.result!.url } : prev))
-      }
+    if (!deckUploadJob || !draft) return
+    if (deckUploadJob.status === 'done') {
+      applyPendingUploadToDraft()
       setSlideUploadErr('')
-      setUploadJobId(null)
+      setDeckUploadJobId(null)
     }
-    if (uploadJob.status === 'error') {
-      setSlideUploadErr(uploadJob.error ?? 'Upload failed.')
-      setUploadJobId(null)
+    if (deckUploadJob.status === 'error') {
+      setSlideUploadErr(deckUploadJob.error ?? 'Upload failed.')
+      setDeckUploadJobId(null)
       revokeDeckBlob()
     }
-  }, [uploadJob?.status, draft?.id])
+  }, [deckUploadJob?.status, draft?.id])
+
+  useEffect(() => {
+    if (!heroUploadJob || !draft) return
+    if (heroUploadJob.status === 'done' && heroUploadJob.result?.url) {
+      setDraft((prev) => (prev ? { ...prev, imageUrl: heroUploadJob.result!.url } : prev))
+      setHeroUploadJobId(null)
+    }
+    if (heroUploadJob.status === 'error') {
+      setSlideUploadErr(heroUploadJob.error ?? 'Image upload failed.')
+      setHeroUploadJobId(null)
+    }
+  }, [heroUploadJob?.status, draft?.id])
 
   const openCreate = () => {
     revokeDeckBlob()
@@ -189,7 +201,8 @@ export function AdminCoursesPage() {
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
-    setUploadJobId(null)
+    setDeckUploadJobId(null)
+    setHeroUploadJobId(null)
     setHeroPreviewBroken(false)
   }
 
@@ -244,15 +257,13 @@ export function AdminCoursesPage() {
     if (!draft.imageUrl.trim()) errors.imageUrl = 'Hero image URL is required.'
     if (Number.isNaN(draft.priceCents) || draft.priceCents < 0) errors.priceCents = 'Enter a valid price (USD cents).'
     if (!draft.durationMinutes || draft.durationMinutes < 1) errors.durationMinutes = 'Duration must be at least 1 minute.'
-    const pptxDeck = slides.find((s) => s.type === 'pptx')
+    const presentationDeck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt')
     const videoDeck = slides.find((s) => s.type === 'video')
     if (deliveryMode === 'pptx') {
-      if (!pptxDeck) {
-        errors.slides = 'Upload a .pptx presentation (required).'
-      } else if (slides.some((s) => s.type === 'ppt')) {
-        errors.slides = 'Use .pptx (not .ppt) so learners can move through slides.'
-      } else if (slides.some((s) => s.type !== 'pptx')) {
-        errors.slides = 'Only one .pptx deck is allowed. Remove other slide types first.'
+      if (!presentationDeck) {
+        errors.slides = 'Upload a presentation (.pptx or .ppt) (required).'
+      } else if (slides.some((s) => s.type !== 'pptx' && s.type !== 'ppt')) {
+        errors.slides = 'Only one presentation deck is allowed. Remove other slide types first.'
       }
     } else if (!videoDeck) {
       errors.slides = 'Upload a training video (required).'
@@ -274,8 +285,8 @@ export function AdminCoursesPage() {
     const slideCount =
       deliveryMode === 'video'
         ? 1
-        : pptxDeck?.deckSlideCount
-          ? pptxDeck.deckSlideCount
+        : presentationDeck?.deckSlideCount
+          ? presentationDeck.deckSlideCount
           : slides.length > 0
             ? slides.length
             : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
@@ -386,23 +397,23 @@ export function AdminCoursesPage() {
       return
     }
     revokeDeckBlob()
-    setUploadJobId(startCourseDeckUpload(file, draft.id, 'video'))
+    setDeckUploadJobId(startCourseDeckUpload(file, draft.id, 'video'))
   }
 
-  const onPickPptx = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickPresentation = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!draft) return
     setSlideUploadErr('')
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
     const type = slideTypeFromFile(file)
-    if (type !== 'pptx') {
-      setSlideUploadErr('Only .pptx files are allowed. In PowerPoint: File → Save As → .pptx')
+    if (type !== 'pptx' && type !== 'ppt') {
+      setSlideUploadErr('Use a PowerPoint file (.pptx or .ppt). For best playback, save as .pptx.')
       return
     }
     revokeDeckBlob()
-    setDeckBlobUrl(URL.createObjectURL(file))
-    setUploadJobId(startCourseDeckUpload(file, draft.id, 'pptx'))
+    if (type === 'pptx') setDeckBlobUrl(URL.createObjectURL(file))
+    setDeckUploadJobId(startCourseDeckUpload(file, draft.id, type))
   }
 
   return (
@@ -514,7 +525,7 @@ export function AdminCoursesPage() {
         <AdminModal
           title={modal === 'create' ? t('ui_courses_modal_add') : t('ui_courses_modal_edit')}
           wide
-          blockDismiss={uploading}
+          blockDismiss={deckUploading}
           onClose={closeModal}
         >
           {seed ? (
@@ -695,9 +706,9 @@ export function AdminCoursesPage() {
                   <input
                     ref={pptxInputRef}
                     type="file"
-                    accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    accept=".pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
                     className="hidden"
-                    onChange={onPickPptx}
+                    onChange={onPickPresentation}
                   />
                   <input
                     ref={videoInputRef}
@@ -714,7 +725,7 @@ export function AdminCoursesPage() {
                       disabled={uploading}
                       onClick={() => pptxInputRef.current?.click()}
                     >
-                      {uploading ? 'Uploading…' : 'Upload .pptx'}
+                      {uploading ? 'Uploading…' : 'Upload presentation'}
                     </Button>
                   ) : null}
                   {deliveryMode === 'video' && !videoDeck ? (
@@ -926,7 +937,7 @@ export function AdminCoursesPage() {
                   if (!file || !draft) return
                   setHeroPreviewBroken(false)
                   setSlideUploadErr('')
-                  setUploadJobId(startAdminFileUpload('/api/admin/upload/image', file))
+                  setHeroUploadJobId(startAdminFileUpload('/api/admin/upload/image', file))
                 }}
               />
               <div className="mt-3 flex flex-wrap gap-2">

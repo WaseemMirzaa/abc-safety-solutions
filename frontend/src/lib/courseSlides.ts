@@ -56,19 +56,27 @@ export function getCourseSlideCount(course: Course): number {
   return Math.max(1, course.slideCount)
 }
 
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.ogg', '.m4v', '.avi', '.mkv'] as const
+
 export function slideTypeFromFile(file: File): CourseSlideType | null {
   const name = file.name.toLowerCase()
   const mime = (file.type ?? '').toLowerCase()
   if (mime.startsWith('image/')) return 'image'
-  if (mime === 'application/pdf') return 'pdf'
-  if (mime.startsWith('video/')) return 'video'
+  if (mime === 'application/pdf' || name.endsWith('.pdf')) return 'pdf'
+  if (mime.startsWith('video/') || VIDEO_EXTENSIONS.some((ext) => name.endsWith(ext))) return 'video'
   if (name.endsWith('.pptx') || mime.includes('presentationml.presentation')) return 'pptx'
   if (name.endsWith('.ppt') || mime === 'application/vnd.ms-powerpoint') return 'ppt'
   if (
-    (mime === 'application/zip' || mime === 'application/x-zip-compressed' || mime === 'application/octet-stream') &&
+    (mime === 'application/zip' ||
+      mime === 'application/x-zip-compressed' ||
+      mime === 'application/octet-stream' ||
+      !mime) &&
     name.endsWith('.pptx')
   ) {
     return 'pptx'
+  }
+  if ((mime === 'application/octet-stream' || !mime) && name.endsWith('.ppt')) {
+    return 'ppt'
   }
   return null
 }

@@ -116,7 +116,6 @@ export function xhrUploadForm(
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${apiBase()}${path}`)
     xhr.withCredentials = true
-    xhr.timeout = 0
     const token = getToken()
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
 

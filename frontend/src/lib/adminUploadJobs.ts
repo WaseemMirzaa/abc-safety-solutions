@@ -140,7 +140,7 @@ export function startAdminFileUpload(
 export function startCourseDeckUpload(
   file: File,
   draftId: string,
-  mode: 'pptx' | 'video',
+  slideType: 'pptx' | 'ppt' | 'video',
 ): string {
   const id = createJob(file.name)
   void (async () => {
@@ -148,55 +148,68 @@ export function startCourseDeckUpload(
       const { url, fileName, kind } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
         patchJob(id, { percent: p.percent, phase: 'upload', status: 'uploading' })
       })
+      const title = fileName || file.name
+      const resolvedKind = (kind ?? slideType) as string
 
-      if (mode === 'pptx') {
-        patchJob(id, { status: 'processing', phase: 'processing', percent: 100 })
-        const deckSlideCount = await countPptxSlides(file)
-        const title = fileName || file.name
+      if (slideType === 'video') {
         const slides: CourseSlide[] = [
           {
-            id: `deck-${Date.now()}`,
-            type: 'pptx',
+            id: `video-${Date.now()}`,
+            type: 'video',
             url,
             title,
-            deckSlideCount,
           },
         ]
         savePendingCourseUpload({
           draftId,
-          deliveryMode: 'pptx',
+          deliveryMode: 'video',
           slides,
-          slideCount: deckSlideCount,
+          slideCount: 1,
         })
         patchJob(id, {
           status: 'done',
           percent: 100,
-          phase: 'processing',
-          result: { url, fileName: fileName || file.name, kind: kind ?? 'pptx', deckSlideCount },
+          phase: 'upload',
+          result: { url, fileName: title, kind: resolvedKind },
         })
         return
       }
 
-      const title = fileName || file.name
+      patchJob(id, { status: 'processing', phase: 'processing', percent: 100 })
+      let deckSlideCount = 1
+      if (slideType === 'pptx') {
+        try {
+          deckSlideCount = await countPptxSlides(file)
+        } catch {
+          deckSlideCount = 1
+        }
+      }
+
       const slides: CourseSlide[] = [
         {
-          id: `video-${Date.now()}`,
-          type: 'video',
+          id: `deck-${Date.now()}`,
+          type: slideType,
           url,
           title,
+          deckSlideCount: slideType === 'pptx' ? deckSlideCount : undefined,
         },
       ]
       savePendingCourseUpload({
         draftId,
-        deliveryMode: 'video',
+        deliveryMode: 'pptx',
         slides,
-        slideCount: 1,
+        slideCount: deckSlideCount,
       })
       patchJob(id, {
         status: 'done',
         percent: 100,
-        phase: 'upload',
-        result: { url, fileName: fileName || file.name, kind: kind ?? 'video' },
+        phase: 'processing',
+        result: {
+          url,
+          fileName: title,
+          kind: resolvedKind,
+          deckSlideCount,
+        },
       })
     } catch (err) {
       const msg =
