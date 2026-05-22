@@ -22,7 +22,7 @@ export class SchemaMigrationsService implements OnModuleInit {
   private async ensureCourseLanguages() {
     await this.dataSource.query(`
       CREATE TABLE IF NOT EXISTS course_languages (
-        id VARCHAR(36) NOT NULL,
+        id VARCHAR(64) NOT NULL,
         code VARCHAR(16) NOT NULL,
         name VARCHAR(120) NOT NULL,
         PRIMARY KEY (id),
@@ -32,6 +32,15 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.dataSource.query(
       `INSERT IGNORE INTO course_languages (id, code, name) VALUES ('lang-en', 'en', 'English')`,
     )
+    const idLen = await this.dataSource.query<{ len: number | string }[]>(
+      `SELECT CHARACTER_MAXIMUM_LENGTH AS len
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'course_languages' AND COLUMN_NAME = 'id'`,
+    )
+    if (Number(idLen[0]?.len ?? 0) < 64) {
+      this.log.warn('course_languages.id is narrow; widening to VARCHAR(64)')
+      await this.dataSource.query(`ALTER TABLE course_languages MODIFY COLUMN id VARCHAR(64) NOT NULL`)
+    }
     const col = await this.dataSource.query<{ n: number }[]>(
       `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'courses' AND COLUMN_NAME = 'languageId'`,

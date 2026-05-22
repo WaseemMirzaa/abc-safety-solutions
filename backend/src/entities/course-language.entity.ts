@@ -2,7 +2,8 @@ import { Column, Entity, PrimaryColumn } from 'typeorm'
 
 @Entity('course_languages')
 export class CourseLanguageEntity {
-  @PrimaryColumn('varchar', { length: 36 })
+  /** UUID (36) or legacy `lang-{uuid}` (41); column allows 64 for headroom. */
+  @PrimaryColumn('varchar', { length: 64 })
   id: string
 
   /** Short code, e.g. en, es, fr */

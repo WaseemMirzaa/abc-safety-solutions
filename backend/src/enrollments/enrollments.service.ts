@@ -1,10 +1,10 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
-import { In, Repository } from 'typeorm'
+import { Repository } from 'typeorm'
 import { EnrollmentEntity } from '../entities/enrollment.entity'
+import { ProgressEntity } from '../entities/progress.entity'
 import { CoursesService } from '../courses/courses.service'
-import { ProgressService } from '../progress/progress.service'
 import { PromoCodesService } from '../promo-codes/promo-codes.service'
 import { computeCheckoutPricing } from '../common/pricing.util'
 import type { EnrollmentPricingSnapshot } from './enrollment-pricing.types'
@@ -19,10 +19,10 @@ export class EnrollmentsService {
   constructor(
     @InjectRepository(EnrollmentEntity)
     private readonly enrollments: Repository<EnrollmentEntity>,
+    @InjectRepository(ProgressEntity)
+    private readonly progressRows: Repository<ProgressEntity>,
     private readonly courses: CoursesService,
     private readonly promoCodes: PromoCodesService,
-    @Inject(forwardRef(() => ProgressService))
-    private readonly progress: ProgressService,
   ) {}
 
   async my(userId: string) {
@@ -192,7 +192,31 @@ export class EnrollmentsService {
   private async resetPurchaseAttempts(enrollment: EnrollmentEntity) {
     enrollment.testAttemptsRemaining = 3
     enrollment.attemptsExhausted = false
-    await this.progress.resetForNewPurchase(enrollment.userId, enrollment.courseId)
+    await this.resetProgressForNewPurchase(enrollment.userId, enrollment.courseId)
+  }
+
+  /** Avoid circular import with ProgressModule — reset learner progress on repurchase. */
+  private async resetProgressForNewPurchase(userId: string, courseId: string) {
+    let row = await this.progressRows.findOne({ where: { userId, courseId } })
+    if (!row) {
+      row = this.progressRows.create({
+        id: randomUUID(),
+        userId,
+        courseId,
+        slideIndex: 0,
+        maxSlideIndex: 0,
+        audioTimeSec: 0,
+        completedSlides: false,
+        testPassed: false,
+      })
+    } else {
+      row.slideIndex = 0
+      row.maxSlideIndex = 0
+      row.audioTimeSec = 0
+      row.completedSlides = false
+      row.testPassed = false
+    }
+    await this.progressRows.save(row)
   }
 
   async assertEnrolled(userId: string, courseId: string) {

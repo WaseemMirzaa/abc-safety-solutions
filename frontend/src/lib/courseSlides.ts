@@ -1,7 +1,7 @@
 import { buildLearnerUnits, computeCourseContentMetrics, getContentPlaylist } from '@/lib/courseContent'
 import type { Course, CourseSlide, CourseSlideType } from '@/types'
 
-export type CourseContentMode = 'pptx' | 'video'
+export type CourseContentMode = 'pptx' | 'video' | 'playlist'
 
 /** Effective slide list (new `slides` field or legacy `slideImageUrls`). */
 export function getCourseSlides(course: Course): CourseSlide[] {
@@ -59,13 +59,24 @@ export function getVideoSlide(course: Course): CourseSlide | undefined {
   return getCourseSlides(course).find((s) => s.type === 'video')
 }
 
-/** Primary delivery format: one .pptx deck or one training video. */
+/** Primary delivery format: playlist (PDF + video), video-only, or legacy deck. */
 export function getCourseContentMode(course: Course): CourseContentMode {
   const slides = getCourseSlides(course)
+  const playlist = getContentPlaylist(slides)
+  if (playlist.length > 0) {
+    const hasVideo = playlist.some((s) => s.type === 'video')
+    const hasPdf = playlist.some((s) => s.type === 'pdf')
+    if (hasVideo && !hasPdf && playlist.length === 1) return 'video'
+    return 'playlist'
+  }
   const hasPresentation = slides.some((s) => isPresentationDeckType(s.type))
   const hasVideo = slides.some((s) => s.type === 'video')
   if (hasVideo && !hasPresentation) return 'video'
   return 'pptx'
+}
+
+export function isPlaylistCourse(course: Course): boolean {
+  return getCourseContentMode(course) === 'playlist'
 }
 
 export function isVideoCourse(course: Course): boolean {

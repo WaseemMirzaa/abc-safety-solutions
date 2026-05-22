@@ -21,7 +21,7 @@ import {
   formatDurationSec,
   publishedTestMeta,
 } from '@/lib/myCourseProgress'
-import { isPdfDeckCourse, isPptxDeckCourse, isVideoCourse } from '@/lib/courseSlides'
+import { isPdfDeckCourse, isPlaylistCourse, isPptxDeckCourse, isVideoCourse } from '@/lib/courseSlides'
 import { fetchMyProgress, fetchPublishedTestForCourse } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { listItem } from '@/lib/motionPresets'
@@ -30,6 +30,8 @@ import type { Course } from '@/types'
 
 type Props = {
   course: Course
+  /** Knowledge-check attempts left for this purchase (My Learning list). */
+  testAttemptsRemaining?: number
   /** No learn access — show repurchase CTA (avoids progress API 403). */
   attemptsExhausted?: boolean
 }
@@ -62,8 +64,9 @@ function MetaChip({
   )
 }
 
-export function MyCourseRow({ course, attemptsExhausted = false }: Props) {
+export function MyCourseRow({ course, testAttemptsRemaining, attemptsExhausted = false }: Props) {
   const video = isVideoCourse(course)
+  const playlist = isPlaylistCourse(course)
   const pptx = isPptxDeckCourse(course)
   const pdf = isPdfDeckCourse(course)
   const checkoutHref = `/checkout?course=${encodeURIComponent(course.slug)}`
@@ -86,16 +89,21 @@ export function MyCourseRow({ course, attemptsExhausted = false }: Props) {
   const test = publishedTestMeta(publishedTest)
   const thumb = displayCourseImageUrl(course) || course.imageUrl
 
-  const contentLabel = video
-    ? t('ui_mycourses_format_video', { defaultValue: 'Video training' })
-    : pdf
-      ? t('ui_mycourses_format_pdf', { defaultValue: 'PDF slides' })
-      : pptx
-        ? t('ui_mycourses_format_pptx', { defaultValue: 'PowerPoint slides' })
-        : t('ui_mycourses_format_slides', {
-          count: summary.totalUnits,
-          defaultValue: '{{count}} slides',
-        })
+  const contentLabel = playlist
+    ? t('ui_mycourses_format_playlist', {
+        count: summary.totalUnits,
+        defaultValue: 'PDF & video · {{count}} steps',
+      })
+    : video
+      ? t('ui_mycourses_format_video', { defaultValue: 'Video training' })
+      : pdf
+        ? t('ui_mycourses_format_pdf', { defaultValue: 'PDF slides' })
+        : pptx
+          ? t('ui_mycourses_format_pptx', { defaultValue: 'PowerPoint slides' })
+          : t('ui_mycourses_format_slides', {
+            count: summary.totalUnits,
+            defaultValue: '{{count}} slides',
+          })
 
   const contentProgressLine = (() => {
     if (!summary.started) {
@@ -254,6 +262,14 @@ export function MyCourseRow({ course, attemptsExhausted = false }: Props) {
                   {t('ui_mycourses_passed_short', { defaultValue: 'Test passed' })}
                 </MetaChip>
               ) : null}
+              {test.hasTest && !summary.testPassed && testAttemptsRemaining != null ? (
+                <MetaChip icon={ClipboardList} tone="amber">
+                  {t('ui_mycourses_attempts_remaining', {
+                    n: testAttemptsRemaining,
+                    defaultValue: '{{n}} test attempt(s) left',
+                  })}
+                </MetaChip>
+              ) : null}
             </div>
 
             <div className="mt-3 max-w-xl">
@@ -304,6 +320,14 @@ export function MyCourseRow({ course, attemptsExhausted = false }: Props) {
                   <p className={clsx('mt-0.5', summary.testPassed ? 'text-emerald-700' : 'text-slate-500')}>
                     {testStatusLine}
                   </p>
+                  {test.hasTest && !summary.testPassed && testAttemptsRemaining != null ? (
+                    <p className="mt-0.5 font-medium text-amber-800">
+                      {t('ui_learn_test_attempts_left', {
+                        n: testAttemptsRemaining,
+                        defaultValue: '{{n}} knowledge-check attempt(s) left (per purchase)',
+                      })}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>

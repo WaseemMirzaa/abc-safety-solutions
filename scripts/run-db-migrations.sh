@@ -68,7 +68,7 @@ migrate_course_languages() {
   if [ "${table_exists:-0}" = "0" ]; then
     echo "   004_add_course_languages.sql — creating course_languages table"
     mysql_scalar "CREATE TABLE course_languages (
-      id VARCHAR(36) NOT NULL,
+      id VARCHAR(64) NOT NULL,
       code VARCHAR(16) NOT NULL,
       name VARCHAR(120) NOT NULL,
       PRIMARY KEY (id),
@@ -86,6 +86,14 @@ migrate_course_languages() {
     mysql_scalar "UPDATE courses SET languageId = 'lang-en' WHERE languageId IS NULL OR languageId = '';" >/dev/null
   else
     echo "   004_add_course_languages.sql — courses.languageId already exists (skip)"
+  fi
+  local id_len
+  id_len="$(mysql_scalar "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='course_languages' AND COLUMN_NAME='id';")"
+  if [ "${id_len:-0}" -lt 64 ]; then
+    echo "   004 — widening course_languages.id to VARCHAR(64) (fixes lang-{uuid} inserts)"
+    mysql_scalar "ALTER TABLE course_languages MODIFY COLUMN id VARCHAR(64) NOT NULL;" >/dev/null
+  else
+    echo "   004 — course_languages.id already wide enough (skip)"
   fi
 }
 
@@ -155,6 +163,53 @@ migrate_certificate_number() {
     mysql_scalar "ALTER TABLE certificates MODIFY COLUMN certificateNumber INT NOT NULL;" >/dev/null
     mysql_scalar "ALTER TABLE certificates ADD UNIQUE KEY UQ_certificates_certificateNumber (certificateNumber);" >/dev/null
   fi
+}
+
+migrate_discounts_and_promo_codes() {
+  local col
+  col="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='discountPercent';")"
+  if [ "${col:-0}" = "0" ]; then
+    echo "   009 — adding courses.discountPercent"
+    mysql_scalar "ALTER TABLE courses ADD COLUMN discountPercent INT NOT NULL DEFAULT 0;" >/dev/null
+  else
+    echo "   009 — courses.discountPercent already exists (skip)"
+  fi
+  local tbl
+  tbl="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='promo_codes';")"
+  if [ "${tbl:-0}" = "0" ]; then
+    echo "   009 — creating promo_codes table"
+    mysql_scalar "CREATE TABLE promo_codes (
+      id VARCHAR(36) NOT NULL,
+      code VARCHAR(64) NOT NULL,
+      description VARCHAR(500) NOT NULL DEFAULT '',
+      discountPercent INT NOT NULL DEFAULT 10,
+      active TINYINT(1) NOT NULL DEFAULT 1,
+      expiresAt DATETIME NULL,
+      maxUses INT NULL,
+      useCount INT NOT NULL DEFAULT 0,
+      createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+      PRIMARY KEY (id),
+      UNIQUE KEY UQ_promo_codes_code (code)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" >/dev/null
+  else
+    echo "   009 — promo_codes table exists (skip)"
+  fi
+  for spec in \
+    "listPriceCents:INT NULL" \
+    "amountPaidCents:INT NULL" \
+    "courseDiscountPercent:INT NOT NULL DEFAULT 0" \
+    "promoCode:VARCHAR(64) NULL" \
+    "promoDiscountPercent:INT NOT NULL DEFAULT 0"; do
+    local name="${spec%%:*}"
+    local ddl="${spec#*:}"
+    col="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='enrollments' AND COLUMN_NAME='${name}';")"
+    if [ "${col:-0}" = "0" ]; then
+      echo "   009 — adding enrollments.${name}"
+      mysql_scalar "ALTER TABLE enrollments ADD COLUMN ${name} ${ddl};" >/dev/null
+    else
+      echo "   009 — enrollments.${name} already exists (skip)"
+    fi
+  done
 }
 
 migrate_test_attempts() {
@@ -272,6 +327,7 @@ for f in "${files[@]}"; do
     006_add_test_time_limit.sql) migrate_test_time_limit ;;
     007_add_progress_max_slide.sql) migrate_progress_max_slide ;;
     008_add_certificate_number.sql) migrate_certificate_number ;;
+    009_discounts_and_promo_codes.sql) migrate_discounts_and_promo_codes ;;
     010_test_attempts_and_enrollment_limits.sql) migrate_test_attempts ;;
     011_notifications_and_manual_certs.sql) migrate_notifications_and_manual_certs ;;
     *)

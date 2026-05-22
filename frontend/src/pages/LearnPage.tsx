@@ -133,12 +133,14 @@ export function LearnPage() {
   const [unitEnteredAt, setUnitEnteredAt] = useState(() => Date.now())
   const [dwellReady, setDwellReady] = useState(false)
   const [completedVideoUnits, setCompletedVideoUnits] = useState<Set<string>>(() => new Set())
+  const videoSecRef = useRef(0)
 
   const learnerUnits: LearnerUnit[] = useMemo(
     () => (course ? buildLearnerUnits(getCourseSlides(course)) : []),
     [course],
   )
   const videoOnlyCourse = learnerUnits.length === 1 && learnerUnits[0]?.kind === 'video'
+  const playlistCourse = learnerUnits.length > 0 && !videoOnlyCourse
   const totalSlides = Math.max(1, learnerUnits.length)
   const currentUnit = learnerUnits[slideIndex]
   const currentSlide = currentUnit ? learnerUnitToSlide(currentUnit) : undefined
@@ -214,10 +216,23 @@ export function LearnPage() {
     if (hydratedForCourse.current === courseId) return
     const max = Math.max(0, totalSlides - 1)
     const idx = Math.min(Math.max(0, progressRow.slideIndex ?? 0), max)
+    const furthest = Math.min(max, Math.max(idx, progressRow.maxSlideIndex ?? 0))
+    const doneVideos = new Set<string>()
+    for (let i = 0; i < idx; i++) {
+      const u = learnerUnits[i]
+      if (u?.kind === 'video') doneVideos.add(u.unitId)
+    }
+    setCompletedVideoUnits(doneVideos)
     setSlideIndex(idx)
+    const unit = learnerUnits[idx]
+    if (unit?.kind === 'image' && idx < furthest) setDwellReady(true)
+    if (unit?.kind === 'video') {
+      videoSecRef.current = progressRow.audioTimeSec ?? 0
+      if (idx < furthest) setVideoDoneLocal(true)
+    }
     hydratedForCourse.current = courseId
     setProgressHydrated(true)
-  }, [course, courseId, progressReady, progressRow, totalSlides])
+  }, [course, courseId, progressReady, progressRow, totalSlides, learnerUnits])
 
   useEffect(() => {
     if (!videoOnlyCourse || !progressRow || !progressHydrated) return
@@ -231,10 +246,11 @@ export function LearnPage() {
     if (!courseId || !course || videoOnlyCourse || !progressHydrated) return
     const tmr = window.setTimeout(() => {
       const atLast = slideIndex >= totalSlides - 1
+      const onVideo = learnerUnits[slideIndex]?.kind === 'video'
       saveProgress.mutate({
         slideIndex,
-        audioTimeSec: 0,
-        completedSlides: Boolean(progressRow?.completedSlides) || atLast,
+        audioTimeSec: onVideo ? Math.floor(videoSecRef.current) : 0,
+        completedSlides: Boolean(progressRow?.completedSlides) || (atLast && !onVideo),
       })
     }, 400)
     return () => window.clearTimeout(tmr)
@@ -247,6 +263,7 @@ export function LearnPage() {
     videoOnlyCourse,
     progressHydrated,
     progressRow?.completedSlides,
+    learnerUnits,
   ])
 
   const markVideoComplete = useCallback(
@@ -257,13 +274,12 @@ export function LearnPage() {
       }
       if (!videoOnlyCourse) {
         setVideoDoneLocal(true)
-        if (slideIndex >= totalSlides - 1) {
-          saveProgress.mutate({
-            slideIndex,
-            audioTimeSec: 0,
-            completedSlides: true,
-          })
-        }
+        const atLast = slideIndex >= totalSlides - 1
+        saveProgress.mutate({
+          slideIndex,
+          audioTimeSec: Math.floor(Math.min(watchedSec, durationSec)),
+          completedSlides: Boolean(progressRow?.completedSlides) || atLast,
+        })
         return
       }
       if (watchedSec < durationSec - 2) return
@@ -299,15 +315,34 @@ export function LearnPage() {
 
   const saveVideoProgress = useCallback(
     (maxTimeSec: number, durationSec: number) => {
-      if (!courseId || !videoOnlyCourse || progressRow?.completedSlides) return
+      if (!courseId || progressRow?.completedSlides) return
       if (!Number.isFinite(durationSec) || durationSec <= 0) return
-      saveProgress.mutate({
-        slideIndex: 0,
-        audioTimeSec: Math.floor(Math.min(maxTimeSec, durationSec)),
-        completedSlides: false,
-      })
+      const sec = Math.floor(Math.min(maxTimeSec, durationSec))
+      videoSecRef.current = sec
+      if (videoOnlyCourse) {
+        saveProgress.mutate({
+          slideIndex: 0,
+          audioTimeSec: sec,
+          completedSlides: false,
+        })
+        return
+      }
+      if (playlistCourse) {
+        saveProgress.mutate({
+          slideIndex,
+          audioTimeSec: sec,
+          completedSlides: Boolean(progressRow?.completedSlides),
+        })
+      }
     },
-    [courseId, saveProgress, videoOnlyCourse, progressRow?.completedSlides],
+    [
+      courseId,
+      saveProgress,
+      videoOnlyCourse,
+      playlistCourse,
+      progressRow?.completedSlides,
+      slideIndex,
+    ],
   )
 
   const handleVideoProgress = useCallback(
@@ -316,26 +351,32 @@ export function LearnPage() {
         setVideoDurationSec(durSec)
         setVideoWatchPct(Math.min(100, Math.round((maxSec / durSec) * 100)))
         const saved = progressRow?.audioTimeSec ?? 0
-        if (saved >= durSec - 2 && progressRow?.completedSlides) {
+        const savedIdx = progressRow?.slideIndex ?? 0
+        if (videoOnlyCourse) {
+          if (saved >= durSec - 2 && progressRow?.completedSlides) {
+            setVideoDoneLocal(true)
+            setVideoWatchPct(100)
+          } else if (
+            progressRow?.completedSlides &&
+            !staleVideoCompleteFixed.current &&
+            courseId
+          ) {
+            staleVideoCompleteFixed.current = true
+            saveProgress.mutate({
+              slideIndex: 0,
+              audioTimeSec: Math.floor(Math.min(saved, durSec)),
+              completedSlides: false,
+            })
+            setVideoDoneLocal(false)
+          }
+        } else if (playlistCourse && savedIdx === slideIndex && saved >= durSec - 2) {
           setVideoDoneLocal(true)
           setVideoWatchPct(100)
-        } else if (
-          progressRow?.completedSlides &&
-          !staleVideoCompleteFixed.current &&
-          courseId
-        ) {
-          staleVideoCompleteFixed.current = true
-          saveProgress.mutate({
-            slideIndex: 0,
-            audioTimeSec: Math.floor(Math.min(saved, durSec)),
-            completedSlides: false,
-          })
-          setVideoDoneLocal(false)
         }
       }
       saveVideoProgress(maxSec, durSec)
     },
-    [courseId, progressRow, saveVideoProgress],
+    [courseId, progressRow, saveVideoProgress, videoOnlyCourse, playlistCourse, slideIndex],
   )
 
   const returnToSlidesAfterFail = useCallback(() => {
@@ -559,19 +600,24 @@ export function LearnPage() {
     if (clamped > slideIndex && !canGoNext) return
     setSlideIndex(clamped)
     if (!courseId || videoOnlyCourse) return
+    const atLast = clamped >= totalSlides - 1
+    const arrivedVideo = learnerUnits[clamped]?.kind === 'video'
+    const resumeSec =
+      arrivedVideo && progressRow?.slideIndex === clamped ? (progressRow?.audioTimeSec ?? 0) : 0
     qc.setQueryData<typeof progressRow>(qk.progress(courseId), (old) =>
       old
         ? {
             ...old,
             slideIndex: clamped,
             maxSlideIndex: Math.max(old.maxSlideIndex ?? 0, clamped),
+            audioTimeSec: resumeSec,
           }
         : old,
     )
     saveProgress.mutate({
       slideIndex: clamped,
-      audioTimeSec: 0,
-      completedSlides: Boolean(progressRow?.completedSlides) || clamped >= totalSlides - 1,
+      audioTimeSec: resumeSec,
+      completedSlides: Boolean(progressRow?.completedSlides) || (atLast && !arrivedVideo),
     })
   }
 
@@ -616,10 +662,17 @@ export function LearnPage() {
             </h1>
             {progressHydrated ? (
               <p className="mt-1.5 text-sm font-medium text-sky-800">
-                {t('ui_learn_course_progress_pct', {
-                  pct: courseProgressPct,
-                  defaultValue: '{{pct}}% complete',
-                })}
+                {playlistCourse
+                  ? t('ui_learn_playlist_progress', {
+                      current: slideNum,
+                      total: totalSlides,
+                      pct: courseProgressPct,
+                      defaultValue: 'Step {{current}} of {{total}} · {{pct}}% complete',
+                    })
+                  : t('ui_learn_course_progress_pct', {
+                      pct: courseProgressPct,
+                      defaultValue: '{{pct}}% complete',
+                    })}
                 {enrollment && !enrollment.attemptsExhausted ? (
                   <span className="text-slate-600">
                     {' '}
@@ -688,9 +741,15 @@ export function LearnPage() {
                 pptxLoading={pptxNavLocked}
                 onVideoEnded={isVideoUnit ? markVideoComplete : undefined}
                 videoResumeTimeSec={
-                  videoOnlyCourse && isVideoUnit ? (progressRow?.audioTimeSec ?? 0) : 0
+                  isVideoUnit
+                    ? videoOnlyCourse || playlistCourse
+                      ? progressRow?.slideIndex === slideIndex
+                        ? (progressRow?.audioTimeSec ?? 0)
+                        : 0
+                      : 0
+                    : 0
                 }
-                onVideoProgress={videoOnlyCourse && isVideoUnit ? handleVideoProgress : undefined}
+                onVideoProgress={isVideoUnit ? handleVideoProgress : undefined}
                 onPptxReadyChange={isImageUnit ? setPptxReady : undefined}
                 onPptxSlideAspect={isImageUnit ? setDeckAspect : undefined}
                 className="h-full w-full min-h-0"

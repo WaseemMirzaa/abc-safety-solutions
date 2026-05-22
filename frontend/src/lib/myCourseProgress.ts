@@ -1,13 +1,13 @@
 import type { AdminTest, Course, Progress } from '@/types'
 import { courseProgressPercent } from '@/lib/courseProgress'
-import { getCourseSlideCount, isVideoCourse } from '@/lib/courseSlides'
+import { getCourseSlideCount, isPlaylistCourse, isVideoCourse } from '@/lib/courseSlides'
 
 export type MyCourseProgressSummary = {
   pct: number
   started: boolean
   contentComplete: boolean
   testPassed: boolean
-  mode: 'video' | 'slides'
+  mode: 'video' | 'slides' | 'playlist'
   totalUnits: number
   completedUnits: number
   remainingUnits: number
@@ -30,6 +30,7 @@ export function buildMyCourseProgressSummary(
   prog: Progress | null | undefined,
 ): MyCourseProgressSummary {
   const video = isVideoCourse(course)
+  const playlist = isPlaylistCourse(course)
   const total = Math.max(1, getCourseSlideCount(course))
   const slideIndex = prog?.slideIndex ?? 0
   const maxSlide = prog?.maxSlideIndex ?? slideIndex
@@ -81,7 +82,7 @@ export function buildMyCourseProgressSummary(
     started: slideIndex > 0 || maxSlide > 0 || completedSlides,
     contentComplete: completedSlides,
     testPassed,
-    mode: 'slides',
+    mode: playlist ? 'playlist' : 'slides',
     totalUnits: total,
     completedUnits,
     remainingUnits,

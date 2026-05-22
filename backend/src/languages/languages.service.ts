@@ -58,6 +58,7 @@ export class LanguagesService {
         throw new ConflictException(`Language code "${code}" is already in use — try a different code.`)
       }
     }
+    // Plain UUID (36 chars). Do not prefix with "lang-" — column was varchar(36); widened to 64 in migrations.
     const row = this.languages.create({
       id: randomUUID(),
       code,

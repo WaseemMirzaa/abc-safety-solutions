@@ -67,6 +67,8 @@ type PurchasePanelProps = {
   loginHref: string
   onPurchase: () => void
   compact?: boolean
+  testAttemptsRemaining?: number
+  attemptsExhausted?: boolean
 }
 
 function PurchasePanel({
@@ -78,6 +80,8 @@ function PurchasePanel({
   loginHref,
   onPurchase,
   compact = false,
+  testAttemptsRemaining,
+  attemptsExhausted = false,
 }: PurchasePanelProps) {
   return (
     <div
@@ -111,11 +115,34 @@ function PurchasePanel({
           <p className="text-sm leading-relaxed text-slate-600">{t('ui_course_detail_cta_subline')}</p>
         ) : null}
         {enrollErr ? <p className="mt-3 text-sm text-red-600">{enrollErr}</p> : null}
+        {hasAccess && !attemptsExhausted && testAttemptsRemaining != null && !compact ? (
+          <p className="mt-3 text-sm font-medium text-amber-800">
+            {t('ui_learn_test_attempts_left', {
+              n: testAttemptsRemaining,
+              defaultValue: '{{n}} knowledge-check attempt(s) left (per purchase)',
+            })}
+          </p>
+        ) : null}
+        {attemptsExhausted && !compact ? (
+          <p className="mt-3 text-sm text-rose-800">
+            {t('ui_learn_attempts_exhausted_body', {
+              defaultValue:
+                'You used all 3 knowledge-check attempts for this purchase. Repurchase the course to try again.',
+            })}
+          </p>
+        ) : null}
         <div className={compact ? 'mt-0' : 'mt-5'}>
-          {hasAccess ? (
+          {hasAccess && !attemptsExhausted ? (
             <Link to={`/learn/${course.id}`} className="block">
               <Button className="w-full !py-3.5 !text-base shadow-lg shadow-amber-900/20">
                 {t('CourseDetailPage_134_continue_to_course_6b6b6ed6e8')}
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </Link>
+          ) : attemptsExhausted && user ? (
+            <Link to={`/checkout?course=${encodeURIComponent(course.slug)}`} className="block">
+              <Button className="w-full !py-3.5 !text-base shadow-lg shadow-amber-900/20">
+                {t('ui_learn_repurchase', { defaultValue: 'Repurchase course' })}
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </Link>
@@ -186,6 +213,8 @@ export function CourseDetailPage() {
   const enrollment = course ? findEnrollment(enrollments, course.id) : undefined
   const hasAccess =
     enrollment?.hasAccess ?? (enrollment && course ? hasCourseAccess(enrollment, course) : false)
+  const attemptsExhausted = Boolean(enrollment?.attemptsExhausted)
+  const testAttemptsRemaining = enrollment?.testAttemptsRemaining
 
   const includedItems = useMemo(() => {
     if (!course) return []
@@ -416,6 +445,8 @@ export function CourseDetailPage() {
                 enrollErr={enrollErr}
                 loginHref={loginHref}
                 onPurchase={startEnroll}
+                testAttemptsRemaining={testAttemptsRemaining}
+                attemptsExhausted={attemptsExhausted}
               />
             </div>
           </div>
@@ -429,6 +460,8 @@ export function CourseDetailPage() {
               enrollErr={enrollErr}
               loginHref={loginHref}
               onPurchase={startEnroll}
+              testAttemptsRemaining={testAttemptsRemaining}
+              attemptsExhausted={attemptsExhausted}
             />
           </div>
         </Container>
@@ -519,6 +552,8 @@ export function CourseDetailPage() {
               enrollErr={enrollErr}
               loginHref={loginHref}
               onPurchase={startEnroll}
+              testAttemptsRemaining={testAttemptsRemaining}
+              attemptsExhausted={attemptsExhausted}
               compact
             />
           </Container>

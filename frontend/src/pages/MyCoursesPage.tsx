@@ -88,8 +88,15 @@ export function MyCoursesPage() {
   const byId = new Map(courses.map((c) => [c.id, c]))
   const active = enrollments
     .filter((e) => !e.refunded && enrollmentHasAccess(e, byId))
-    .map((e) => e.course ?? byId.get(e.courseId))
-    .filter((c): c is Course => Boolean(c))
+    .map((e) => {
+      const course = e.course ?? byId.get(e.courseId)
+      if (!course) return null
+      return {
+        course,
+        testAttemptsRemaining: e.testAttemptsRemaining ?? 3,
+      }
+    })
+    .filter((row): row is { course: Course; testAttemptsRemaining: number } => row != null)
   const exhausted = enrollments
     .filter((e) => !e.refunded && Boolean(e.attemptsExhausted) && !enrollmentHasAccess(e, byId))
     .map((e) => e.course ?? byId.get(e.courseId))
@@ -159,8 +166,12 @@ export function MyCoursesPage() {
                 initial="hidden"
                 animate="show"
               >
-                {active.map((c) => (
-                  <MyCourseRow key={c.id} course={c} />
+                {active.map(({ course, testAttemptsRemaining }) => (
+                  <MyCourseRow
+                    key={course.id}
+                    course={course}
+                    testAttemptsRemaining={testAttemptsRemaining}
+                  />
                 ))}
               </motion.ul>
             ) : null}
