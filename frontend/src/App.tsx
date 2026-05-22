@@ -13,6 +13,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { MyCoursesPage } from '@/pages/MyCoursesPage'
 import { LearnPage } from '@/pages/LearnPage'
 import { CertificatesPage } from '@/pages/CertificatesPage'
+import { CertificateViewPage } from '@/pages/CertificateViewPage'
 import { AccountPage } from '@/pages/AccountPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
 import { CheckoutSuccessPage } from '@/pages/CheckoutSuccessPage'
@@ -50,6 +51,7 @@ export function AppRoutes() {
           <Route path="my-courses" element={<MyCoursesPage />} />
           <Route path="learn/:courseId" element={<LearnPage />} />
           <Route path="certificates" element={<CertificatesPage />} />
+          <Route path="certificates/:certificateId" element={<CertificateViewPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="verify-certificate" element={<VerifyCertificatePage />} />
         </Route>

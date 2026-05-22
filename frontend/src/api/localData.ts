@@ -117,8 +117,31 @@ export type MyOrderRow = {
   purchasedAt: string
   courseId: string
   courseTitle: string
+  courseSlug: string
+  courseSummary: string
+  courseImageUrl: string
   amountCents: number
   refunded: boolean
+  receiptUrl: string | null
+  invoiceUrl: string | null
+  invoicePdf: string | null
+}
+
+export type CheckoutConfirmation = {
+  ok: boolean
+  courseId: string
+  order: {
+    orderId: string
+    purchasedAt: string
+    amountCents: number
+    currency: string
+  }
+  course: Course
+  billing: {
+    receiptUrl: string | null
+    invoiceUrl: string | null
+    invoicePdf: string | null
+  }
 }
 
 export async function fetchMyOrders(): Promise<MyOrderRow[]> {
@@ -391,11 +414,12 @@ export async function createStripeCheckoutSession(courseId: string): Promise<{ u
   })
 }
 
-export async function completeStripeCheckout(sessionId: string): Promise<{ ok: boolean; courseId: string }> {
-  return apiJson('/api/stripe/session/complete', {
+export async function completeStripeCheckout(sessionId: string): Promise<CheckoutConfirmation> {
+  const row = await apiJson<CheckoutConfirmation>('/api/stripe/session/complete', {
     method: 'POST',
     body: JSON.stringify({ sessionId }),
   })
+  return { ...row, course: asCourse(row.course) }
 }
 
 export { adminUploadFile, adminUploadImage, adminUploadMedia } from './client'

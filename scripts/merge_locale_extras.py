@@ -21,7 +21,7 @@ EXTRAS: dict[str, str] = {
     "ui_spinner_loading_metrics": "Loading metrics",
     "ui_checkout_stripe_body": "Stripe Checkout or Payment Element will open here. Webhooks will grant course access after payment succeeds.",
     "ui_checkout_course_label": "Course: {{slug}}",
-    "ui_checkout_pay_stripe": "Pay with Stripe (API)",
+    "ui_checkout_pay_stripe": "Purchase Now",
     "ui_checkout_back_catalog": "Back to catalog",
     "ui_mycourses_resume": "Resume slide {{slide}} of {{total}}",
     "ui_not_started": "Not started",

@@ -1,20 +1,23 @@
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
 import { displayCourseTitle } from '@/lib/courseDisplay'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { PageHeaderSkeleton, MyCourseRowSkeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCourseSlideCount } from '@/lib/courseSlides'
-import { fetchMyEnrollments, fetchMyProgress, fetchPublishedCourses } from '@/api/localData'
+import { completeStripeCheckout, fetchMyEnrollments, fetchMyProgress, fetchPublishedCourses } from '@/api/localData'
+import { ApiError } from '@/api/client'
 import { hasCourseAccess } from '@/lib/courseAccess'
 import { qk } from '@/api/queryKeys'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { BookOpen } from 'lucide-react'
 import type { Course } from '@/types'
+import type { EnrollmentRow } from '@/api/localData'
 
 function EnrolledCourseRow({ course }: { course: Course }) {
   const { data: prog } = useQuery({
@@ -58,14 +61,56 @@ function EnrolledCourseRow({ course }: { course: Course }) {
   )
 }
 
+function enrollmentHasAccess(e: EnrollmentRow, coursesById: Map<string, Course>): boolean {
+  if (e.refunded) return false
+  if (e.hasAccess === true) return true
+  const c = e.course ?? coursesById.get(e.courseId)
+  return hasCourseAccess(e, c ?? null)
+}
+
 export function MyCoursesPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
+  const [sp, setSp] = useSearchParams()
+  const qc = useQueryClient()
+  const sessionId = sp.get('session_id')?.trim() ?? ''
+
   const { data: courses = [], isPending } = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
-  const { data: enrollments = [], isPending: enPending } = useQuery({
+  const {
+    data: enrollments = [],
+    isPending: enPending,
+    isError: enError,
+    error: enErr,
+    refetch: refetchEnrollments,
+  } = useQuery({
     queryKey: qk.enrollments,
     queryFn: fetchMyEnrollments,
     enabled: Boolean(user),
+    refetchOnMount: 'always',
   })
+
+  useEffect(() => {
+    if (!user || !sessionId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        await completeStripeCheckout(sessionId)
+        if (cancelled) return
+        sp.delete('session_id')
+        setSp(sp, { replace: true })
+        await qc.invalidateQueries({ queryKey: qk.enrollments })
+        await qc.invalidateQueries({ queryKey: qk.myOrders })
+      } catch {
+        /* success page may have already fulfilled; ignore */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user, sessionId, sp, setSp, qc])
+
+  useEffect(() => {
+    if (enError && enErr instanceof ApiError && enErr.status === 401) logout()
+  }, [enError, enErr, logout])
 
   if (!user) {
     return (
@@ -86,13 +131,9 @@ export function MyCoursesPage() {
 
   const byId = new Map(courses.map((c) => [c.id, c]))
   const mine = enrollments
-    .filter((e) => {
-      if (e.refunded) return false
-      const c = e.course ?? byId.get(e.courseId)
-      return e.hasAccess ?? (c ? hasCourseAccess(e, c) : false)
-    })
+    .filter((e) => enrollmentHasAccess(e, byId))
     .map((e) => e.course ?? byId.get(e.courseId))
-    .filter(Boolean) as typeof courses
+    .filter((c): c is Course => Boolean(c))
 
   const loading = isPending || enPending
 
@@ -124,9 +165,23 @@ export function MyCoursesPage() {
               </motion.li>
             ))}
           </motion.ul>
+        ) : enError ? (
+          <div className="mt-14 rounded-3xl border border-red-200 bg-red-50/80 px-8 py-12 text-center">
+            <p className="font-medium text-red-900">
+              {enErr instanceof ApiError ? enErr.message : t('ui_checkout_err')}
+            </p>
+            <Button className="mt-6" variant="secondary" onClick={() => void refetchEnrollments()}>
+              {t('ui_retry', { defaultValue: 'Try again' })}
+            </Button>
+          </div>
         ) : mine.length === 0 ? (
           <div className="mt-14 rounded-3xl border-2 border-dashed border-slate-200 bg-white/60 px-8 py-16 text-center">
             <p className="font-medium text-slate-600">{t('MyCoursesPage_70_you_have_not_enrolled_in_any_courses_yet_67a34b35c6')}</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {t('ui_mycourses_paid_hint', {
+                defaultValue: 'Paid with Stripe? Open the order confirmation link or contact support if your course is missing.',
+              })}
+            </p>
             <Link to="/courses" className="mt-8 inline-block">
               <Button>{t('MyCoursesPage_72_browse_catalog_fc72ee08cb')}</Button>
             </Link>

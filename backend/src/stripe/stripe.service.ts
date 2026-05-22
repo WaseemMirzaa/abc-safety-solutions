@@ -10,7 +10,9 @@ import { Repository } from 'typeorm'
 import Stripe from 'stripe'
 import { UserEntity } from '../entities/user.entity'
 import { CoursesService } from '../courses/courses.service'
-import { EnrollmentsService } from '../enrollments/enrollments.service'
+import { EnrollmentsService, isStripePaidOrderId } from '../enrollments/enrollments.service'
+import type { CheckoutBillingLinks, CheckoutConfirmation, EnrichedOrderRow } from './checkout-confirmation.types'
+import type { OrderRow } from '../orders/orders.service'
 
 @Injectable()
 export class StripeService {
@@ -69,6 +71,7 @@ export class StripeService {
     const session = await this.client().checkout.sessions.create({
       mode: 'payment',
       customer: customerId,
+      invoice_creation: { enabled: true },
       success_url: `${base}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/checkout?course=${encodeURIComponent(course.slug)}`,
       line_items: [
@@ -89,8 +92,35 @@ export class StripeService {
     return { url: session.url, sessionId: session.id }
   }
 
-  async fulfillSession(sessionId: string, userId: string) {
-    const session = await this.client().checkout.sessions.retrieve(sessionId)
+  private async billingLinksForSession(sessionId: string): Promise<CheckoutBillingLinks> {
+    const session = await this.client().checkout.sessions.retrieve(sessionId, {
+      expand: ['invoice', 'payment_intent.latest_charge'],
+    })
+    let invoiceUrl: string | null = null
+    let invoicePdf: string | null = null
+    let receiptUrl: string | null = null
+
+    const invoice = session.invoice
+    if (invoice && typeof invoice === 'object' && !('deleted' in invoice && invoice.deleted)) {
+      invoiceUrl = invoice.hosted_invoice_url ?? null
+      invoicePdf = invoice.invoice_pdf ?? null
+    }
+
+    const pi = session.payment_intent
+    if (pi && typeof pi === 'object' && 'latest_charge' in pi) {
+      const charge = pi.latest_charge
+      if (charge && typeof charge === 'object' && 'receipt_url' in charge) {
+        receiptUrl = charge.receipt_url ?? null
+      }
+    }
+
+    return { receiptUrl, invoiceUrl, invoicePdf }
+  }
+
+  async fulfillSession(sessionId: string, userId: string): Promise<CheckoutConfirmation> {
+    const session = await this.client().checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent'],
+    })
     if (session.metadata?.userId !== userId) {
       throw new ForbiddenException('Checkout session does not belong to this account')
     }
@@ -99,8 +129,57 @@ export class StripeService {
     }
     const courseId = session.metadata?.courseId
     if (!courseId) throw new BadRequestException('Missing course on checkout session')
+
+    const course = await this.courses.findEntity(courseId)
+    if (!course) throw new NotFoundException('Course not found')
+
     await this.enrollments.enrollFromOrder(userId, courseId, session.id)
-    return { ok: true, courseId }
+
+    const billing = await this.billingLinksForSession(sessionId)
+    const purchasedAt = session.created
+      ? new Date(session.created * 1000).toISOString()
+      : new Date().toISOString()
+
+    return {
+      ok: true,
+      courseId,
+      order: {
+        orderId: session.id,
+        purchasedAt,
+        amountCents: session.amount_total ?? course.priceCents,
+        currency: (session.currency ?? 'usd').toUpperCase(),
+      },
+      course: this.courses.toDto(course),
+      billing,
+    }
+  }
+
+  async enrichOrderRows(_userId: string, rows: OrderRow[]): Promise<EnrichedOrderRow[]> {
+    const courseIds = [...new Set(rows.map((r) => r.courseId))]
+    const courses = await Promise.all(courseIds.map((id) => this.courses.findEntity(id)))
+    const byCourse = new Map(courses.filter(Boolean).map((c) => [c!.id, c!]))
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const course = byCourse.get(row.courseId)
+        const base: EnrichedOrderRow = {
+          ...row,
+          courseSlug: course?.slug ?? '',
+          courseSummary: course?.summary ?? '',
+          courseImageUrl: course?.imageUrl ?? '',
+          receiptUrl: null,
+          invoiceUrl: null,
+          invoicePdf: null,
+        }
+        if (!isStripePaidOrderId(row.orderId)) return base
+        try {
+          const billing = await this.billingLinksForSession(row.orderId)
+          return { ...base, ...billing }
+        } catch {
+          return base
+        }
+      }),
+    )
   }
 
   handleWebhookEvent(payload: Buffer, signature: string) {

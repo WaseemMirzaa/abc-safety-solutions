@@ -1,5 +1,26 @@
 import type { Category, Certificate } from '@/types'
 
+export function formatCertDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return new Intl.DateTimeFormat('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(d)
+}
+
+export type CertExpiryState = 'none' | 'active' | 'expired'
+
+export function certExpiryState(expiresAt: string | null | undefined): CertExpiryState {
+  if (!expiresAt) return 'none'
+  return new Date(expiresAt) < new Date() ? 'expired' : 'active'
+}
+
+export function findCertificateById(certs: Certificate[], id: string): Certificate | undefined {
+  return certs.find((c) => c.id === id)
+}
+
 /** Line shown on the certificate; prefers snapshot at issue, else category list lookup. */
 export function resolveCertificateCategoryLine(cert: Certificate, categories: Category[]): string | undefined {
   const snap = cert.certificationText?.trim()

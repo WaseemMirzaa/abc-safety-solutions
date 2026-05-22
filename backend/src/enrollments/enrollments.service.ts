@@ -57,9 +57,20 @@ export class EnrollmentsService {
   /** Idempotent enrollment after Stripe checkout or webhook. */
   async enrollFromOrder(userId: string, courseId: string, orderId: string) {
     const exists = await this.enrollments.findOne({ where: { userId, courseId } })
-    if (exists && !exists.refunded) return exists
-    if (exists?.refunded) {
-      exists.refunded = false
+    if (exists) {
+      if (exists.refunded) exists.refunded = false
+      // Upgrade legacy/demo order ids when Stripe checkout completes.
+      if (isStripePaidOrderId(orderId) && exists.orderId !== orderId) {
+        exists.orderId = orderId
+        exists.purchasedAt = new Date()
+        return this.enrollments.save(exists)
+      }
+      if (isStripePaidOrderId(orderId) && !isStripePaidOrderId(exists.orderId)) {
+        exists.orderId = orderId
+        exists.purchasedAt = new Date()
+        return this.enrollments.save(exists)
+      }
+      if (!exists.refunded) return exists
       exists.orderId = orderId
       exists.purchasedAt = new Date()
       return this.enrollments.save(exists)

@@ -27,13 +27,17 @@ curl -s http://2.24.110.154/api/stripe/config
 # {"enabled":true}
 ```
 
-Run DB migration after pull:
+Run DB migration after pull (or rely on API auto-fix on restart — see `SchemaMigrationsService`):
 
 ```bash
 bash scripts/run-db-migrations.sh
+# manual fix if needed:
+# mysql ... -e "ALTER TABLE enrollments MODIFY COLUMN orderId VARCHAR(255) NOT NULL;"
 cd backend && npm run build
 pm2 restart abc-api
 ```
+
+If you saw `ER_DATA_TOO_LONG` for `orderId`, the column was still `VARCHAR(64)`. After restart/migration, open your Stripe success URL again (`/checkout/success?session_id=cs_…`) while signed in to create the enrollment.
 
 ## 3. Frontend build `.env` (or CI)
 

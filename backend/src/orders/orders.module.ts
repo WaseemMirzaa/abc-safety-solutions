@@ -7,9 +7,13 @@ import { OrdersService } from './orders.service'
 import { OrdersController } from './orders.controller'
 import { AdminStatsController } from './admin-stats.controller'
 import { MeOrdersController } from './me-orders.controller'
+import { StripeModule } from '../stripe/stripe.module'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([EnrollmentEntity, CourseEntity, CertificateEntity])],
+  imports: [
+    TypeOrmModule.forFeature([EnrollmentEntity, CourseEntity, CertificateEntity]),
+    StripeModule,
+  ],
   controllers: [OrdersController, AdminStatsController, MeOrdersController],
   providers: [OrdersService],
 })

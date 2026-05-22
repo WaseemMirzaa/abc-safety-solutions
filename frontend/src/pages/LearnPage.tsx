@@ -340,8 +340,13 @@ export function LearnPage() {
                   />
                 ) : null}
                 <div className="flex flex-wrap justify-center gap-3">
+                  {passCert ? (
+                    <Link to={`/certificates/${encodeURIComponent(passCert.id)}`}>
+                      <Button>{t('ui_cert_list_view')}</Button>
+                    </Link>
+                  ) : null}
                   <Link to="/certificates">
-                    <Button>{t('LearnPage_270_view_all_certificates_7adad16f2a')}</Button>
+                    <Button variant={passCert ? 'secondary' : undefined}>{t('LearnPage_270_view_all_certificates_7adad16f2a')}</Button>
                   </Link>
                   <Link to="/my-courses">
                     <Button variant="secondary">{t('LearnPage_273_my_learning_06b8911395')}</Button>

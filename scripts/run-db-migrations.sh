@@ -62,6 +62,17 @@ migrate_users_stripe_customer() {
   fi
 }
 
+migrate_widen_order_id() {
+  local len
+  len="$(mysql_scalar "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='enrollments' AND COLUMN_NAME='orderId';")"
+  if [ "${len:-0}" -lt 255 ]; then
+    echo "   003_widen_enrollments_order_id.sql — widening orderId to VARCHAR(255)"
+    mysql_scalar "ALTER TABLE enrollments MODIFY COLUMN orderId VARCHAR(255) NOT NULL;" >/dev/null
+  else
+    echo "   003_widen_enrollments_order_id.sql — orderId already wide enough (skip)"
+  fi
+}
+
 migrate_courses_slides() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='slides';")"
@@ -93,6 +104,7 @@ for f in "${files[@]}"; do
   case "$base" in
     001_add_courses_slides.sql) migrate_courses_slides ;;
     002_add_users_stripe_customer.sql) migrate_users_stripe_customer ;;
+    003_widen_enrollments_order_id.sql) migrate_widen_order_id ;;
     *)
       echo "   $base"
       mysql_file "$f"

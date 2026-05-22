@@ -12,7 +12,8 @@ export class EnrollmentEntity {
   @Column({ type: 'varchar', length: 36 })
   courseId: string
 
-  @Column({ length: 64 })
+  /** Stripe Checkout session id (cs_…) or legacy order reference. */
+  @Column({ type: 'varchar', length: 255 })
   orderId: string
 
   @Column({ default: false })

@@ -25,6 +25,7 @@ import { OrdersModule } from './orders/orders.module'
 import { UploadModule } from './upload/upload.module'
 import { StripeModule } from './stripe/stripe.module'
 import { HealthModule } from './health/health.module'
+import { SchemaMigrationsService } from './database/schema-migrations.service'
 
 @Module({
   imports: [
@@ -72,5 +73,6 @@ import { HealthModule } from './health/health.module'
     StripeModule,
     HealthModule,
   ],
+  providers: [SchemaMigrationsService],
 })
 export class AppModule {}
