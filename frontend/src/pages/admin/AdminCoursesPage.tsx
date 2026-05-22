@@ -57,6 +57,8 @@ export function AdminCoursesPage() {
   const [slideUploadErr, setSlideUploadErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadPhase, setUploadPhase] = useState<'upload' | 'processing'>('upload')
   const [deckBlobUrl, setDeckBlobUrl] = useState<string | null>(null)
   const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
   const pptxInputRef = useRef<HTMLInputElement>(null)
@@ -249,10 +251,17 @@ export function AdminCoursesPage() {
       return
     }
     setUploading(true)
+    setUploadProgress(0)
+    setUploadPhase('upload')
     try {
       revokeDeckBlob()
       setDeckBlobUrl(URL.createObjectURL(file))
-      const { url, fileName } = await adminUploadFile(file)
+      const { url, fileName } = await adminUploadFile(file, (p) => {
+        setUploadPhase('upload')
+        setUploadProgress(p.percent)
+      })
+      setUploadPhase('processing')
+      setUploadProgress(100)
       const deckSlideCount = await countPptxSlides(file)
       patchDraft({
         slides: [
@@ -278,6 +287,8 @@ export function AdminCoursesPage() {
       revokeDeckBlob()
     } finally {
       setUploading(false)
+      setUploadProgress(0)
+      setUploadPhase('upload')
     }
   }
 
@@ -499,6 +510,34 @@ export function AdminCoursesPage() {
                   )}
                 </div>
               </div>
+              {uploading ? (
+                <div className="mt-4" role="status" aria-live="polite">
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>
+                      {uploadPhase === 'processing'
+                        ? 'Counting slides…'
+                        : `Uploading presentation… ${uploadProgress}%`}
+                    </span>
+                    {uploadPhase === 'upload' && uploadProgress > 0 && uploadProgress < 100 ? (
+                      <span className="font-mono text-[10px]">{uploadProgress}%</span>
+                    ) : null}
+                  </div>
+                  <div
+                    className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-violet-100"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={uploadProgress}
+                    role="progressbar"
+                  >
+                    <div
+                      className={`h-full rounded-full bg-violet-600 transition-[width] duration-150 ease-out ${
+                        uploadPhase === 'processing' ? 'animate-pulse w-full' : ''
+                      }`}
+                      style={uploadPhase === 'upload' ? { width: `${uploadProgress}%` } : undefined}
+                    />
+                  </div>
+                </div>
+              ) : null}
               {fieldErrors.slides ? <p className="mt-2 text-xs font-medium text-red-600">{fieldErrors.slides}</p> : null}
               {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
               {pptxDeck ? (
