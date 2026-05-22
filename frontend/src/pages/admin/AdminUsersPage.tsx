@@ -1,16 +1,36 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Users, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { adminCreateDirectoryUser, adminRemoveDirectoryUser, fetchAdminDirectory } from '@/api/localData'
+import {
+  adminCreateDirectoryUser,
+  adminRemoveDirectoryUser,
+  fetchAdminUserDetail,
+  fetchAdminUsersInsights,
+} from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import type { AdminDirectoryUser } from '@/types'
+import type { AdminDirectoryUser, AdminUserDetail } from '@/types'
 import { t } from '@/i18n/t'
 
 export function AdminUsersPage() {
   const qc = useQueryClient()
-  const { data: users = [], isLoading } = useQuery({ queryKey: qk.adminDirectory, queryFn: fetchAdminDirectory })
+  const [search, setSearch] = useState('')
+  const [certFilter, setCertFilter] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const queryKey = useMemo(
+    () => [...qk.adminDirectory, search, certFilter] as const,
+    [search, certFilter],
+  )
+  const { data: users = [], isLoading } = useQuery({
+    queryKey,
+    queryFn: () => fetchAdminUsersInsights(search, certFilter),
+  })
+  const { data: detail } = useQuery({
+    queryKey: qk.adminUserDetail(selectedId ?? ''),
+    queryFn: () => fetchAdminUserDetail(selectedId!),
+    enabled: Boolean(selectedId),
+  })
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
@@ -78,6 +98,21 @@ export function AdminUsersPage() {
         </Button>
       </div>
 
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <input
+          className="input-pro w-full sm:max-w-xs"
+          placeholder="Search name or email"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <input
+          className="input-pro w-full sm:max-w-xs"
+          placeholder="Filter by certificate course name"
+          value={certFilter}
+          onChange={(e) => setCertFilter(e.target.value)}
+        />
+      </div>
+
       <div className="mt-10 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
           <thead>
@@ -85,6 +120,8 @@ export function AdminUsersPage() {
               <th className="px-4 py-3">{t('AdminUsersPage_78_name_c388acf2a2')}</th>
               <th className="px-4 py-3">{t('AdminUsersPage_79_email_7a9442b0f2')}</th>
               <th className="px-4 py-3">{t('AdminUsersPage_80_role_4bae14016e')}</th>
+              <th className="px-4 py-3">Test fails</th>
+              <th className="px-4 py-3">Certs</th>
               <th className="px-4 py-3">{t('AdminUsersPage_81_source_18c56e7cfc')}</th>
               <th className="px-4 py-3 text-right">{t('AdminUsersPage_82_action_e2dbf7f5ad')}</th>
             </tr>
@@ -92,20 +129,28 @@ export function AdminUsersPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                   Loading…
                 </td>
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.email} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/80">
+                <tr
+                  key={u.email}
+                  className={`cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80 ${
+                    selectedId === u.id ? 'bg-sky-50/60' : ''
+                  }`}
+                  onClick={() => u.id && setSelectedId(u.id)}
+                >
                   <td className="px-4 py-3 font-medium text-brand-900">{u.name}</td>
                   <td className="px-4 py-3 text-slate-600">{u.email}</td>
                   <td className="px-4 py-3 capitalize text-slate-600">{u.role}</td>
+                  <td className="px-4 py-3 text-slate-600">{u.testFailCount ?? 0}</td>
+                  <td className="px-4 py-3 text-slate-600">{u.certificateCount ?? 0}</td>
                   <td className="px-4 py-3 text-slate-500">
                     {isProtectedAdmin(u) ? t('ui_users_protected_admin') : t('ui_users_added_local')}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     {isProtectedAdmin(u) ? (
                       <span className="text-xs text-slate-400" title={t('ui_users_protected_admin_hint')}>
                         —
@@ -127,6 +172,10 @@ export function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+
+      {selectedId && detail ? (
+        <UserDetailPanel detail={detail} onClose={() => setSelectedId(null)} />
+      ) : null}
 
       {open ? (
         <AdminModal title={t('ui_admin_users_add_title')} onClose={() => setOpen(false)}>
@@ -164,5 +213,77 @@ export function AdminUsersPage() {
         </AdminModal>
       ) : null}
     </div>
+  )
+}
+
+function UserDetailPanel({ detail, onClose }: { detail: AdminUserDetail; onClose: () => void }) {
+  return (
+    <AdminModal title={`${detail.user.name} — details`} wide onClose={onClose}>
+      <p className="text-sm text-slate-600">{detail.user.email}</p>
+      <p className="mt-2 text-sm font-medium text-brand-900">
+        Test failures: {detail.testFailCount}
+      </p>
+
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Orders</h3>
+      <div className="mt-2 max-h-40 overflow-auto rounded-xl border border-slate-200">
+        <table className="min-w-full text-left text-xs">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Course</th>
+              <th className="px-3 py-2">Order</th>
+              <th className="px-3 py-2">Paid</th>
+              <th className="px-3 py-2">Attempts left</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.enrollments.map((e) => (
+              <tr key={e.id} className="border-t border-slate-100">
+                <td className="px-3 py-2">{e.courseTitle}</td>
+                <td className="px-3 py-2 font-mono text-[10px]">{e.orderId.slice(0, 20)}…</td>
+                <td className="px-3 py-2">{new Date(e.purchasedAt).toLocaleDateString()}</td>
+                <td className="px-3 py-2">
+                  {e.attemptsExhausted ? 'Exhausted' : e.testAttemptsRemaining}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Test attempts</h3>
+      <div className="mt-2 max-h-48 overflow-auto rounded-xl border border-slate-200">
+        <table className="min-w-full text-left text-xs">
+          <thead className="bg-slate-50 text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Course</th>
+              <th className="px-3 py-2">#</th>
+              <th className="px-3 py-2">Score</th>
+              <th className="px-3 py-2">Pass %</th>
+              <th className="px-3 py-2">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.testAttempts.map((a) => (
+              <tr key={a.id} className="border-t border-slate-100">
+                <td className="px-3 py-2">{a.courseTitle}</td>
+                <td className="px-3 py-2">{a.attemptNumber}</td>
+                <td className="px-3 py-2">{a.scorePercent}%</td>
+                <td className="px-3 py-2">{a.passPercent}%</td>
+                <td className="px-3 py-2">{a.passed ? 'Pass' : 'Fail'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 className="mt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">Certificates</h3>
+      <ul className="mt-2 space-y-2 text-sm">
+        {detail.certificates.map((c) => (
+          <li key={c.id} className="rounded-lg border border-slate-200 px-3 py-2">
+            {c.courseName} · #{c.certificateNumber} · {c.source}
+          </li>
+        ))}
+      </ul>
+    </AdminModal>
   )
 }

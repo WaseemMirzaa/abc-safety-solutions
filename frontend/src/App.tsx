@@ -24,6 +24,9 @@ import { AdminTestsPage } from '@/pages/admin/AdminTestsPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage'
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
+import { AdminAnnouncementsPage } from '@/pages/admin/AdminAnnouncementsPage'
+import { NotificationsPage } from '@/pages/NotificationsPage'
+import { NotificationDetailPage } from '@/pages/NotificationDetailPage'
 
 function SessionGate({ children }: { children: React.ReactNode }) {
   const { ready } = useAuth()
@@ -47,6 +50,8 @@ export function AppRoutes() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="my-courses" element={<MyCoursesPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="notifications/:id" element={<NotificationDetailPage />} />
           <Route path="learn/:courseId" element={<LearnPage />} />
           <Route path="certificates" element={<CertificatesPage />} />
           <Route path="certificates/:certificateId" element={<CertificateViewPage />} />
@@ -60,6 +65,7 @@ export function AppRoutes() {
           <Route path="tests" element={<AdminTestsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="announcements" element={<AdminAnnouncementsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

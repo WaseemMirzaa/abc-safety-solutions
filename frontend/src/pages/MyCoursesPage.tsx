@@ -86,10 +86,15 @@ export function MyCoursesPage() {
   }
 
   const byId = new Map(courses.map((c) => [c.id, c]))
-  const mine = enrollments
-    .filter((e) => enrollmentHasAccess(e, byId))
+  const active = enrollments
+    .filter((e) => !e.refunded && enrollmentHasAccess(e, byId))
     .map((e) => e.course ?? byId.get(e.courseId))
     .filter((c): c is Course => Boolean(c))
+  const exhausted = enrollments
+    .filter((e) => !e.refunded && Boolean(e.attemptsExhausted) && !enrollmentHasAccess(e, byId))
+    .map((e) => e.course ?? byId.get(e.courseId))
+    .filter((c): c is Course => Boolean(c))
+  const hasAny = active.length > 0 || exhausted.length > 0
 
   const loading = isPending || enPending
 
@@ -133,7 +138,7 @@ export function MyCoursesPage() {
               {t('ui_retry', { defaultValue: 'Try again' })}
             </Button>
           </div>
-        ) : mine.length === 0 ? (
+        ) : !hasAny ? (
           <div className="mt-14 rounded-3xl border-2 border-dashed border-slate-200 bg-white/60 px-8 py-16 text-center">
             <p className="font-medium text-slate-600">{t('MyCoursesPage_70_you_have_not_enrolled_in_any_courses_yet_67a34b35c6')}</p>
             <p className="mt-2 text-sm text-slate-500">
@@ -146,16 +151,43 @@ export function MyCoursesPage() {
             </Link>
           </div>
         ) : (
-          <motion.ul
-            className="mt-12 space-y-5"
-            variants={listContainer}
-            initial="hidden"
-            animate="show"
-          >
-            {mine.map((c) => (
-              <MyCourseRow key={c.id} course={c} />
-            ))}
-          </motion.ul>
+          <div className="mt-12 space-y-10">
+            {active.length > 0 ? (
+              <motion.ul
+                className="space-y-5"
+                variants={listContainer}
+                initial="hidden"
+                animate="show"
+              >
+                {active.map((c) => (
+                  <MyCourseRow key={c.id} course={c} />
+                ))}
+              </motion.ul>
+            ) : null}
+            {exhausted.length > 0 ? (
+              <section>
+                <h2 className="font-display text-lg font-semibold text-brand-900">
+                  {t('ui_mycourses_exhausted_heading', { defaultValue: 'Repurchase to continue' })}
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  {t('ui_mycourses_exhausted_subtitle', {
+                    defaultValue:
+                      'You used all 3 knowledge-check attempts for these courses. Repurchase to unlock 3 more attempts.',
+                  })}
+                </p>
+                <motion.ul
+                  className="mt-4 space-y-5"
+                  variants={listContainer}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {exhausted.map((c) => (
+                    <MyCourseRow key={`exhausted-${c.id}`} course={c} attemptsExhausted />
+                  ))}
+                </motion.ul>
+              </section>
+            ) : null}
+          </div>
         )}
 
         <p className="mt-10 text-xs text-slate-400">

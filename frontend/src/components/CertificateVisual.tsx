@@ -1,16 +1,16 @@
 import { clsx } from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { brandLogoCustomer, certificateBrandName } from '@/config/brandAssets'
+import { companyContact } from '@/config/companyContact'
 import { certificateDisplayId, formatCertDate, resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
 import { localizedCategoryCertLine } from '@/lib/catalogLocale'
 import type { Category, Certificate } from '@/types'
 
 const FRAME_SRC = '/certificate-frame.png'
-const COMPANY_ADDRESS =
-  '16300 Katy Freeway | Suite 300-346 | Houston, TX 77094'
-const COMPANY_PHONE = '(832) 939-5289'
-const COMPANY_EMAIL = 'info@abcsafetysolutions.com'
-const OPERATIONS_DIRECTOR = 'Anis Cehic'
+const COMPANY_ADDRESS = companyContact.addressLine
+const COMPANY_PHONE = companyContact.phone
+const COMPANY_EMAIL = companyContact.email
+const OPERATIONS_DIRECTOR = companyContact.operationsDirector
 
 type Props = {
   cert: Certificate

@@ -5,6 +5,7 @@ import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
 import { DEFAULT_LANGUAGE_ID, LanguagesService } from '../languages/languages.service'
 import type { CourseSlide } from '../common/course-slide.types'
+import { computeCourseContentMetrics } from '../common/course-content.util'
 import { clampDiscountPercent, salePriceFromCourse } from '../common/pricing.util'
 
 export type CourseDto = {
@@ -49,21 +50,13 @@ export class CoursesService {
     }))
   }
 
-  private deckSlideCount(slides: CourseSlide[] | undefined, fallback: number): number {
-    const deck = slides?.find((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
-    const rendered = deck?.renderedSlideUrls?.filter(Boolean).length ?? 0
-    if (rendered > 0) return rendered
-    if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
-    if (deck && fallback >= 1) return fallback
-    return 0
-  }
-
   private map(c: CourseEntity): CourseDto {
     const slides = this.normalizeSlides(c)
-    const deckCount = this.deckSlideCount(slides, c.slideCount)
-    const slideCount = deckCount > 0
-      ? deckCount
+    const metrics = slides?.length ? computeCourseContentMetrics(slides) : null
+    const slideCount = metrics
+      ? metrics.slideCount
       : slides?.length ?? (c.slideImageUrls?.length ? c.slideImageUrls.length : c.slideCount)
+    const durationMinutes = metrics ? metrics.durationMinutes : c.durationMinutes
     return {
       id: c.id,
       slug: c.slug,
@@ -75,7 +68,7 @@ export class CoursesService {
       priceCents: c.priceCents,
       discountPercent: clampDiscountPercent(c.discountPercent ?? 0),
       salePriceCents: salePriceFromCourse(c.priceCents, c.discountPercent ?? 0),
-      durationMinutes: c.durationMinutes,
+      durationMinutes: Math.max(1, durationMinutes),
       slideCount: Math.max(1, slideCount),
       slideImageUrls: c.slideImageUrls ?? undefined,
       slides,

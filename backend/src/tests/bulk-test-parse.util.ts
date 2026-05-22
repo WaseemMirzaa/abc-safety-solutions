@@ -1,0 +1,101 @@
+import { randomUUID } from 'node:crypto'
+import type { TestQuestion } from '../entities/course-test.entity'
+
+export type BulkParseResult = {
+  questions: TestQuestion[]
+  errors: { row: number; message: string }[]
+}
+
+function makeQuestion(prompt: string, options: { label: string; isCorrect: boolean }[]): TestQuestion {
+  return {
+    id: randomUUID(),
+    prompt,
+    options: options.map((o) => ({
+      id: randomUUID(),
+      label: o.label,
+      isCorrect: o.isCorrect,
+    })),
+  }
+}
+
+export function parseBulkTestJson(raw: string): BulkParseResult {
+  const errors: BulkParseResult['errors'] = []
+  let data: unknown
+  try {
+    data = JSON.parse(raw)
+  } catch {
+    return { questions: [], errors: [{ row: 0, message: 'Invalid JSON' }] }
+  }
+  const arr = (data as { questions?: unknown }).questions
+  if (!Array.isArray(arr)) {
+    return { questions: [], errors: [{ row: 0, message: 'Expected { "questions": [...] }' }] }
+  }
+  const questions: TestQuestion[] = []
+  arr.forEach((item, i) => {
+    const row = i + 1
+    const prompt = (item as { prompt?: string }).prompt?.trim()
+    const options = (item as { options?: { text?: string; label?: string; isCorrect?: boolean }[] }).options
+    if (!prompt) {
+      errors.push({ row, message: 'Missing prompt' })
+      return
+    }
+    if (!Array.isArray(options) || options.length < 2) {
+      errors.push({ row, message: 'Need at least 2 options' })
+      return
+    }
+    const mapped = options.map((o) => ({
+      label: (o.text ?? o.label ?? '').trim(),
+      isCorrect: Boolean(o.isCorrect),
+    }))
+    if (!mapped.some((o) => o.isCorrect)) {
+      errors.push({ row, message: 'Mark one option correct' })
+      return
+    }
+    questions.push(makeQuestion(prompt, mapped))
+  })
+  return { questions, errors }
+}
+
+export function parseBulkTestCsv(raw: string): BulkParseResult {
+  const errors: BulkParseResult['errors'] = []
+  const lines = raw
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (!lines.length) return { questions: [], errors: [{ row: 0, message: 'Empty CSV' }] }
+  const header = lines[0].toLowerCase()
+  const hasHeader = header.includes('question')
+  const dataLines = hasHeader ? lines.slice(1) : lines
+  const questions: TestQuestion[] = []
+  dataLines.forEach((line, i) => {
+    const row = hasHeader ? i + 2 : i + 1
+    const cols = line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
+    if (cols.length < 6) {
+      errors.push({ row, message: 'Need question, optionA-D, correctOption columns' })
+      return
+    }
+    const [question, a, b, c, d, correct] = cols
+    if (!question) {
+      errors.push({ row, message: 'Missing question' })
+      return
+    }
+    const correctKey = correct.toUpperCase()
+    const opts = [
+      { label: a, key: 'A' },
+      { label: b, key: 'B' },
+      { label: c, key: 'C' },
+      { label: d, key: 'D' },
+    ].filter((o) => o.label)
+    if (opts.length < 2) {
+      errors.push({ row, message: 'Need at least 2 options' })
+      return
+    }
+    questions.push(
+      makeQuestion(
+        question,
+        opts.map((o) => ({ label: o.label, isCorrect: o.key === correctKey })),
+      ),
+    )
+  })
+  return { questions, errors }
+}

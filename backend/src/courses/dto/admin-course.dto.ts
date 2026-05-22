@@ -35,6 +35,25 @@ class CourseSlideDto {
   deckSlideCount?: number
 
   @IsOptional()
+  @IsInt()
+  @Min(1)
+  pdfPageCount?: number
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationSec?: number
+
+  @IsOptional()
+  @IsString()
+  fileName?: string
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['pending', 'ready', 'failed'])
+  renderStatus?: string
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   renderedSlideUrls?: string[]

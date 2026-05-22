@@ -15,6 +15,8 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.ensureCourseDiscountPercent()
     await this.ensurePromoCodesTable()
     await this.ensureEnrollmentPricingColumns()
+    await this.ensureTestAttempts()
+    await this.ensureNotificationsAndManualCerts()
   }
 
   private async ensureCourseLanguages() {
@@ -123,6 +125,89 @@ export class SchemaMigrationsService implements OnModuleInit {
           `ALTER TABLE enrollments ADD COLUMN ${spec.name} ${spec.ddl}`,
         )
       }
+    }
+  }
+
+  private async ensureTestAttempts() {
+    for (const spec of [
+      { name: 'testAttemptsRemaining', ddl: 'INT NOT NULL DEFAULT 3' },
+      { name: 'attemptsExhausted', ddl: 'TINYINT(1) NOT NULL DEFAULT 0' },
+    ]) {
+      const col = await this.dataSource.query<{ n: number }[]>(
+        `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'enrollments' AND COLUMN_NAME = ?`,
+        [spec.name],
+      )
+      if (Number(col[0]?.n ?? 0) === 0) {
+        this.log.warn(`enrollments.${spec.name} missing; adding column`)
+        await this.dataSource.query(`ALTER TABLE enrollments ADD COLUMN ${spec.name} ${spec.ddl}`)
+      }
+    }
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS test_attempts (
+        id VARCHAR(36) NOT NULL,
+        userId VARCHAR(36) NOT NULL,
+        courseId VARCHAR(36) NOT NULL,
+        enrollmentId VARCHAR(36) NOT NULL,
+        attemptNumber INT NOT NULL,
+        scorePercent INT NOT NULL,
+        passPercent INT NOT NULL,
+        passed TINYINT(1) NOT NULL,
+        timedOut TINYINT(1) NOT NULL DEFAULT 0,
+        submittedAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        PRIMARY KEY (id),
+        KEY IDX_test_attempts_user_course (userId, courseId)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+  }
+
+  private async ensureNotificationsAndManualCerts() {
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id VARCHAR(36) NOT NULL,
+        userId VARCHAR(36) NOT NULL,
+        title VARCHAR(500) NOT NULL,
+        body TEXT NOT NULL,
+        type VARCHAR(32) NOT NULL DEFAULT 'announcement',
+        \`read\` TINYINT(1) NOT NULL DEFAULT 0,
+        metaJson JSON NULL,
+        createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        PRIMARY KEY (id),
+        KEY IDX_notifications_user (userId, createdAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS device_tokens (
+        id VARCHAR(36) NOT NULL,
+        userId VARCHAR(36) NOT NULL,
+        platform VARCHAR(16) NOT NULL,
+        token VARCHAR(512) NOT NULL,
+        createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        PRIMARY KEY (id),
+        KEY IDX_device_tokens_user (userId)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+    for (const spec of [
+      { name: 'source', ddl: "VARCHAR(16) NOT NULL DEFAULT 'platform'" },
+      { name: 'notes', ddl: 'TEXT NULL' },
+    ]) {
+      const col = await this.dataSource.query<{ n: number }[]>(
+        `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'certificates' AND COLUMN_NAME = ?`,
+        [spec.name],
+      )
+      if (Number(col[0]?.n ?? 0) === 0) {
+        this.log.warn(`certificates.${spec.name} missing; adding column`)
+        await this.dataSource.query(`ALTER TABLE certificates ADD COLUMN ${spec.name} ${spec.ddl}`)
+      }
+    }
+    const courseIdCol = await this.dataSource.query<{ nullable: string }[]>(
+      `SELECT IS_NULLABLE AS nullable FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'certificates' AND COLUMN_NAME = 'courseId'`,
+    )
+    if (courseIdCol[0]?.nullable === 'NO') {
+      this.log.warn('certificates.courseId is NOT NULL; allowing NULL for manual certificates')
+      await this.dataSource.query(`ALTER TABLE certificates MODIFY COLUMN courseId VARCHAR(36) NULL`)
     }
   }
 }

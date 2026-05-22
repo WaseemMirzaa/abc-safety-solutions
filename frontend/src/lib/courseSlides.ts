@@ -1,3 +1,4 @@
+import { buildLearnerUnits, computeCourseContentMetrics, getContentPlaylist } from '@/lib/courseContent'
 import type { Course, CourseSlide, CourseSlideType } from '@/types'
 
 export type CourseContentMode = 'pptx' | 'video'
@@ -29,20 +30,22 @@ export function getPptxDeckSlide(course: Course): CourseSlide | undefined {
   return getPresentationDeckSlide(course)
 }
 
-/** Learner-facing slide total for a deck (prefer server-rendered PNG count). */
+/** Learner-facing step count (PDF pages + videos in playlist order). */
 export function getDeckLearnerSlideCount(course: Course): number {
-  if (isVideoCourse(course)) return 1
   const slides = getCourseSlides(course)
+  const playlist = getContentPlaylist(slides)
+  if (playlist.length > 0) {
+    const units = buildLearnerUnits(slides)
+    if (units.length > 0) return units.length
+    return computeCourseContentMetrics(slides).slideCount
+  }
+  if (isVideoCourse(course)) return 1
   const deck = slides.find((s) => isPresentationDeckType(s.type))
   if (deck) {
     const rendered = deck.renderedSlideUrls?.filter(Boolean).length ?? 0
     if (rendered > 0) return rendered
     if (deck.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
     return Math.max(1, course.slideCount || 1)
-  }
-  if (slides.length > 0) {
-    if (slides.every((s) => isPresentationDeckType(s.type))) return Math.max(1, course.slideCount)
-    return slides.length
   }
   return Math.max(1, course.slideCount)
 }

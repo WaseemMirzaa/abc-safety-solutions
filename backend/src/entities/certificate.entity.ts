@@ -8,8 +8,14 @@ export class CertificateEntity {
   @Column({ type: 'varchar', length: 36 })
   userId: string
 
-  @Column({ type: 'varchar', length: 36 })
-  courseId: string
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  courseId: string | null
+
+  @Column({ type: 'varchar', length: 16, default: 'platform' })
+  source: 'platform' | 'manual'
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null
 
   @Column({ type: 'varchar', length: 36 })
   categoryId: string

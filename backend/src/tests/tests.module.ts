@@ -6,9 +6,10 @@ import { TestsController } from './tests.controller'
 import { AdminTestsController } from './admin-tests.controller'
 import { ProgressModule } from '../progress/progress.module'
 import { EnrollmentsModule } from '../enrollments/enrollments.module'
+import { TestAttemptsModule } from '../test-attempts/test-attempts.module'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CourseTestEntity]), ProgressModule, EnrollmentsModule],
+  imports: [TypeOrmModule.forFeature([CourseTestEntity]), ProgressModule, EnrollmentsModule, TestAttemptsModule],
   controllers: [TestsController, AdminTestsController],
   providers: [TestsService],
   exports: [TestsService],

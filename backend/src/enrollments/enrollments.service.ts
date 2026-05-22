@@ -1,9 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { randomUUID } from 'node:crypto'
 import { In, Repository } from 'typeorm'
 import { EnrollmentEntity } from '../entities/enrollment.entity'
 import { CoursesService } from '../courses/courses.service'
+import { ProgressService } from '../progress/progress.service'
 import { PromoCodesService } from '../promo-codes/promo-codes.service'
 import { computeCheckoutPricing } from '../common/pricing.util'
 import type { EnrollmentPricingSnapshot } from './enrollment-pricing.types'
@@ -20,6 +21,8 @@ export class EnrollmentsService {
     private readonly enrollments: Repository<EnrollmentEntity>,
     private readonly courses: CoursesService,
     private readonly promoCodes: PromoCodesService,
+    @Inject(forwardRef(() => ProgressService))
+    private readonly progress: ProgressService,
   ) {}
 
   async my(userId: string) {
@@ -37,14 +40,20 @@ export class EnrollmentsService {
         orderId: e.orderId,
         refunded: e.refunded,
         purchasedAt: e.purchasedAt.toISOString(),
+        testAttemptsRemaining: e.testAttemptsRemaining ?? 3,
+        attemptsExhausted: Boolean(e.attemptsExhausted),
         hasAccess: this.hasAccessFor(e, course?.priceCents ?? 0),
         course,
       }
     })
   }
 
-  hasAccessFor(enrollment: Pick<EnrollmentEntity, 'refunded' | 'orderId'>, priceCents: number): boolean {
+  hasAccessFor(
+    enrollment: Pick<EnrollmentEntity, 'refunded' | 'orderId' | 'attemptsExhausted'>,
+    priceCents: number,
+  ): boolean {
     if (enrollment.refunded) return false
+    if (enrollment.attemptsExhausted) return false
     if (priceCents < 1) return true
     if (isStripePaidOrderId(enrollment.orderId)) return true
     return enrollment.orderId.startsWith('disc_')
@@ -127,27 +136,40 @@ export class EnrollmentsService {
   ) {
     const exists = await this.enrollments.findOne({ where: { userId, courseId } })
     if (exists) {
+      const isNewPaidOrder = isStripePaidOrderId(orderId) && exists.orderId !== orderId
+      const isNewPurchase = isNewPaidOrder || orderId.startsWith('disc_') || orderId.startsWith('free_')
+      const shouldResetAttempts = exists.attemptsExhausted && isNewPurchase
+
       if (exists.refunded) exists.refunded = false
-      // Upgrade legacy/demo order ids when Stripe checkout completes.
       if (isStripePaidOrderId(orderId) && exists.orderId !== orderId) {
         exists.orderId = orderId
         exists.purchasedAt = new Date()
         this.applyPricingSnapshot(exists, pricing)
+        if (shouldResetAttempts) await this.resetPurchaseAttempts(exists)
         return this.enrollments.save(exists)
       }
       if (isStripePaidOrderId(orderId) && !isStripePaidOrderId(exists.orderId)) {
         exists.orderId = orderId
         exists.purchasedAt = new Date()
         this.applyPricingSnapshot(exists, pricing)
+        if (shouldResetAttempts) await this.resetPurchaseAttempts(exists)
         return this.enrollments.save(exists)
       }
       if (!exists.refunded) {
+        if (shouldResetAttempts) {
+          await this.resetPurchaseAttempts(exists)
+          exists.orderId = orderId
+          exists.purchasedAt = new Date()
+          if (pricing) this.applyPricingSnapshot(exists, pricing)
+          return this.enrollments.save(exists)
+        }
         if (pricing) this.applyPricingSnapshot(exists, pricing)
         return exists
       }
       exists.orderId = orderId
       exists.purchasedAt = new Date()
       this.applyPricingSnapshot(exists, pricing)
+      if (shouldResetAttempts) await this.resetPurchaseAttempts(exists)
       return this.enrollments.save(exists)
     }
     const row = this.enrollments.create({
@@ -156,6 +178,8 @@ export class EnrollmentsService {
       courseId,
       orderId,
       refunded: false,
+      testAttemptsRemaining: 3,
+      attemptsExhausted: false,
       listPriceCents: pricing?.listPriceCents ?? null,
       amountPaidCents: pricing?.amountPaidCents ?? null,
       courseDiscountPercent: pricing?.courseDiscountPercent ?? 0,
@@ -165,13 +189,32 @@ export class EnrollmentsService {
     return this.enrollments.save(row)
   }
 
+  private async resetPurchaseAttempts(enrollment: EnrollmentEntity) {
+    enrollment.testAttemptsRemaining = 3
+    enrollment.attemptsExhausted = false
+    await this.progress.resetForNewPurchase(enrollment.userId, enrollment.courseId)
+  }
+
   async assertEnrolled(userId: string, courseId: string) {
     const e = await this.enrollments.findOne({ where: { userId, courseId, refunded: false } })
     if (!e) throw new ForbiddenException('Not enrolled')
+    if (e.attemptsExhausted) {
+      throw new ForbiddenException(
+        'You have used all test attempts for this purchase. Repurchase the course to try again.',
+      )
+    }
     const course = await this.courses.findEntity(courseId)
     if (course && course.priceCents > 0 && !this.hasAccessFor(e, course.priceCents)) {
       throw new ForbiddenException('Payment required to access this course')
     }
     return e
+  }
+
+  async getEnrollment(userId: string, courseId: string) {
+    return this.enrollments.findOne({ where: { userId, courseId, refunded: false } })
+  }
+
+  async saveEnrollment(row: EnrollmentEntity) {
+    return this.enrollments.save(row)
   }
 }

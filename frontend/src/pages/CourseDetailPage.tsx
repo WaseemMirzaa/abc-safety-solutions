@@ -46,9 +46,10 @@ import { CoursePriceDisplay } from '@/components/CoursePriceDisplay'
 import { t } from '@/i18n/t'
 import type { Course } from '@/types'
 
+import { formatCourseDuration } from '@/lib/courseContent'
+
 function formatHours(minutes: number) {
-  const h = Math.max(1, Math.round(minutes / 60))
-  return t('ui_course_estimated_hours', { hours: h })
+  return formatCourseDuration(minutes)
 }
 
 function purchaseCtaLabel(course: Course, busy: boolean) {

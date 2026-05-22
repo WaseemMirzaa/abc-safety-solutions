@@ -119,7 +119,46 @@ export class CertificatesService {
       certificationText: cat?.certificationText ?? null,
       issuedAt,
       expiresAt,
+      source: 'platform',
     })
     return this.certs.save(row)
+  }
+
+  async createManual(
+    userId: string,
+    userName: string,
+    body: { courseName: string; issuedAt?: string; expiresAt?: string | null; notes?: string },
+  ) {
+    const name = body.courseName?.trim()
+    if (!name) throw new BadRequestException('Course name is required')
+    const issuedAt = body.issuedAt ? new Date(body.issuedAt) : new Date()
+    let expiresAt: Date | null = null
+    if (body.expiresAt) expiresAt = new Date(body.expiresAt)
+    const certificateNumber = await this.allocateCertificateNumber()
+    const row = this.certs.create({
+      id: randomUUID(),
+      certificateNumber,
+      userId,
+      courseId: null,
+      categoryId: 'cat-ohs',
+      courseName: name,
+      userName,
+      certificationText: null,
+      issuedAt,
+      expiresAt,
+      source: 'manual',
+      notes: body.notes?.trim() || null,
+    })
+    return this.certs.save(row)
+  }
+
+  async deleteManual(userId: string, certId: string) {
+    const row = await this.certs.findOne({ where: { id: certId, userId } })
+    if (!row) throw new NotFoundException('Certificate not found')
+    if (row.source !== 'manual') {
+      throw new BadRequestException('Only manually added certificates can be deleted')
+    }
+    await this.certs.delete({ id: certId })
+    return { ok: true }
   }
 }

@@ -14,6 +14,7 @@ import {
 } from '@/lib/courseDisplay'
 import { CoursePriceDisplay } from '@/components/CoursePriceDisplay'
 import { displayDiscountPercent, hasCourseSale } from '@/lib/pricing'
+import { formatCourseDuration } from '@/lib/courseContent'
 
 type Props = {
   course: Course
@@ -77,7 +78,7 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-slate-500">
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2 py-0.5 text-slate-600">
             <Clock className="h-3 w-3 text-sky-600" />
-            {t('ui_course_card_hours_est', { hours: Math.round(course.durationMinutes / 60) })}
+            {formatCourseDuration(course.durationMinutes)}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2 py-0.5 text-slate-600">
             <Layers className="h-3 w-3 text-sky-600" />

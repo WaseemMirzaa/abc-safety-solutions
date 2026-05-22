@@ -9,12 +9,15 @@ installReloadOnFailedLoad()
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { NotificationSocketProvider } from '@/contexts/NotificationSocketContext'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <App />
+        <NotificationSocketProvider>
+          <App />
+        </NotificationSocketProvider>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,

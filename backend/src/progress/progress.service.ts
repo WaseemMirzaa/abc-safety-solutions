@@ -51,6 +51,17 @@ export class ProgressService {
     return this.progress.save(row)
   }
 
+  /** Reset all progress after repurchase or attempt exhaustion recovery. */
+  async resetForNewPurchase(userId: string, courseId: string) {
+    const row = await this.get(userId, courseId)
+    row.slideIndex = 0
+    row.maxSlideIndex = 0
+    row.audioTimeSec = 0
+    row.completedSlides = false
+    row.testPassed = false
+    return this.progress.save(row)
+  }
+
   /** After a failed knowledge check, learner must review all slides again. */
   async requireContentReview(userId: string, courseId: string) {
     const row = await this.get(userId, courseId)

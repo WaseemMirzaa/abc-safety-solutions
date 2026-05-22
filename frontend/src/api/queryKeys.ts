@@ -18,4 +18,6 @@ export const qk = {
   purchases: ['purchases'] as const,
   progress: (courseId: string) => ['progress', courseId] as const,
   certificates: ['certificates'] as const,
+  notifications: ['notifications'] as const,
+  adminUserDetail: (id: string) => ['admin', 'user', id] as const,
 }

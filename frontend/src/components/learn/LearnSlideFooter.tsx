@@ -8,6 +8,8 @@ type Props = {
   courseProgressPct: number
   pptxNavLocked: boolean
   isLastSlide: boolean
+  canGoNext: boolean
+  dwellHint?: string
   customTestReady: boolean
   canTakeKnowledgeCheck: boolean
   contentComplete: boolean
@@ -23,6 +25,8 @@ export function LearnSlideFooter({
   courseProgressPct,
   pptxNavLocked,
   isLastSlide,
+  canGoNext,
+  dwellHint,
   customTestReady,
   canTakeKnowledgeCheck,
   contentComplete,
@@ -105,7 +109,7 @@ export function LearnSlideFooter({
         <Button
           variant="secondary"
           className="!rounded-xl !px-3"
-          disabled={isLastSlide || pptxNavLocked}
+          disabled={isLastSlide || pptxNavLocked || !canGoNext}
           onClick={onNext}
           aria-label={t('ui_learn_next')}
         >
@@ -115,7 +119,9 @@ export function LearnSlideFooter({
       </div>
 
       <div className="flex flex-col gap-3 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="text-center text-sm text-slate-600 sm:text-left">{statusMessage}</p>
+        <p className="text-center text-sm text-slate-600 sm:text-left">
+          {dwellHint && !canGoNext && !isLastSlide ? dwellHint : statusMessage}
+        </p>
         {isLastSlide && customTestReady ? (
           <Button
             className="!rounded-xl sm:shrink-0"

@@ -176,7 +176,15 @@ type Props = {
   submitting: boolean
   passed: boolean
   testErr: string
-  testSubmitResult: { passed: boolean; scorePercent: number; passPercent: number; timedOut?: boolean } | null
+  testSubmitResult: {
+    passed: boolean
+    scorePercent: number
+    passPercent: number
+    timedOut?: boolean
+    attemptsRemaining?: number
+    attemptsExhausted?: boolean
+  } | null
+  testAttemptsRemaining?: number
   testLocked: boolean
   timer: {
     enabled: boolean
@@ -204,6 +212,7 @@ export function KnowledgeCheckView({
   passed,
   testErr,
   testSubmitResult,
+  testAttemptsRemaining,
   testLocked,
   timer,
   passCert,
@@ -247,6 +256,14 @@ export function KnowledgeCheckView({
               {publishedTest?.title || t('LearnPage_173_knowledge_check_e4ec131477')}
             </h1>
             <p className="mt-2 break-words text-sm text-slate-600">{displayCourseTitle(course)}</p>
+            {!submitted && testAttemptsRemaining != null ? (
+              <p className="mt-1 text-xs font-medium text-sky-800">
+                {t('ui_learn_test_attempts_left', {
+                  n: testAttemptsRemaining,
+                  defaultValue: '{{n}} knowledge-check attempt(s) left (per purchase)',
+                })}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -454,13 +471,35 @@ export function KnowledgeCheckView({
                           'Green highlights show the correct answers. Red shows what you picked when it was wrong.',
                       })}
                     </p>
+                    {testSubmitResult?.attemptsRemaining != null && !testSubmitResult.attemptsExhausted ? (
+                      <p className="mt-2 text-xs font-semibold text-amber-800">
+                        {t('ui_learn_test_attempts_left', {
+                          n: testSubmitResult.attemptsRemaining,
+                          defaultValue: '{{n}} knowledge-check attempt(s) left (per purchase)',
+                        })}
+                      </p>
+                    ) : null}
+                    {testSubmitResult?.attemptsExhausted ? (
+                      <p className="mt-2 text-xs font-semibold text-rose-800">
+                        {t('ui_learn_attempts_exhausted_body', {
+                          defaultValue:
+                            'You used all 3 knowledge-check attempts for this purchase. Repurchase the course to try again.',
+                        })}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 border-t border-rose-100 bg-white/60 px-5 py-4 sm:px-6">
-                  <Button className="gap-2" onClick={onReturnToSlides}>
-                    <BookOpen className="h-4 w-4" />
-                    {t('ui_learn_review_course', { defaultValue: 'Review course material' })}
-                  </Button>
+                  {testSubmitResult?.attemptsExhausted ? (
+                    <Link to={`/checkout?course=${encodeURIComponent(course.slug)}`}>
+                      <Button>{t('ui_learn_repurchase', { defaultValue: 'Repurchase course' })}</Button>
+                    </Link>
+                  ) : (
+                    <Button className="gap-2" onClick={onReturnToSlides}>
+                      <BookOpen className="h-4 w-4" />
+                      {t('ui_learn_review_course', { defaultValue: 'Review course material' })}
+                    </Button>
+                  )}
                 </div>
               </div>
             </motion.div>

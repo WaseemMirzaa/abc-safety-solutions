@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
+  AlertCircle,
   BookOpen,
   CheckCircle2,
   Circle,
@@ -29,6 +30,8 @@ import type { Course } from '@/types'
 
 type Props = {
   course: Course
+  /** No learn access — show repurchase CTA (avoids progress API 403). */
+  attemptsExhausted?: boolean
 }
 
 function MetaChip({
@@ -59,21 +62,24 @@ function MetaChip({
   )
 }
 
-export function MyCourseRow({ course }: Props) {
+export function MyCourseRow({ course, attemptsExhausted = false }: Props) {
   const video = isVideoCourse(course)
   const pptx = isPptxDeckCourse(course)
   const pdf = isPdfDeckCourse(course)
+  const checkoutHref = `/checkout?course=${encodeURIComponent(course.slug)}`
 
   const { data: prog } = useQuery({
     queryKey: qk.progress(course.id),
     queryFn: () => fetchMyProgress(course.id),
     staleTime: 15_000,
+    enabled: !attemptsExhausted,
   })
 
   const { data: publishedTest } = useQuery({
     queryKey: qk.publishedTest(course.id),
     queryFn: () => fetchPublishedTestForCourse(course.id),
     staleTime: 60_000,
+    enabled: !attemptsExhausted,
   })
 
   const summary = buildMyCourseProgressSummary(course, prog)
@@ -158,6 +164,50 @@ export function MyCourseRow({ course }: Props) {
     : summary.contentComplete
       ? t('ui_mycourses_test_ready', { defaultValue: 'Ready to take the knowledge check' })
       : t('ui_mycourses_test_locked', { defaultValue: 'Complete the content to unlock the test' })
+
+  if (attemptsExhausted) {
+    const thumb = displayCourseImageUrl(course) || course.imageUrl
+    return (
+      <motion.li
+        variants={listItem}
+        layout
+        className="overflow-hidden rounded-2xl border border-rose-200/90 bg-gradient-to-br from-rose-50/80 to-white shadow-sm"
+      >
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-stretch sm:gap-5 sm:p-5">
+          <div className="flex min-w-0 flex-1 gap-4">
+            <img
+              src={thumb}
+              alt=""
+              className="h-20 w-28 shrink-0 rounded-xl object-cover opacity-90 ring-1 ring-rose-200/80 sm:h-[5.25rem] sm:w-32"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base font-semibold leading-snug text-brand-900 sm:text-lg">
+                {displayCourseTitle(course)}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <MetaChip icon={AlertCircle} tone="amber">
+                  {t('ui_mycourses_attempts_used', { defaultValue: 'All 3 test attempts used' })}
+                </MetaChip>
+              </div>
+              <p className="mt-3 text-sm text-rose-900/90">
+                {t('ui_mycourses_exhausted_row_body', {
+                  defaultValue:
+                    'Repurchase this course to reset your attempts and start the training again from the beginning.',
+                })}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center sm:flex-col sm:justify-center">
+            <Link to={checkoutHref} className="w-full sm:w-auto">
+              <Button className="w-full gap-2 sm:min-w-[7.5rem]">
+                {t('ui_learn_repurchase', { defaultValue: 'Repurchase course' })}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </motion.li>
+    )
+  }
 
   return (
     <motion.li

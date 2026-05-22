@@ -3,7 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { adminDeleteTest, adminSaveTest, fetchAdminTests, fetchPublishedCourses } from '@/api/localData'
+import {
+  adminDeleteTest,
+  adminSaveTest,
+  fetchAdminTests,
+  fetchPublishedCourses,
+  previewBulkTest,
+} from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import type { AdminTest, TestAnswerOption, TestQuestion } from '@/types'
 import { t } from '@/i18n/t'
@@ -70,6 +76,15 @@ export function AdminTestsPage() {
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<AdminTest | null>(null)
   const [err, setErr] = useState('')
+  const [bulkFormat, setBulkFormat] = useState<'csv' | 'json'>('csv')
+  const [bulkContent, setBulkContent] = useState('')
+  const [bulkPreview, setBulkPreview] = useState<{
+    questions: TestQuestion[]
+    errors: { row: number; message: string }[]
+  } | null>(null)
+  const [bulkCourseId, setBulkCourseId] = useState('')
+  const [bulkTitle, setBulkTitle] = useState('')
+  const [bulkPass, setBulkPass] = useState(80)
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminTests })
 
@@ -206,6 +221,138 @@ export function AdminTestsPage() {
           <Plus className="h-4 w-4" />
           Add test
         </Button>
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-violet-200/80 bg-violet-50/40 p-4">
+        <h2 className="font-display text-lg font-semibold text-brand-900">Bulk import questions</h2>
+        <p className="mt-1 text-xs text-slate-600">
+          CSV or JSON — questions only. Pick course and test title below, then preview and confirm.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${bulkFormat === 'csv' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}
+            onClick={() => setBulkFormat('csv')}
+          >
+            CSV
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${bulkFormat === 'json' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}
+            onClick={() => setBulkFormat('json')}
+          >
+            JSON
+          </button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="!text-xs"
+            onClick={() => {
+              const sample =
+                bulkFormat === 'json'
+                  ? JSON.stringify(
+                      {
+                        questions: [
+                          {
+                            prompt: 'Sample question?',
+                            options: [
+                              { text: 'Wrong', isCorrect: false },
+                              { text: 'Correct', isCorrect: true },
+                            ],
+                          },
+                        ],
+                      },
+                      null,
+                      2,
+                    )
+                  : 'question,optionA,optionB,optionC,optionD,correctOption\nWhat is PPE?,Gloves,Hard hat,Both A and B,None,C'
+              void navigator.clipboard.writeText(sample)
+            }}
+          >
+            Copy sample
+          </Button>
+        </div>
+        <textarea
+          className="input-pro mt-3 min-h-[100px] w-full font-mono text-xs"
+          value={bulkContent}
+          onChange={(e) => setBulkContent(e.target.value)}
+          placeholder={bulkFormat === 'csv' ? 'Paste CSV…' : 'Paste JSON…'}
+        />
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <select
+            className="input-pro w-full"
+            value={bulkCourseId}
+            onChange={(e) => setBulkCourseId(e.target.value)}
+          >
+            <option value="">Select course</option>
+            {courseList.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <input
+            className="input-pro w-full"
+            placeholder="Test title"
+            value={bulkTitle}
+            onChange={(e) => setBulkTitle(e.target.value)}
+          />
+          <input
+            type="number"
+            className="input-pro w-full"
+            placeholder="Pass %"
+            value={bulkPass}
+            onChange={(e) => setBulkPass(Number(e.target.value))}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            className="!text-xs"
+            onClick={() => {
+              void previewBulkTest(bulkFormat, bulkContent).then(setBulkPreview)
+            }}
+          >
+            Preview
+          </Button>
+          <Button
+            type="button"
+            className="!text-xs"
+            disabled={!bulkPreview?.questions.length || !bulkCourseId || !bulkTitle.trim()}
+            onClick={() => {
+              if (!bulkPreview) return
+              const test: AdminTest = {
+                id: `test-${uid()}`,
+                courseId: bulkCourseId,
+                title: bulkTitle.trim(),
+                passPercent: bulkPass,
+                timeLimitMinutes: 0,
+                published: false,
+                updatedAt: new Date().toISOString(),
+                questions: bulkPreview.questions,
+              }
+              void adminSaveTest(test, 'create').then(() => {
+                invalidate()
+                setBulkContent('')
+                setBulkPreview(null)
+                setBulkTitle('')
+              })
+            }}
+          >
+            Confirm save
+          </Button>
+        </div>
+        {bulkPreview ? (
+          <div className="mt-3 text-xs">
+            <p className="font-medium text-brand-900">{bulkPreview.questions.length} question(s) ready</p>
+            {bulkPreview.errors.map((e) => (
+              <p key={e.row} className="text-amber-800">
+                Row {e.row}: {e.message}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-10 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">

@@ -13,6 +13,10 @@ import { CourseTestEntity } from './entities/course-test.entity'
 import { MediaAssetEntity } from './entities/media-asset.entity'
 import { AnnouncementEntity } from './entities/announcement.entity'
 import { PromoCodeEntity } from './entities/promo-code.entity'
+import { TestAttemptEntity } from './entities/test-attempt.entity'
+import { NotificationEntity } from './entities/notification.entity'
+import { DeviceTokenEntity } from './entities/device-token.entity'
+import { NotificationsModule } from './notifications/notifications.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { CategoriesModule } from './categories/categories.module'
@@ -59,6 +63,9 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
           MediaAssetEntity,
           AnnouncementEntity,
           PromoCodeEntity,
+          TestAttemptEntity,
+          NotificationEntity,
+          DeviceTokenEntity,
         ],
         autoLoadEntities: true,
         synchronize: config.get('NODE_ENV') !== 'production',
@@ -80,6 +87,7 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
     UploadModule,
     StripeModule,
     PromoCodesModule,
+    NotificationsModule,
     HealthModule,
   ],
   providers: [SchemaMigrationsService],

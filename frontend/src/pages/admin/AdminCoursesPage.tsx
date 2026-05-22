@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { AdminCourseDeckPreview } from '@/components/admin/AdminCourseDeckPreview'
+import { AdminCourseContentPlaylist } from '@/components/admin/AdminCourseContentPlaylist'
+import { computeCourseContentMetrics } from '@/lib/courseContent'
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
 import { ApiError } from '@/api/client'
@@ -18,22 +19,12 @@ import {
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { findCategory, isSeedCourseId } from '@/data/catalog'
-import {
-  getCourseContentMode,
-  getCourseSlides,
-  slideTypeFromFile,
-  type CourseContentMode,
-} from '@/lib/courseSlides'
-import {
-  clearPendingCourseUpload,
-  readPendingCourseUpload,
-  startAdminFileUpload,
-  startCourseDeckUpload,
-} from '@/lib/adminUploadJobs'
+import { getCourseSlides } from '@/lib/courseSlides'
+import { startAdminFileUpload } from '@/lib/adminUploadJobs'
 import { useAdminUploadJob } from '@/hooks/useAdminUploadJob'
 import { fieldClass } from '@/lib/adminForm'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
-import type { Course, CourseSlide } from '@/types'
+import type { Course, CourseLanguage, CourseSlide } from '@/types'
 import { DEFAULT_COURSE_LANGUAGE_ID } from '@/types'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { t } from '@/i18n/t'
@@ -75,76 +66,17 @@ export function AdminCoursesPage() {
   const [slugErr, setSlugErr] = useState('')
   const [slideUploadErr, setSlideUploadErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [deckUploadJobId, setDeckUploadJobId] = useState<string | null>(null)
   const [heroUploadJobId, setHeroUploadJobId] = useState<string | null>(null)
-  const deckUploadJob = useAdminUploadJob(deckUploadJobId)
   const heroUploadJob = useAdminUploadJob(heroUploadJobId)
-  const deckUploading =
-    deckUploadJob?.status === 'uploading' || deckUploadJob?.status === 'processing'
   const heroUploading = heroUploadJob?.status === 'uploading'
-  const uploading = deckUploading || heroUploading
-  const uploadProgress = deckUploading ? (deckUploadJob?.percent ?? 0) : (heroUploadJob?.percent ?? 0)
-  const uploadPhase = deckUploadJob?.phase ?? 'upload'
-  const [deckBlobUrl, setDeckBlobUrl] = useState<string | null>(null)
+  const uploading = heroUploading
   const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
-  const pptxInputRef = useRef<HTMLInputElement>(null)
-  const videoInputRef = useRef<HTMLInputElement>(null)
   const heroImageRef = useRef<HTMLInputElement>(null)
-  const [deliveryMode, setDeliveryMode] = useState<CourseContentMode>('pptx')
   const [showAddLanguage, setShowAddLanguage] = useState(false)
   const [newLangName, setNewLangName] = useState('')
   const [newLangCode, setNewLangCode] = useState('')
   const [langBusy, setLangBusy] = useState(false)
   const [langErr, setLangErr] = useState('')
-
-  const revokeDeckBlob = () => {
-    if (deckBlobUrl) {
-      URL.revokeObjectURL(deckBlobUrl)
-      setDeckBlobUrl(null)
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (deckBlobUrl) URL.revokeObjectURL(deckBlobUrl)
-    }
-  }, [deckBlobUrl])
-
-  const applyPendingUploadToDraft = () => {
-    const pending = readPendingCourseUpload()
-    if (!pending) return
-    setDraft((prev) => {
-      if (!prev || prev.id !== pending.draftId) return prev
-      return {
-        ...prev,
-        slides: pending.slides,
-        slideCount: pending.slideCount,
-        slideImageUrls: undefined,
-      }
-    })
-    setDeliveryMode(pending.deliveryMode)
-    clearPendingCourseUpload()
-  }
-
-  useEffect(() => {
-    if (modal === 'closed' || !draft) return
-    applyPendingUploadToDraft()
-  }, [modal, draft?.id])
-
-  useEffect(() => {
-    if (!deckUploadJob || !draft) return
-    if (deckUploadJob.status === 'done') {
-      applyPendingUploadToDraft()
-      revokeDeckBlob()
-      setSlideUploadErr('')
-      setDeckUploadJobId(null)
-    }
-    if (deckUploadJob.status === 'error') {
-      setSlideUploadErr(deckUploadJob.error ?? 'Upload failed.')
-      setDeckUploadJobId(null)
-      revokeDeckBlob()
-    }
-  }, [deckUploadJob?.status, draft?.id])
 
   useEffect(() => {
     if (!heroUploadJob || !draft) return
@@ -159,13 +91,11 @@ export function AdminCoursesPage() {
   }, [heroUploadJob?.status, draft?.id])
 
   const openCreate = () => {
-    revokeDeckBlob()
     setDraft(emptyCustomCourse(categoryList[0]?.id ?? 'cat-ohs'))
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
     setHeroPreviewBroken(false)
-    setDeliveryMode('pptx')
     setShowAddLanguage(false)
     setNewLangName('')
     setNewLangCode('')
@@ -174,7 +104,6 @@ export function AdminCoursesPage() {
   }
 
   const openEdit = async (c: Course) => {
-    revokeDeckBlob()
     let row = c
     try {
       const fresh = await fetchAdminCourseById(c.id)
@@ -194,7 +123,6 @@ export function AdminCoursesPage() {
     setSlideUploadErr('')
     setFieldErrors({})
     setHeroPreviewBroken(false)
-    setDeliveryMode(getCourseContentMode(merged))
     setShowAddLanguage(false)
     setNewLangName('')
     setNewLangCode('')
@@ -206,13 +134,11 @@ export function AdminCoursesPage() {
     if (uploading && !window.confirm('Upload still running — it will finish in the background. Close this dialog?')) {
       return
     }
-    revokeDeckBlob()
     setModal('closed')
     setDraft(null)
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
-    setDeckUploadJobId(null)
     setHeroUploadJobId(null)
     setHeroPreviewBroken(false)
   }
@@ -234,6 +160,10 @@ export function AdminCoursesPage() {
       const row = await adminCreateCourseLanguage({
         name,
         code: newLangCode.trim() || undefined,
+      })
+      qc.setQueryData<CourseLanguage[]>(qk.courseLanguages, (old = []) => {
+        if (old.some((l) => l.id === row.id)) return old
+        return [...old, row].sort((a, b) => a.name.localeCompare(b.name))
       })
       await qc.invalidateQueries({ queryKey: qk.courseLanguages })
       if (draft) setDraft({ ...draft, languageId: row.id })
@@ -267,19 +197,9 @@ export function AdminCoursesPage() {
     if (!draft.languageId?.trim()) errors.languageId = 'Select a course language.'
     if (!draft.imageUrl.trim()) errors.imageUrl = 'Hero image URL is required.'
     if (Number.isNaN(draft.priceCents) || draft.priceCents < 0) errors.priceCents = 'Enter a valid price (USD cents).'
-    if (!draft.durationMinutes || draft.durationMinutes < 1) errors.durationMinutes = 'Duration must be at least 1 minute.'
-    const presentationDeck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
-    const videoDeck = slides.find((s) => s.type === 'video')
-    if (deliveryMode === 'pptx') {
-      if (!presentationDeck) {
-        errors.slides = 'Upload a PDF presentation (required).'
-      } else if (slides.some((s) => s.type !== 'pptx' && s.type !== 'ppt' && s.type !== 'pdf')) {
-        errors.slides = 'Only one presentation deck is allowed. Remove other slide types first.'
-      }
-    } else if (!videoDeck) {
-      errors.slides = 'Upload a training video (required).'
-    } else if (slides.some((s) => s.type !== 'video')) {
-      errors.slides = 'Only one video is allowed for video-based courses.'
+    const playlist = slides.filter((s) => s.type === 'pdf' || s.type === 'video')
+    if (!playlist.length) {
+      errors.slides = 'Add at least one PDF or video.'
     }
     if (Object.keys(errors).length) {
       setFieldErrors(errors)
@@ -293,17 +213,9 @@ export function AdminCoursesPage() {
     }
     setSlugErr('')
     setFieldErrors({})
-    const renderedCount = presentationDeck?.renderedSlideUrls?.filter(Boolean).length ?? 0
-    const slideCount =
-      deliveryMode === 'video'
-        ? 1
-        : renderedCount > 0
-          ? renderedCount
-          : presentationDeck?.deckSlideCount
-            ? presentationDeck.deckSlideCount
-            : slides.length > 0
-              ? slides.length
-              : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
+    const metrics = computeCourseContentMetrics(playlist)
+    const slideCount = metrics.slideCount
+    const durationMinutes = metrics.durationMinutes
     const cv = draft.certificateValidityDays
     const certificateValidityDays =
       cv === null || cv === undefined || Number.isNaN(Number(cv)) || Number(cv) <= 0
@@ -317,9 +229,9 @@ export function AdminCoursesPage() {
       description: draft.description.trim() || draft.summary.trim(),
       priceCents: Math.max(0, Math.round(Number(draft.priceCents)) || 0),
       discountPercent: Math.min(100, Math.max(0, Math.round(Number(draft.discountPercent)) || 0)),
-      durationMinutes: Math.max(1, Math.round(Number(draft.durationMinutes)) || 1),
+      durationMinutes,
       slideCount,
-      slides: slides.length > 0 ? slides : [],
+      slides: playlist.map(({ previewDataUrl: _preview, ...s }) => s),
       slideImageUrls: undefined,
       certificateValidityDays,
     }
@@ -347,108 +259,19 @@ export function AdminCoursesPage() {
   const seed = useMemo(() => (draft ? isSeedCourseId(draft.id) : false), [draft])
 
   const slideList: CourseSlide[] = draft?.slides ?? (draft ? getCourseSlides(draft) : [])
-  const presentationDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
-  const videoDeck = slideList.find((s) => s.type === 'video')
-  const activeDeck = deliveryMode === 'video' ? videoDeck : presentationDeck
-  const otherModeDeck = deliveryMode === 'video' ? presentationDeck : videoDeck
-  const pptxDeck = presentationDeck
-  const effectiveSlideCount =
-    deliveryMode === 'video'
-      ? 1
-      : (pptxDeck?.renderedSlideUrls?.filter(Boolean).length ?? 0) > 0
-        ? (pptxDeck?.renderedSlideUrls?.filter(Boolean).length ?? 0)
-        : pptxDeck?.deckSlideCount && pptxDeck.deckSlideCount > 0
-          ? pptxDeck.deckSlideCount
-          : slideList.length > 0
-            ? slideList.length
-            : draft?.slideCount ?? 1
+  const playlistSlides = slideList.filter((s) => s.type === 'pdf' || s.type === 'video')
+  const contentMetrics = computeCourseContentMetrics(playlistSlides)
 
-  const switchDeliveryMode = (mode: CourseContentMode) => {
-    if (mode === deliveryMode) return
-    if (
-      slideList.length > 0 &&
-      !window.confirm('Switching course format removes the current presentation or video. Continue?')
-    ) {
-      return
-    }
-    revokeDeckBlob()
-    setDeliveryMode(mode)
-    patchDraft({ slides: undefined, slideCount: 1 })
-    setSlideUploadErr('')
-  }
-
-  const patchDraft = (patch: Partial<Course> & { slides?: CourseSlide[] | undefined }) => {
+  const setPlaylistSlides = (slides: CourseSlide[]) => {
     if (!draft) return
+    const m = computeCourseContentMetrics(slides)
     setDraft({
       ...draft,
-      ...patch,
-      slides: patch.slides !== undefined ? patch.slides : draft.slides,
+      slides,
+      slideCount: m.slideCount,
+      durationMinutes: m.durationMinutes,
       slideImageUrls: undefined,
     })
-  }
-
-  const mergeRenderedUrlsOnDeck = (urls: string[]) => {
-    if (!draft || urls.length === 0) return
-    const slides = draft.slides ?? []
-    const deckIdx = slides.findIndex((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
-    if (deckIdx < 0) return
-    const deck = slides[deckIdx]
-    if ((deck.renderedSlideUrls?.filter(Boolean).length ?? 0) > 0) return
-    const nextSlides = [...slides]
-    nextSlides[deckIdx] = {
-      ...deck,
-      renderedSlideUrls: urls,
-      deckSlideCount: urls.length,
-    }
-    patchDraft({ slides: nextSlides, slideCount: urls.length })
-  }
-
-  const removeDeck = () => {
-    const label = deliveryMode === 'video' ? 'video' : 'presentation'
-    if (
-      slideList.length > 0 &&
-      !window.confirm(`Remove the uploaded ${label}? You must upload new content before saving.`)
-    ) {
-      return
-    }
-    revokeDeckBlob()
-    patchDraft({ slides: undefined, slideCount: 1 })
-    setSlideUploadErr('')
-  }
-
-  const replaceDeck = () => {
-    if (deliveryMode === 'video') videoInputRef.current?.click()
-    else pptxInputRef.current?.click()
-  }
-
-  const onPickVideo = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!draft) return
-    setSlideUploadErr('')
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    const type = slideTypeFromFile(file)
-    if (type !== 'video') {
-      setSlideUploadErr('Only video files are allowed (MP4, WebM, etc.).')
-      return
-    }
-    revokeDeckBlob()
-    setDeckUploadJobId(startCourseDeckUpload(file, draft.id, 'video'))
-  }
-
-  const onPickPresentation = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!draft) return
-    setSlideUploadErr('')
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    const type = slideTypeFromFile(file)
-    if (type !== 'pdf') {
-      setSlideUploadErr('Only PDF files are accepted. Export PowerPoint as PDF first if needed.')
-      return
-    }
-    revokeDeckBlob()
-    setDeckUploadJobId(startCourseDeckUpload(file, draft.id, 'pdf'))
   }
 
   return (
@@ -560,7 +383,7 @@ export function AdminCoursesPage() {
         <AdminModal
           title={modal === 'create' ? t('ui_courses_modal_add') : t('ui_courses_modal_edit')}
           wide
-          blockDismiss={deckUploading}
+          blockDismiss={uploading}
           onClose={closeModal}
         >
           {seed ? (
@@ -689,190 +512,14 @@ export function AdminCoursesPage() {
               />
               {fieldErrors.description ? <p className="mt-1 text-xs text-red-600">{fieldErrors.description}</p> : null}
             </div>
-            <div className="sm:col-span-2 rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
-              <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
-                Course format <span className="text-red-600">*</span>
-              </label>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-                    deliveryMode === 'pptx'
-                      ? 'border-violet-500 bg-white text-violet-900 shadow-sm'
-                      : 'border-violet-200/80 bg-violet-50/50 text-slate-600 hover:bg-white'
-                  }`}
-                  onClick={() => switchDeliveryMode('pptx')}
-                >
-                  {t('ui_admin_format_pptx', { defaultValue: 'PDF slides' })}
-                </button>
-                <button
-                  type="button"
-                  className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
-                    deliveryMode === 'video'
-                      ? 'border-sky-500 bg-white text-sky-900 shadow-sm'
-                      : 'border-sky-200/80 bg-sky-50/50 text-slate-600 hover:bg-white'
-                  }`}
-                  onClick={() => switchDeliveryMode('video')}
-                >
-                  {t('ui_admin_format_video', { defaultValue: 'Video' })}
-                </button>
-              </div>
-              <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-slate-600">
-                {deliveryMode === 'pptx'
-                  ? t('ui_admin_format_pptx_help', {
-                      defaultValue:
-                        'Upload a PDF; each page becomes a slide. Learners use Previous / Next, then take the knowledge check.',
-                    })
-                  : t('ui_admin_format_video_help', {
-                      defaultValue:
-                        'Learners watch the full video; when it finishes, the knowledge check unlocks.',
-                    })}
-              </p>
-              <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
-                    {deliveryMode === 'pptx'
-                      ? t('ui_admin_pptx_label', { defaultValue: 'Presentation (PDF)' })
-                      : t('ui_admin_video_label', { defaultValue: 'Training video' })}{' '}
-                    <span className="text-red-600">*</span>
-                  </label>
-                  {deliveryMode === 'pptx' ? (
-                    <p className="mt-1 text-[11px] text-violet-800/90">
-                      {t('ui_admin_accepted_deck_files', {
-                        defaultValue: 'Accepted: .pdf only',
-                      })}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    ref={pptxInputRef}
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    className="hidden"
-                    onChange={onPickPresentation}
-                  />
-                  <input
-                    ref={videoInputRef}
-                    type="file"
-                    accept="video/*,.mp4,.webm,.mov,.m4v"
-                    className="hidden"
-                    onChange={onPickVideo}
-                  />
-                  {!activeDeck ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className={`!rounded-lg !py-2 !text-xs ${deliveryMode === 'video' ? '!border-sky-300' : '!border-violet-300'}`}
-                      disabled={uploading}
-                      onClick={() =>
-                        deliveryMode === 'video' ? videoInputRef.current?.click() : pptxInputRef.current?.click()
-                      }
-                    >
-                      {uploading
-                        ? 'Uploading…'
-                        : deliveryMode === 'video'
-                          ? 'Upload video'
-                          : t('ui_admin_upload_presentation', { defaultValue: 'Upload PDF' })}
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!rounded-lg !py-2 !text-xs"
-                        disabled={uploading}
-                        onClick={replaceDeck}
-                      >
-                        {uploading
-                          ? 'Uploading…'
-                          : deliveryMode === 'video'
-                            ? 'Replace video'
-                            : t('ui_admin_replace_presentation', { defaultValue: 'Replace PDF' })}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!rounded-lg !border-red-200 !py-2 !text-xs !text-red-800"
-                        disabled={uploading}
-                        onClick={removeDeck}
-                      >
-                        <Trash2 className="mr-1 inline h-3.5 w-3.5" />
-                        Remove
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {uploading ? (
-                <div className="mt-4" role="status" aria-live="polite">
-                  <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span>
-                      {uploadPhase === 'processing'
-                        ? 'Counting slides…'
-                        : `Uploading… ${uploadProgress}%`}
-                    </span>
-                    {uploadPhase === 'upload' && uploadProgress > 0 && uploadProgress < 100 ? (
-                      <span className="font-mono text-[10px]">{uploadProgress}%</span>
-                    ) : null}
-                  </div>
-                  <div
-                    className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-sky-100"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={uploadProgress}
-                    role="progressbar"
-                  >
-                    <div
-                      className={`h-full rounded-full bg-sky-600 transition-[width] duration-150 ease-out ${
-                        uploadPhase === 'processing' ? 'animate-pulse w-full' : ''
-                      }`}
-                      style={uploadPhase === 'upload' ? { width: `${uploadProgress}%` } : undefined}
-                    />
-                  </div>
-                </div>
-              ) : null}
-              {otherModeDeck && !activeDeck ? (
-                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  {deliveryMode === 'video'
-                    ? 'A presentation is already on file. Switch to PDF slides above to replace it, or upload a video below.'
-                    : 'A video is already on file. Switch to Video above to replace it, or upload a presentation below.'}
-                </p>
-              ) : null}
-              {fieldErrors.slides ? <p className="mt-2 text-xs font-medium text-red-600">{fieldErrors.slides}</p> : null}
+            <div className="sm:col-span-2">
+              <AdminCourseContentPlaylist
+                slides={playlistSlides}
+                onChange={setPlaylistSlides}
+                disabled={uploading}
+                error={fieldErrors.slides}
+              />
               {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
-              {pptxDeck && deliveryMode === 'pptx' ? (
-                <div className="mt-4 rounded-xl border border-violet-200 bg-white p-3 text-sm">
-                  <p className="font-medium text-brand-900">{pptxDeck.title ?? 'Presentation'}</p>
-                  <p className="mt-1 text-xs text-slate-600">
-                    {pptxDeck.deckSlideCount ?? '?'}{' '}
-                    {pptxDeck.type === 'pdf' ? 'pages' : 'slides'}
-                  </p>
-                  <AdminCourseDeckPreview
-                    slide={pptxDeck}
-                    blobPreviewUrl={deckUploading ? deckBlobUrl : null}
-                    onRenderedUrlsResolved={mergeRenderedUrlsOnDeck}
-                  />
-                </div>
-              ) : null}
-              {videoDeck && deliveryMode === 'video' ? (
-                <div className="mt-4 rounded-xl border border-sky-200 bg-white p-3 text-sm">
-                  <p className="font-medium text-brand-900">{videoDeck.title ?? 'Training video'}</p>
-                  <video
-                    src={resolveMediaUrl(videoDeck.url)}
-                    controls
-                    playsInline
-                    className="mt-3 max-h-64 w-full rounded-xl bg-black object-contain"
-                  />
-                </div>
-              ) : null}
-              {!activeDeck ? (
-                <p className="mt-3 text-xs text-amber-800">
-                  {deliveryMode === 'pptx'
-                    ? 'No PDF uploaded yet — required before you can save.'
-                    : 'No video uploaded yet — required before you can save.'}
-                </p>
-              ) : null}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -906,26 +553,19 @@ export function AdminCoursesPage() {
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_347_duration_minutes_8e1195fdec')}</label>
-              <input
-                type="number"
-                className={fieldClass(Boolean(fieldErrors.durationMinutes))}
-                value={draft.durationMinutes}
-                onChange={(e) => setDraft({ ...draft, durationMinutes: Number(e.target.value) })}
-              />
-              {fieldErrors.durationMinutes ? <p className="mt-1 text-xs text-red-600">{fieldErrors.durationMinutes}</p> : null}
+              <p className="input-pro mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                {playlistSlides.length > 0
+                  ? `${contentMetrics.durationMinutes} min (${Math.floor(contentMetrics.durationSeconds / 60)}h ${contentMetrics.durationSeconds % 60}m) — auto`
+                  : '—'}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">30 sec per PDF page + video length. Not editable.</p>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_356_slide_count_491e07694f')}</label>
-              <input
-                type="number"
-                className="input-pro mt-1.5 w-full"
-                disabled={slideList.length > 0}
-                value={slideList.length > 0 ? effectiveSlideCount : draft.slideCount}
-                onChange={(e) => setDraft({ ...draft, slideCount: Number(e.target.value) })}
-              />
-              {slideList.length > 0 ? (
-                <p className="mt-1 text-[11px] text-slate-500">{t('AdminCoursesPage_365_matches_uploaded_slides_clear_deck_below_to_edit_7f83c6e815')}</p>
-              ) : null}
+              <p className="input-pro mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
+                {playlistSlides.length > 0 ? contentMetrics.slideCount : '—'}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">Total learner steps (pages + videos).</p>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">

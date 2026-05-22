@@ -15,6 +15,7 @@ export class UsersService {
       .find({ order: { email: 'ASC' } })
       .then((list) =>
         list.map((u) => ({
+          id: u.id,
           email: u.email,
           name: u.name,
           role: u.role,

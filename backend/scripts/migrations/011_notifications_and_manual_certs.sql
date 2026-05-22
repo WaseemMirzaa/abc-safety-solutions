@@ -1,0 +1,1 @@
+-- Handled by migrate_notifications_and_manual_certs() in scripts/run-db-migrations.sh

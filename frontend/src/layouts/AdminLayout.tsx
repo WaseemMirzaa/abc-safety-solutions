@@ -7,6 +7,7 @@ import {
   BookOpen,
   ClipboardList,
   LayoutDashboard,
+  Megaphone,
   ShoppingBag,
   Tags,
   Users,
@@ -23,6 +24,7 @@ const side = [
   { to: '/admin/tests', label: 'Tests', icon: ClipboardList, end: false },
   { to: '/admin/users', label: 'Users', icon: Users, end: false },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, end: false },
+  { to: '/admin/announcements', label: 'Announcements', icon: Megaphone, end: false },
 ] as const
 
 export function AdminLayout() {

@@ -3,7 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Megaphone, Plus, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { adminDeleteAnnouncement, adminUpsertAnnouncement, fetchAnnouncements } from '@/api/localData'
+import {
+  adminDeleteAnnouncement,
+  adminDispatchAnnouncement,
+  adminUpsertAnnouncement,
+  fetchAnnouncements,
+} from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import type { Announcement } from '@/types'
 import { t } from '@/i18n/t'
@@ -35,11 +40,7 @@ export function AdminAnnouncementsPage() {
   }
 
   const markSent = async (a: Announcement) => {
-    await adminUpsertAnnouncement({
-      ...a,
-      status: 'sent',
-      sentAt: new Date().toISOString(),
-    })
+    await adminDispatchAnnouncement(a.id)
     invalidate()
   }
 

@@ -19,6 +19,14 @@ export class EnrollmentEntity {
   @Column({ default: false })
   refunded: boolean
 
+  /** Knowledge-check attempts left for this purchase (default 3). */
+  @Column({ type: 'int', default: 3 })
+  testAttemptsRemaining: number
+
+  /** True after 3 failed tests — learner must repurchase. */
+  @Column({ default: false })
+  attemptsExhausted: boolean
+
   /** List price at purchase (courses.priceCents). */
   @Column({ type: 'int', nullable: true })
   listPriceCents: number | null

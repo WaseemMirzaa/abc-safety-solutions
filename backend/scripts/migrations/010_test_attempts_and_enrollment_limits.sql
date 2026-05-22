@@ -1,0 +1,1 @@
+-- Handled by migrate_test_attempts() in scripts/run-db-migrations.sh

@@ -11,6 +11,7 @@ import { brandLogoCustomer } from '@/config/brandAssets'
 const navPublic = [
   { to: '/courses', labelKey: 'ui_nav_courses' },
   { to: '/my-courses', labelKey: 'ui_nav_my_learning' },
+  { to: '/notifications', labelKey: 'ui_nav_notifications', defaultLabel: 'Notifications' },
   { to: '/certificates', labelKey: 'ui_nav_certificates' },
   { to: '/verify-certificate', labelKey: 'ui_nav_verify_certificate' },
 ] as const

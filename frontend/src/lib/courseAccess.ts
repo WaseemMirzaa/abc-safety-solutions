@@ -8,13 +8,16 @@ export function isPaidStripeOrder(orderId: string): boolean {
 
 /** True when the learner may open slides, tests, and certificates for this course. */
 export function hasCourseAccess(
-  enrollment: Pick<EnrollmentRow, 'refunded' | 'orderId'> | undefined,
+  enrollment: Pick<EnrollmentRow, 'refunded' | 'orderId' | 'attemptsExhausted' | 'hasAccess'> | undefined,
   course: Pick<Course, 'priceCents'> | null | undefined,
 ): boolean {
   if (!enrollment || enrollment.refunded) return false
+  if (enrollment.attemptsExhausted) return false
+  if (enrollment.hasAccess === true) return true
+  if (enrollment.hasAccess === false) return false
   const price = course?.priceCents ?? 0
   if (price < 1) return true
-  return isPaidStripeOrder(enrollment.orderId)
+  return isPaidStripeOrder(enrollment.orderId) || enrollment.orderId.startsWith('disc_')
 }
 
 export function findEnrollment(

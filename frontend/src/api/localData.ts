@@ -21,6 +21,8 @@ export type EnrollmentRow = {
   orderId: string
   refunded: boolean
   purchasedAt: string
+  testAttemptsRemaining?: number
+  attemptsExhausted?: boolean
   /** Server-computed: paid Stripe session or free course. */
   hasAccess?: boolean
   course: Course | null
@@ -331,7 +333,14 @@ export async function submitTestAnswers(
   answers: Record<string, string>,
   opts?: { timedOut?: boolean },
 ) {
-  return apiJson<{ passPercent: number; scorePercent: number; passed: boolean; timedOut?: boolean }>(
+  return apiJson<{
+    passPercent: number
+    scorePercent: number
+    passed: boolean
+    timedOut?: boolean
+    attemptsRemaining?: number
+    attemptsExhausted?: boolean
+  }>(
     `/api/tests/course/${encodeURIComponent(courseId)}/submit`,
     { method: 'POST', body: JSON.stringify({ answers, timedOut: Boolean(opts?.timedOut) }) },
   )
@@ -555,6 +564,59 @@ export async function completeStripeCheckout(sessionId: string): Promise<Checkou
     body: JSON.stringify({ sessionId }),
   })
   return { ...row, course: asCourse(row.course) }
+}
+
+export async function fetchNotifications(): Promise<import('@/types').AppNotification[]> {
+  return apiJson('/api/notifications')
+}
+
+export async function markNotificationRead(id: string) {
+  return apiJson(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' })
+}
+
+export async function markAllNotificationsRead() {
+  return apiJson('/api/notifications/read-all', { method: 'POST' })
+}
+
+export async function adminDispatchAnnouncement(id: string) {
+  return apiJson<{ ok: boolean; sent?: number }>(`/api/admin/announcements/${encodeURIComponent(id)}/dispatch`, {
+    method: 'POST',
+  })
+}
+
+export async function fetchAdminUsersInsights(q?: string, certificateCourse?: string) {
+  const params = new URLSearchParams()
+  if (q?.trim()) params.set('q', q.trim())
+  if (certificateCourse?.trim()) params.set('certificateCourse', certificateCourse.trim())
+  const qs = params.toString()
+  return apiJson<import('@/types').AdminDirectoryUser[]>(`/api/admin/users${qs ? `?${qs}` : ''}`)
+}
+
+export async function fetchAdminUserDetail(userId: string) {
+  return apiJson<import('@/types').AdminUserDetail>(`/api/admin/users/${encodeURIComponent(userId)}`)
+}
+
+export async function previewBulkTest(format: 'csv' | 'json', content: string) {
+  return apiJson<{ questions: AdminTest['questions']; errors: { row: number; message: string }[] }>(
+    '/api/admin/tests/bulk/preview',
+    { method: 'POST', body: JSON.stringify({ format, content }) },
+  )
+}
+
+export async function createManualCertificate(body: {
+  courseName: string
+  issuedAt?: string
+  expiresAt?: string | null
+  notes?: string
+}) {
+  return apiJson<Certificate>('/api/certificates/manual', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function deleteManualCertificate(id: string) {
+  return apiJson(`/api/certificates/manual/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 export { adminUploadFile, adminUploadImage, adminUploadMedia } from './client'

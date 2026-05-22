@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core'
+import { IoAdapter } from '@nestjs/platform-socket.io'
 import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common'
 import { AppModule } from './app.module'
 import { join } from 'path'
@@ -11,6 +12,7 @@ async function bootstrap() {
   if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true })
 
   const app = await NestFactory.create(AppModule, { rawBody: true })
+  app.useWebSocketAdapter(new IoAdapter(app))
   const http = app.getHttpAdapter().getInstance()
   http.use('/uploads', express.static(uploadDir))
   // Multer fileFilter errors are plain Error — return 400 JSON so the admin UI can show them

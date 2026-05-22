@@ -16,5 +16,6 @@ import { StripeModule } from '../stripe/stripe.module'
   ],
   controllers: [OrdersController, AdminStatsController, MeOrdersController],
   providers: [OrdersService],
+  exports: [OrdersService],
 })
 export class OrdersModule {}

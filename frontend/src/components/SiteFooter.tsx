@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Container } from '@/components/Container'
 import { Phone, Mail, MapPin, ArrowUpRight } from 'lucide-react'
+import { companyContact } from '@/config/companyContact'
 import { t } from '@/i18n/t'
 import { brandLogoCustomer } from '@/config/brandAssets'
 
@@ -70,22 +71,18 @@ export function SiteFooter() {
               <ul className="mt-5 space-y-4 text-sm">
                 <li className="flex items-start gap-2.5">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
-                  <span>
-                    2313 W. Sam Houston Pkwy N, Ste 141
-                    <br />
-                    Houston, TX 77043
-                  </span>
+                  <span>{companyContact.addressLine}</span>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Phone className="h-4 w-4 shrink-0 text-sky-600" />
                   <a href="tel:8329395289" className="transition hover:text-sky-800">
-                    (832) 939-5289
+                    {companyContact.phone}
                   </a>
                 </li>
                 <li className="flex items-center gap-2.5">
                   <Mail className="h-4 w-4 shrink-0 text-sky-600" />
-                  <a href="mailto:info@abcsafetysolutions.com" className="transition hover:text-sky-800">
-                    info@abcsafetysolutions.com
+                  <a href={`mailto:${companyContact.email}`} className="transition hover:text-sky-800">
+                    {companyContact.email}
                   </a>
                 </li>
               </ul>

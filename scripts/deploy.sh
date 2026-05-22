@@ -33,8 +33,23 @@ echo "==> Starting services..."
 docker compose up -d
 
 if [ -f scripts/run-db-migrations.sh ]; then
-  echo "==> Database migrations..."
-  bash scripts/run-db-migrations.sh || echo "WARN: migrations failed — run bash scripts/run-db-migrations.sh manually"
+  echo "==> Database migrations (required)..."
+  bash scripts/run-db-migrations.sh
+fi
+
+echo "==> Verifying PDF tools in API container..."
+if docker compose exec -T api sh -c 'command -v pdftoppm >/dev/null && command -v soffice >/dev/null'; then
+  echo "   poppler-utils + LibreOffice OK"
+else
+  echo "ERROR: API image missing pdftoppm or LibreOffice — rebuild: docker compose build --no-cache api"
+  exit 1
+fi
+
+echo "==> Verifying nginx WebSocket proxy (socket.io)..."
+if grep -q 'location /socket.io/' frontend/nginx.conf 2>/dev/null; then
+  echo "   frontend/nginx.conf includes /socket.io/ proxy"
+else
+  echo "WARN: Add socket.io proxy to frontend/nginx.conf for live notifications"
 fi
 
 echo "==> Waiting for API to be healthy..."
@@ -56,5 +71,9 @@ echo "✓ Deployment complete."
 docker compose ps
 echo ""
 echo "Site is live on port 80."
+echo ""
+echo "Post-deploy:"
+echo "  • Re-save each course in Admin → Courses so PDF playlists convert to slides."
+echo "  • Learners: 3 knowledge-check attempts per purchase (not 3 full course views)."
 echo "To create/reset the admin account later:"
 echo "  docker compose exec api node dist/scripts/create-admin-user.js"

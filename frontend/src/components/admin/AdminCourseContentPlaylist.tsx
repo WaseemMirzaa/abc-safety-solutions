@@ -1,0 +1,239 @@
+import { useRef, useState } from 'react'
+import { FileText, Film, GripVertical, Trash2 } from 'lucide-react'
+import { Button } from '@/components/Button'
+import { Spinner } from '@/components/ui/Spinner'
+import { ApiError, xhrUploadForm } from '@/api/client'
+import {
+  computeCourseContentMetrics,
+  formatCourseDuration,
+  probeVideoDurationSec,
+} from '@/lib/courseContent'
+import { slideTypeFromFile } from '@/lib/courseSlides'
+import { randomId } from '@/lib/randomId'
+import { pdfFirstPagePreview, videoPosterPreview } from '@/lib/mediaPreview'
+import { resolveMediaUrl } from '@/lib/mediaUrl'
+import type { CourseSlide } from '@/types'
+
+type Props = {
+  slides: CourseSlide[]
+  onChange: (slides: CourseSlide[]) => void
+  disabled?: boolean
+  error?: string
+}
+
+function displayName(slide: CourseSlide): string {
+  return slide.fileName ?? slide.title ?? (slide.type === 'video' ? 'Video' : 'PDF')
+}
+
+function moveItem<T>(list: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list
+  const next = [...list]
+  const [item] = next.splice(from, 1)
+  next.splice(to, 0, item)
+  return next
+}
+
+export function AdminCourseContentPlaylist({ slides, onChange, disabled, error }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadPct, setUploadPct] = useState(0)
+  const [uploadErr, setUploadErr] = useState('')
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+
+  const metrics = computeCourseContentMetrics(slides)
+
+  const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])]
+    e.target.value = ''
+    if (!files.length) return
+    setUploadErr('')
+    setUploading(true)
+    setUploadPct(0)
+
+    const next = [...slides]
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const type = slideTypeFromFile(file)
+        if (type !== 'pdf' && type !== 'video') {
+          setUploadErr('Only PDF and video files (MP4, MOV) are allowed.')
+          continue
+        }
+        const { url, fileName } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
+          const base = (i / files.length) * 100
+          setUploadPct(Math.round(base + p.percent / files.length))
+        })
+        if (type === 'video') {
+          const durationSec = await probeVideoDurationSec(file)
+          const previewDataUrl = (await videoPosterPreview(file)) ?? undefined
+          next.push({
+            id: randomId(),
+            type: 'video',
+            url,
+            fileName: fileName || file.name,
+            title: fileName || file.name,
+            durationSec,
+            previewDataUrl,
+          })
+        } else {
+          const previewDataUrl = (await pdfFirstPagePreview(file)) ?? undefined
+          next.push({
+            id: randomId(),
+            type: 'pdf',
+            url,
+            fileName: fileName || file.name,
+            title: fileName || file.name,
+            renderStatus: 'pending',
+            previewDataUrl,
+          })
+        }
+      }
+      onChange(next)
+    } catch (err) {
+      setUploadErr(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Upload failed.')
+    } finally {
+      setUploading(false)
+      setUploadPct(0)
+    }
+  }
+
+  const removeAt = (idx: number) => {
+    onChange(slides.filter((_, i) => i !== idx))
+  }
+
+  const onDragStart = (idx: number) => setDragIdx(idx)
+
+  const onDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    if (dragIdx == null || dragIdx === idx) return
+    onChange(moveItem(slides, dragIdx, idx))
+    setDragIdx(idx)
+  }
+
+  const onDragEnd = () => setDragIdx(null)
+
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
+      <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
+        Course content <span className="text-red-600">*</span>
+      </label>
+      <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
+        Add multiple PDFs and videos (MP4, MOV). Drag to reorder. PDF pages are converted when you save.
+      </p>
+
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept=".pdf,application/pdf,video/mp4,video/quicktime,.mp4,.mov"
+        className="hidden"
+        onChange={(e) => void onPickFiles(e)}
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          className="!rounded-lg !border-violet-300 !py-2 !text-xs"
+          disabled={disabled || uploading}
+          onClick={() => inputRef.current?.click()}
+        >
+          {uploading ? 'Uploading…' : 'Add PDFs or videos'}
+        </Button>
+        {slides.length > 0 ? (
+          <span className="text-xs font-medium text-violet-900">
+            Duration (auto): {formatCourseDuration(metrics.durationMinutes)} · {metrics.slideCount} learner steps
+          </span>
+        ) : null}
+      </div>
+
+      {uploading ? (
+        <div className="mt-3" role="status">
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <Spinner size="sm" />
+            <span>Uploading… {uploadPct}%</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-sky-100">
+            <div className="h-full rounded-full bg-sky-600 transition-all" style={{ width: `${uploadPct}%` }} />
+          </div>
+        </div>
+      ) : null}
+
+      {uploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{uploadErr}</p> : null}
+      {error ? <p className="mt-2 text-xs font-medium text-red-600">{error}</p> : null}
+
+      {slides.length > 0 ? (
+        <ul className="mt-4 space-y-2">
+          {slides.map((slide, idx) => {
+            const thumbUrl =
+              slide.previewDataUrl ??
+              (slide.type === 'pdf' ? slide.renderedSlideUrls?.[0] : null)
+            const pages =
+              slide.type === 'pdf'
+                ? slide.renderedSlideUrls?.filter(Boolean).length ??
+                  slide.pdfPageCount ??
+                  slide.deckSlideCount
+                : null
+            return (
+              <li
+                key={slide.id}
+                draggable={!disabled && !uploading}
+                onDragStart={() => onDragStart(idx)}
+                onDragOver={(e) => onDragOver(e, idx)}
+                onDragEnd={onDragEnd}
+                className={`flex items-center gap-3 rounded-xl border bg-white px-3 py-2.5 shadow-sm ${
+                  dragIdx === idx ? 'border-violet-400 ring-2 ring-violet-200' : 'border-slate-200'
+                }`}
+              >
+                <span className="cursor-grab text-slate-400 active:cursor-grabbing" aria-hidden>
+                  <GripVertical className="h-4 w-4" />
+                </span>
+                {thumbUrl ? (
+                  <img
+                    src={resolveMediaUrl(thumbUrl)}
+                    alt=""
+                    className="h-12 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
+                  />
+                ) : (
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                      slide.type === 'video' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {slide.type === 'video' ? <Film className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-brand-900">{displayName(slide)}</p>
+                  <p className="text-[11px] text-slate-500">
+                    {slide.type === 'video'
+                      ? slide.durationSec
+                        ? `${Math.floor(slide.durationSec / 60)}:${String(slide.durationSec % 60).padStart(2, '0')}`
+                        : 'Video'
+                      : pages
+                        ? `${pages} page${pages === 1 ? '' : 's'}`
+                        : slide.renderStatus === 'pending'
+                          ? 'PDF — converts on save'
+                          : 'PDF'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="!rounded-lg !border-red-200 !px-2 !py-1.5 !text-xs !text-red-800"
+                  disabled={disabled || uploading}
+                  onClick={() => removeAt(idx)}
+                  aria-label="Remove"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="mt-3 text-xs text-amber-800">Add at least one PDF or video before saving.</p>
+      )}
+    </div>
+  )
+}

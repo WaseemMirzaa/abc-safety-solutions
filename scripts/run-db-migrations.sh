@@ -157,6 +157,84 @@ migrate_certificate_number() {
   fi
 }
 
+migrate_test_attempts() {
+  local col
+  col="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='enrollments' AND COLUMN_NAME='testAttemptsRemaining';")"
+  if [ "${col:-0}" = "0" ]; then
+    echo "   010 — adding enrollments.testAttemptsRemaining, attemptsExhausted"
+    mysql_scalar "ALTER TABLE enrollments ADD COLUMN testAttemptsRemaining INT NOT NULL DEFAULT 3;" >/dev/null
+    mysql_scalar "ALTER TABLE enrollments ADD COLUMN attemptsExhausted TINYINT(1) NOT NULL DEFAULT 0;" >/dev/null
+  else
+    echo "   010 — enrollment attempt columns already exist (skip)"
+  fi
+  local tbl
+  tbl="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='test_attempts';")"
+  if [ "${tbl:-0}" = "0" ]; then
+    echo "   010 — creating test_attempts table"
+    mysql_scalar "CREATE TABLE test_attempts (
+      id VARCHAR(36) NOT NULL,
+      userId VARCHAR(36) NOT NULL,
+      courseId VARCHAR(36) NOT NULL,
+      enrollmentId VARCHAR(36) NOT NULL,
+      attemptNumber INT NOT NULL,
+      scorePercent INT NOT NULL,
+      passPercent INT NOT NULL,
+      passed TINYINT(1) NOT NULL DEFAULT 0,
+      timedOut TINYINT(1) NOT NULL DEFAULT 0,
+      submittedAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+      PRIMARY KEY (id),
+      KEY IDX_test_attempts_user_course (userId, courseId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" >/dev/null
+  else
+    echo "   010 — test_attempts table exists (skip)"
+  fi
+}
+
+migrate_notifications_and_manual_certs() {
+  local tbl
+  tbl="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='notifications';")"
+  if [ "${tbl:-0}" = "0" ]; then
+    echo "   011 — creating notifications table"
+    mysql_scalar "CREATE TABLE notifications (
+      id VARCHAR(36) NOT NULL,
+      userId VARCHAR(36) NOT NULL,
+      title VARCHAR(500) NOT NULL,
+      body TEXT NOT NULL,
+      type VARCHAR(32) NOT NULL DEFAULT 'announcement',
+      \`read\` TINYINT(1) NOT NULL DEFAULT 0,
+      metaJson JSON NULL,
+      createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+      PRIMARY KEY (id),
+      KEY IDX_notifications_user (userId, createdAt)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" >/dev/null
+  else
+    echo "   011 — notifications table exists (skip)"
+  fi
+  tbl="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='device_tokens';")"
+  if [ "${tbl:-0}" = "0" ]; then
+    echo "   011 — creating device_tokens table"
+    mysql_scalar "CREATE TABLE device_tokens (
+      id VARCHAR(36) NOT NULL,
+      userId VARCHAR(36) NOT NULL,
+      platform VARCHAR(16) NOT NULL,
+      token VARCHAR(512) NOT NULL,
+      createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+      PRIMARY KEY (id),
+      KEY IDX_device_tokens_user (userId)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" >/dev/null
+  fi
+  local src
+  src="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='certificates' AND COLUMN_NAME='source';")"
+  if [ "${src:-0}" = "0" ]; then
+    echo "   011 — adding certificates.source, notes; nullable courseId"
+    mysql_scalar "ALTER TABLE certificates ADD COLUMN source VARCHAR(16) NOT NULL DEFAULT 'platform';" >/dev/null
+    mysql_scalar "ALTER TABLE certificates ADD COLUMN notes TEXT NULL;" >/dev/null
+    mysql_scalar "ALTER TABLE certificates MODIFY COLUMN courseId VARCHAR(36) NULL;" >/dev/null
+  else
+    echo "   011 — certificate manual columns already exist (skip)"
+  fi
+}
+
 migrate_courses_slides() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='slides';")"
@@ -194,6 +272,8 @@ for f in "${files[@]}"; do
     006_add_test_time_limit.sql) migrate_test_time_limit ;;
     007_add_progress_max_slide.sql) migrate_progress_max_slide ;;
     008_add_certificate_number.sql) migrate_certificate_number ;;
+    010_test_attempts_and_enrollment_limits.sql) migrate_test_attempts ;;
+    011_notifications_and_manual_certs.sql) migrate_notifications_and_manual_certs ;;
     *)
       echo "   $base"
       mysql_file "$f"

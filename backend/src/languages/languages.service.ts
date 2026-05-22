@@ -45,11 +45,21 @@ export class LanguagesService {
   async create(params: { name: string; code?: string }) {
     const name = params.name?.trim()
     if (!name) throw new BadRequestException('Language name is required')
-    const code = this.normalizeCode(params.code?.trim() || name)
-    const taken = await this.languages.findOne({ where: { code } })
-    if (taken) throw new ConflictException(`Language code "${code}" is already in use`)
+    let code = this.normalizeCode(params.code?.trim() || name)
+    let taken = await this.languages.findOne({ where: { code } })
+    if (taken) {
+      for (let attempt = 0; attempt < 8 && taken; attempt++) {
+        const suffix = randomUUID().replace(/-/g, '').slice(0, 4)
+        const base = code.slice(0, 10).replace(/-+$/g, '') || 'lang'
+        code = `${base}-${suffix}`.slice(0, 16)
+        taken = await this.languages.findOne({ where: { code } })
+      }
+      if (taken) {
+        throw new ConflictException(`Language code "${code}" is already in use — try a different code.`)
+      }
+    }
     const row = this.languages.create({
-      id: `lang-${randomUUID()}`,
+      id: randomUUID(),
       code,
       name,
     })
