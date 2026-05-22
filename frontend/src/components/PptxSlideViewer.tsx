@@ -69,10 +69,18 @@ export function PptxSlideViewer({
   useEffect(() => {
     let cancelled = false
     let previewer: ReturnType<typeof init> | null = null
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
 
     const run = async () => {
       const el = containerRef.current
-      if (!el) return
+      if (!el) {
+        if (!cancelled) {
+          retryTimer = setTimeout(() => {
+            if (!cancelled) void run()
+          }, 50)
+        }
+        return
+      }
 
       setPhase('downloading')
       setErr('')
@@ -113,14 +121,11 @@ export function PptxSlideViewer({
       }
     }
 
-    const start = () => {
-      if (!cancelled) void run()
-    }
-
-    start()
+    void run()
 
     return () => {
       cancelled = true
+      if (retryTimer) clearTimeout(retryTimer)
       previewer?.destroy()
       previewerRef.current = null
     }
