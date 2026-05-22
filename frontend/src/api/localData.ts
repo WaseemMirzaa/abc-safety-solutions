@@ -139,6 +139,10 @@ export type AdminOrderRow = {
   courseId: string
   courseTitle: string
   amountCents: number
+  listPriceCents: number
+  courseDiscountPercent: number
+  promoCode: string | null
+  promoDiscountPercent: number
   refunded: boolean
 }
 
@@ -163,10 +167,33 @@ export type MyOrderRow = {
   courseSummary: string
   courseImageUrl: string
   amountCents: number
+  listPriceCents: number
+  courseDiscountPercent: number
+  promoCode: string | null
+  promoDiscountPercent: number
   refunded: boolean
   receiptUrl: string | null
   invoiceUrl: string | null
   invoicePdf: string | null
+}
+
+export type PromoCodeRow = {
+  id: string
+  code: string
+  description: string
+  discountPercent: number
+  active: boolean
+  expiresAt: string | null
+  maxUses: number | null
+  useCount: number
+  createdAt: string
+}
+
+export type PromoValidation = {
+  valid: boolean
+  code: string
+  discountPercent: number
+  message: string
 }
 
 export type CheckoutConfirmation = {
@@ -213,6 +240,35 @@ export async function purchaseCourse(courseId: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ courseId }),
   })
+}
+
+export async function purchaseDiscountedCourse(courseId: string, promoCode?: string): Promise<void> {
+  await apiJson('/api/enrollments/enroll-discounted', {
+    method: 'POST',
+    body: JSON.stringify({ courseId, promoCode: promoCode?.trim() || undefined }),
+  })
+}
+
+export async function validatePromoCode(code: string, courseId?: string): Promise<PromoValidation> {
+  return apiJson<PromoValidation>('/api/promo/validate', {
+    method: 'POST',
+    body: JSON.stringify({ code, courseId }),
+  })
+}
+
+export async function fetchAdminPromoCodes(): Promise<PromoCodeRow[]> {
+  return apiJson<PromoCodeRow[]>('/api/admin/promo-codes')
+}
+
+export async function saveAdminPromoCode(row: PromoCodeRow): Promise<PromoCodeRow> {
+  return apiJson<PromoCodeRow>('/api/admin/promo-codes', {
+    method: 'POST',
+    body: JSON.stringify(row),
+  })
+}
+
+export async function deleteAdminPromoCode(id: string): Promise<void> {
+  await apiJson(`/api/admin/promo-codes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
 export type ProgressRow = Progress & { testPassed?: boolean }
@@ -460,10 +516,26 @@ export async function fetchStripeConfig(): Promise<{ enabled: boolean }> {
   return apiJson<{ enabled: boolean }>('/api/stripe/config')
 }
 
-export async function createStripeCheckoutSession(courseId: string): Promise<{ url: string | null }> {
-  return apiJson<{ url: string | null }>('/api/stripe/checkout', {
+export type StripeCheckoutResult = {
+  url: string | null
+  sessionId?: string | null
+  freeEnroll?: boolean
+  pricing?: {
+    listPriceCents: number
+    amountCents: number
+    courseDiscountPercent: number
+    promoDiscountPercent: number
+    promoCode: string | null
+  }
+}
+
+export async function createStripeCheckoutSession(
+  courseId: string,
+  promoCode?: string,
+): Promise<StripeCheckoutResult> {
+  return apiJson<StripeCheckoutResult>('/api/stripe/checkout', {
     method: 'POST',
-    body: JSON.stringify({ courseId }),
+    body: JSON.stringify({ courseId, promoCode: promoCode?.trim() || undefined }),
   })
 }
 

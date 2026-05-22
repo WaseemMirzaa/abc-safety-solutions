@@ -1,3 +1,4 @@
+import { notifySessionCleared, resetAppSessionCache } from '@/lib/sessionReset'
 import { logError } from '@/lib/log'
 import { withRetries } from '@/lib/retry'
 
@@ -43,8 +44,9 @@ async function apiJsonOnce<T>(path: string, init?: RequestInit): Promise<T> {
     throw err
   }
   const text = await res.text()
-  if (res.status === 401) {
-    setToken(null)
+  if (res.status === 401 && token) {
+    resetAppSessionCache()
+    notifySessionCleared()
   }
   if (!res.ok) {
     let msg = text || res.statusText

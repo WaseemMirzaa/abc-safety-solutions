@@ -3,14 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { ApiError } from '@/api/client'
+import { OrderDiscountSummary } from '@/components/OrderDiscountSummary'
 import { adminToggleOrderRefund, fetchAdminOrders, type AdminOrderRow } from '@/api/localData'
+import { formatUsd } from '@/lib/pricing'
 import { isPaidStripeOrder } from '@/lib/courseAccess'
 import { qk } from '@/api/queryKeys'
 import { t } from '@/i18n/t'
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
-}
 
 export function AdminOrdersPage() {
   const qc = useQueryClient()
@@ -86,7 +84,12 @@ export function AdminOrdersPage() {
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{r.orderId}</td>
                   <td className="px-4 py-3 text-slate-600">{new Date(r.purchasedAt).toLocaleString()}</td>
                   <td className="px-4 py-3 font-medium text-brand-900">{r.courseTitle}</td>
-                  <td className="px-4 py-3">{formatPrice(r.amountCents)}</td>
+                  <td className="px-4 py-3">
+                    {formatUsd(r.amountCents)}
+                    {r.listPriceCents > r.amountCents ? (
+                      <span className="ml-1 text-xs text-slate-400 line-through">{formatUsd(r.listPriceCents)}</span>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3">
                     {r.refunded ? (
                       <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">{t('AdminOrdersPage_78_refunded_5bd11dd6a0')}</span>
@@ -127,13 +130,20 @@ export function AdminOrdersPage() {
                 </div>
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_115_amount_a43b1539c3')}</dt>
-                  <dd className="mt-1 font-semibold text-brand-900">{formatPrice(selected.amountCents)}</dd>
+                  <dd className="mt-1 font-semibold text-brand-900">{formatUsd(selected.amountCents)}</dd>
                 </div>
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_119_fulfillment_b1c235d09c')}</dt>
                   <dd className="mt-1 text-slate-800">Enrollment granted</dd>
                 </div>
               </dl>
+              <OrderDiscountSummary
+                listPriceCents={selected.listPriceCents}
+                amountCents={selected.amountCents}
+                courseDiscountPercent={selected.courseDiscountPercent}
+                promoCode={selected.promoCode}
+                promoDiscountPercent={selected.promoDiscountPercent}
+              />
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
               {refundErr ? <p className="text-sm text-red-600">{refundErr}</p> : null}

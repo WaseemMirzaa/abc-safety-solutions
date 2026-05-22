@@ -12,6 +12,10 @@ export type OrderRow = {
   courseId: string
   courseTitle: string
   amountCents: number
+  listPriceCents: number
+  courseDiscountPercent: number
+  promoCode: string | null
+  promoDiscountPercent: number
   refunded: boolean
 }
 
@@ -33,14 +37,23 @@ export class OrdersService {
 
   private async toOrderRows(list: EnrollmentEntity[]): Promise<OrderRow[]> {
     const byCourse = new Map((await this.courses.find()).map((c) => [c.id, c]))
-    return list.map((e) => ({
-      orderId: e.orderId,
-      purchasedAt: e.purchasedAt.toISOString(),
-      courseId: e.courseId,
-      courseTitle: byCourse.get(e.courseId)?.title ?? e.courseId,
-      amountCents: byCourse.get(e.courseId)?.priceCents ?? 0,
-      refunded: e.refunded,
-    }))
+    return list.map((e) => {
+      const course = byCourse.get(e.courseId)
+      const listPrice = e.listPriceCents ?? course?.priceCents ?? 0
+      const paid = e.amountPaidCents ?? (isStripePaidOrderId(e.orderId) ? listPrice : 0)
+      return {
+        orderId: e.orderId,
+        purchasedAt: e.purchasedAt.toISOString(),
+        courseId: e.courseId,
+        courseTitle: course?.title ?? e.courseId,
+        amountCents: paid,
+        listPriceCents: listPrice,
+        courseDiscountPercent: e.courseDiscountPercent ?? 0,
+        promoCode: e.promoCode,
+        promoDiscountPercent: e.promoDiscountPercent ?? 0,
+        refunded: e.refunded,
+      }
+    })
   }
 
   async list(): Promise<OrderRow[]> {

@@ -5,6 +5,7 @@ import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
 import { DEFAULT_LANGUAGE_ID, LanguagesService } from '../languages/languages.service'
 import type { CourseSlide } from '../common/course-slide.types'
+import { clampDiscountPercent, salePriceFromCourse } from '../common/pricing.util'
 
 export type CourseDto = {
   id: string
@@ -15,6 +16,8 @@ export type CourseDto = {
   categoryId: string
   languageId: string
   priceCents: number
+  discountPercent: number
+  salePriceCents: number
   durationMinutes: number
   slideCount: number
   slideImageUrls?: string[]
@@ -68,6 +71,8 @@ export class CoursesService {
       categoryId: c.categoryId,
       languageId: c.languageId || DEFAULT_LANGUAGE_ID,
       priceCents: c.priceCents,
+      discountPercent: clampDiscountPercent(c.discountPercent ?? 0),
+      salePriceCents: salePriceFromCourse(c.priceCents, c.discountPercent ?? 0),
       durationMinutes: c.durationMinutes,
       slideCount: Math.max(1, slideCount),
       slideImageUrls: c.slideImageUrls ?? undefined,
@@ -131,6 +136,7 @@ export class CoursesService {
       slides: data.slides ?? null,
       published: data.published ?? false,
       popular: data.popular ?? false,
+      discountPercent: clampDiscountPercent(data.discountPercent ?? 0),
     })
     return this.courses.save(row)
   }

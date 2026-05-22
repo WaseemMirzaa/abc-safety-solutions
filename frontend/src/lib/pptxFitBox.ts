@@ -1,8 +1,20 @@
+export const SLIDE_ASPECT_16_9 = 16 / 9
+export const SLIDE_ASPECT_4_3 = 4 / 3
+
+/** Pick 16:9 vs 4:3 from rendered slide pixel dimensions. */
+export function inferSlideAspectRatio(width: number, height: number): number {
+  if (width <= 0 || height <= 0) return SLIDE_ASPECT_16_9
+  const ar = width / height
+  return Math.abs(ar - SLIDE_ASPECT_4_3) < Math.abs(ar - SLIDE_ASPECT_16_9)
+    ? SLIDE_ASPECT_4_3
+    : SLIDE_ASPECT_16_9
+}
+
 /** Fit a presentation box inside a container (contain), default 16:9. */
 export function fitPresentationBox(
   containerW: number,
   containerH: number,
-  aspect = 16 / 9,
+  aspect = SLIDE_ASPECT_16_9,
 ): { width: number; height: number } {
   if (containerW <= 0 || containerH <= 0) {
     return { width: 960, height: Math.round(960 / aspect) }
@@ -35,7 +47,7 @@ export function scalePptxCanvasToFit(container: HTMLElement | null): void {
   const nh = canvas.height || canvas.offsetHeight
   if (!nw || !nh || !cw || !ch) return
 
-  const scale = Math.min(cw / nw, ch / nh, 1)
+  const scale = Math.min(cw / nw, ch / nh)
   wrapper.style.transformOrigin = 'center center'
   wrapper.style.transform = `scale(${scale})`
 }

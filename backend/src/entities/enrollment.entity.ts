@@ -19,6 +19,23 @@ export class EnrollmentEntity {
   @Column({ default: false })
   refunded: boolean
 
+  /** List price at purchase (courses.priceCents). */
+  @Column({ type: 'int', nullable: true })
+  listPriceCents: number | null
+
+  /** Amount charged (after course + promo discounts). */
+  @Column({ type: 'int', nullable: true })
+  amountPaidCents: number | null
+
+  @Column({ type: 'int', default: 0 })
+  courseDiscountPercent: number
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  promoCode: string | null
+
+  @Column({ type: 'int', default: 0 })
+  promoDiscountPercent: number
+
   @CreateDateColumn()
   purchasedAt: Date
 }

@@ -65,6 +65,12 @@ export class AdminCourseDto {
   @Min(0)
   priceCents: number
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  discountPercent?: number
+
   @IsInt()
   @Min(1)
   durationMinutes: number

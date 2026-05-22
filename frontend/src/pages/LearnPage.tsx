@@ -124,6 +124,7 @@ export function LearnPage() {
   const staleVideoCompleteFixed = useRef(false)
   const [pptxReady, setPptxReady] = useState(false)
   const [pptxSlideCount, setPptxSlideCount] = useState<number | null>(null)
+  const [deckAspect, setDeckAspect] = useState(16 / 9)
   const [contentReviewRequired, setContentReviewRequired] = useState(false)
 
   const videoCourse = course ? isVideoCourse(course) : false
@@ -159,6 +160,7 @@ export function LearnPage() {
     staleVideoCompleteFixed.current = false
     setPptxReady(false)
     setPptxSlideCount(null)
+    setDeckAspect(16 / 9)
     setContentReviewRequired(false)
     setProgressHydrated(false)
     hydratedForCourse.current = null
@@ -549,6 +551,11 @@ export function LearnPage() {
                     ? 'learn-slide-frame--video'
                     : 'bg-white'
               }`}
+              style={
+                pptxDeck
+                  ? ({ '--slide-ar': deckAspect } as React.CSSProperties)
+                  : undefined
+              }
             >
               <CourseSlideViewer
                 slide={currentSlide}
@@ -563,7 +570,8 @@ export function LearnPage() {
                 onVideoProgress={videoCourse ? handleVideoProgress : undefined}
                 onPptxReadyChange={pptxDeck ? setPptxReady : undefined}
                 onPptxSlideCount={pptxDeck ? setPptxSlideCount : undefined}
-                className="h-full w-full"
+                onPptxSlideAspect={pptxDeck ? setDeckAspect : undefined}
+                className="h-full w-full min-h-0"
               />
             </motion.div>
           </div>

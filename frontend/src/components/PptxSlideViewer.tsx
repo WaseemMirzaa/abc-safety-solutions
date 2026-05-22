@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { init } from 'pptx-preview'
 import { PresentationLoader } from '@/components/learn/PresentationLoader'
 import { getOrFetchPptxBuffer, prefetchPptxBuffer } from '@/lib/pptxDeckCache'
-import { fitPresentationBox, scalePptxCanvasToFit } from '@/lib/pptxFitBox'
+import {
+  fitPresentationBox,
+  inferSlideAspectRatio,
+  scalePptxCanvasToFit,
+  SLIDE_ASPECT_16_9,
+} from '@/lib/pptxFitBox'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import { t } from '@/i18n/t'
 
@@ -14,17 +19,20 @@ type Props = {
   onReadyChange?: (ready: boolean) => void
   /** Fired when the deck is ready with the real slide count from the .pptx file. */
   onSlideCount?: (count: number) => void
+  /** 16/9 or 4/3 after the current slide renders. */
+  onSlideAspect?: (aspect: number) => void
 }
 
 type Phase = 'downloading' | 'processing' | 'ready' | 'error'
 
-function measureHost(host: HTMLElement | null, compact: boolean) {
+function measureHost(host: HTMLElement | null, compact: boolean, aspect = SLIDE_ASPECT_16_9) {
   const w = host?.clientWidth || host?.offsetWidth || 0
   const h = host?.clientHeight || host?.offsetHeight || 0
   if (w > 0 && h > 0) {
-    return fitPresentationBox(w, h)
+    return fitPresentationBox(w, h, aspect)
   }
-  return fitPresentationBox(compact ? 480 : 960, compact ? 200 : 540)
+  const fallbackW = compact ? 480 : 960
+  return fitPresentationBox(fallbackW, compact ? 200 : 540, aspect)
 }
 
 /** Renders one slide from a .pptx deck (prev/next controlled by parent). Auto-loads on mount. */
@@ -35,6 +43,7 @@ export function PptxSlideViewer({
   compact = false,
   onReadyChange,
   onSlideCount,
+  onSlideAspect,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -44,14 +53,24 @@ export function PptxSlideViewer({
   const [err, setErr] = useState('')
   const [downloadPct, setDownloadPct] = useState(0)
   const [reloadToken, setReloadToken] = useState(0)
+  const [slideAspect, setSlideAspect] = useState(SLIDE_ASPECT_16_9)
 
   slideIndexRef.current = slideIndex
 
   const resolved = resolveMediaUrl(url)
 
+  const reportCanvasAspect = useCallback(() => {
+    const canvas = containerRef.current?.querySelector('canvas') as HTMLCanvasElement | null
+    if (!canvas?.width || !canvas?.height) return
+    const aspect = inferSlideAspectRatio(canvas.width, canvas.height)
+    setSlideAspect(aspect)
+    onSlideAspect?.(aspect)
+  }, [onSlideAspect])
+
   const applyCanvasFit = useCallback(() => {
     scalePptxCanvasToFit(containerRef.current)
-  }, [])
+    reportCanvasAspect()
+  }, [reportCanvasAspect])
 
   useEffect(() => {
     prefetchPptxBuffer(url)
@@ -65,6 +84,7 @@ export function PptxSlideViewer({
     setPhase('downloading')
     setErr('')
     setDownloadPct(0)
+    setSlideAspect(SLIDE_ASPECT_16_9)
     onReadyChange?.(false)
   }, [url, onReadyChange])
 
@@ -95,7 +115,7 @@ export function PptxSlideViewer({
       setErr('')
       setDownloadPct(0)
 
-      const { width, height } = measureHost(hostRef.current, compact)
+      const { width, height } = measureHost(hostRef.current, compact, slideAspect)
 
       try {
         if (previewerRef.current) {
@@ -112,7 +132,7 @@ export function PptxSlideViewer({
         setPhase('processing')
         setDownloadPct(100)
 
-        const { width: w2, height: h2 } = measureHost(hostRef.current, compact)
+        const { width: w2, height: h2 } = measureHost(hostRef.current, compact, slideAspect)
         previewer = init(el, { width: w2 || width, height: h2 || height, mode: 'slide' })
         previewerRef.current = previewer
 
@@ -125,7 +145,16 @@ export function PptxSlideViewer({
         if (!cancelled) {
           if (previewer.slideCount > 0) onSlideCount?.(previewer.slideCount)
           setPhase('ready')
-          requestAnimationFrame(() => applyCanvasFit())
+          requestAnimationFrame(() => {
+            applyCanvasFit()
+            const canvas = containerRef.current?.querySelector('canvas') as HTMLCanvasElement | null
+            if (!canvas?.width || !canvas?.height) return
+            const detected = inferSlideAspectRatio(canvas.width, canvas.height)
+            if (Math.abs(detected - slideAspect) > 0.04) {
+              setSlideAspect(detected)
+              setReloadToken((n) => n + 1)
+            }
+          })
         }
       } catch (e) {
         if (!cancelled) {
@@ -143,7 +172,7 @@ export function PptxSlideViewer({
       previewer?.destroy()
       previewerRef.current = null
     }
-  }, [url, reloadToken, compact, applyCanvasFit])
+  }, [url, reloadToken, compact, slideAspect, applyCanvasFit])
 
   useEffect(() => {
     if (phase !== 'ready' || !previewerRef.current) return

@@ -36,6 +36,10 @@ export type Course = {
   /** Instruction language (course_languages.id). */
   languageId: string
   priceCents: number
+  /** Admin sale discount 0–100; reflected on catalog and checkout. */
+  discountPercent?: number
+  /** List price after course discount (from API). */
+  salePriceCents?: number
   durationMinutes: number
   slideCount: number
   /** Days until certificate expires after issue; null/undefined = no expiry. */

@@ -13,6 +13,10 @@ export type CheckoutConfirmation = {
     orderId: string
     purchasedAt: string
     amountCents: number
+    listPriceCents?: number
+    courseDiscountPercent?: number
+    promoCode?: string | null
+    promoDiscountPercent?: number
     currency: string
   }
   course: CourseDto
@@ -28,6 +32,10 @@ export type EnrichedOrderRow = {
   courseSummary: string
   courseImageUrl: string
   amountCents: number
+  listPriceCents: number
+  courseDiscountPercent: number
+  promoCode: string | null
+  promoDiscountPercent: number
   refunded: boolean
   receiptUrl: string | null
   invoiceUrl: string | null

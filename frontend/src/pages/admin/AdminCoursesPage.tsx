@@ -52,6 +52,7 @@ function emptyCustomCourse(categoryId: string): Course {
     categoryId,
     languageId: DEFAULT_COURSE_LANGUAGE_ID,
     priceCents: 2999,
+    discountPercent: 0,
     durationMinutes: 60,
     slideCount: 1,
     certificateValidityDays: null,
@@ -311,6 +312,7 @@ export function AdminCoursesPage() {
       summary: draft.summary.trim(),
       description: draft.description.trim() || draft.summary.trim(),
       priceCents: Math.max(0, Math.round(Number(draft.priceCents)) || 0),
+      discountPercent: Math.min(100, Math.max(0, Math.round(Number(draft.discountPercent)) || 0)),
       durationMinutes: Math.max(1, Math.round(Number(draft.durationMinutes)) || 1),
       slideCount,
       slides: slides.length > 0 ? slides : [],
@@ -831,15 +833,35 @@ export function AdminCoursesPage() {
                 </p>
               ) : null}
             </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_338_price_usd_cents_16bc7ab177')}</label>
-              <input
-                type="number"
-                className={fieldClass(Boolean(fieldErrors.priceCents))}
-                value={draft.priceCents}
-                onChange={(e) => setDraft({ ...draft, priceCents: Number(e.target.value) })}
-              />
-              {fieldErrors.priceCents ? <p className="mt-1 text-xs text-red-600">{fieldErrors.priceCents}</p> : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_338_price_usd_cents_16bc7ab177')}</label>
+                <input
+                  type="number"
+                  className={fieldClass(Boolean(fieldErrors.priceCents))}
+                  value={draft.priceCents}
+                  onChange={(e) => setDraft({ ...draft, priceCents: Number(e.target.value) })}
+                />
+                {fieldErrors.priceCents ? <p className="mt-1 text-xs text-red-600">{fieldErrors.priceCents}</p> : null}
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  {t('ui_admin_course_discount_percent', { defaultValue: 'Sale discount %' })}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className="input-pro mt-1.5 w-full"
+                  value={draft.discountPercent ?? 0}
+                  onChange={(e) => setDraft({ ...draft, discountPercent: Number(e.target.value) })}
+                />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {t('ui_admin_course_discount_hint', {
+                    defaultValue: 'Shown on catalog and applied at checkout (0 = no sale).',
+                  })}
+                </p>
+              </div>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_347_duration_minutes_8e1195fdec')}</label>

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
-import { IsString, MinLength } from 'class-validator'
+import { IsOptional, IsString, MinLength } from 'class-validator'
 import { CurrentUser } from '../common/current-user.decorator'
 import { StripeService } from './stripe.service'
 
@@ -8,6 +8,10 @@ class CheckoutDto {
   @IsString()
   @MinLength(1)
   courseId: string
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string
 }
 
 class SessionDto {
@@ -35,6 +39,7 @@ export class StripeController {
       courseId: body.courseId,
       userId: u.id,
       email: u.email,
+      promoCode: body.promoCode,
     })
   }
 

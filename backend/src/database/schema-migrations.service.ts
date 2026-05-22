@@ -12,6 +12,9 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.ensureCourseLanguages()
     await this.ensureEnrollmentOrderIdWidth()
     await this.ensureCoursePopular()
+    await this.ensureCourseDiscountPercent()
+    await this.ensurePromoCodesTable()
+    await this.ensureEnrollmentPricingColumns()
   }
 
   private async ensureCourseLanguages() {
@@ -67,6 +70,59 @@ export class SchemaMigrationsService implements OnModuleInit {
       await this.dataSource.query(
         `ALTER TABLE courses ADD COLUMN popular TINYINT(1) NOT NULL DEFAULT 0`,
       )
+    }
+  }
+
+  private async ensureCourseDiscountPercent() {
+    const col = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'courses' AND COLUMN_NAME = 'discountPercent'`,
+    )
+    if (Number(col[0]?.n ?? 0) === 0) {
+      this.log.warn('courses.discountPercent missing; adding column')
+      await this.dataSource.query(
+        `ALTER TABLE courses ADD COLUMN discountPercent INT NOT NULL DEFAULT 0`,
+      )
+    }
+  }
+
+  private async ensurePromoCodesTable() {
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS promo_codes (
+        id VARCHAR(36) NOT NULL,
+        code VARCHAR(64) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        discountPercent INT NOT NULL DEFAULT 10,
+        active TINYINT(1) NOT NULL DEFAULT 1,
+        expiresAt DATETIME NULL,
+        maxUses INT NULL,
+        useCount INT NOT NULL DEFAULT 0,
+        createdAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+        PRIMARY KEY (id),
+        UNIQUE KEY UQ_promo_codes_code (code)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `)
+  }
+
+  private async ensureEnrollmentPricingColumns() {
+    for (const spec of [
+      { name: 'listPriceCents', ddl: 'INT NULL' },
+      { name: 'amountPaidCents', ddl: 'INT NULL' },
+      { name: 'courseDiscountPercent', ddl: 'INT NOT NULL DEFAULT 0' },
+      { name: 'promoCode', ddl: 'VARCHAR(64) NULL' },
+      { name: 'promoDiscountPercent', ddl: 'INT NOT NULL DEFAULT 0' },
+    ]) {
+      const col = await this.dataSource.query<{ n: number }[]>(
+        `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'enrollments' AND COLUMN_NAME = ?`,
+        [spec.name],
+      )
+      if (Number(col[0]?.n ?? 0) === 0) {
+        this.log.warn(`enrollments.${spec.name} missing; adding column`)
+        await this.dataSource.query(
+          `ALTER TABLE enrollments ADD COLUMN ${spec.name} ${spec.ddl}`,
+        )
+      }
     }
   }
 }

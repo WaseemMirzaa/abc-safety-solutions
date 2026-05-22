@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { queryClient } from '@/api/queryClient'
 import { authMe } from '@/api/localData'
 import { getToken, setToken } from '@/api/client'
+import { clearAuthenticatedSession } from '@/lib/appSession'
+import { registerSessionClearedHandler } from '@/lib/sessionReset'
 import { t } from '@/i18n/t'
 import type { UserSession } from '@/types'
 
@@ -24,6 +27,8 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
   const [user, setUser] = useState<UserSession | null>(initialSession?.user ?? null)
   const [ready, setReady] = useState(Boolean(initialSession))
 
+  useEffect(() => registerSessionClearedHandler(() => setUser(null)), [])
+
   useEffect(() => {
     if (initialSession) {
       if (initialSession.accessToken) setToken(initialSession.accessToken)
@@ -43,14 +48,14 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
   }, [initialSession])
 
   const applySession = useCallback((accessToken: string, u: UserSession) => {
+    queryClient.clear()
     setToken(accessToken)
     setUser(u)
     setReady(true)
   }, [])
 
   const logout = useCallback(() => {
-    setToken(null)
-    setUser(null)
+    clearAuthenticatedSession()
   }, [])
 
   const refreshMe = useCallback(async () => {
@@ -63,7 +68,7 @@ export function AuthProvider({ children, initialSession }: AuthProviderProps) {
       const u = await authMe()
       setUser(u)
     } catch {
-      setToken(null)
+      clearAuthenticatedSession({ redirectHome: false })
       setUser(null)
     }
   }, [])

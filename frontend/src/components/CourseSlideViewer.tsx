@@ -22,6 +22,7 @@ type Props = {
   /** True when a .pptx deck has finished loading. */
   onPptxReadyChange?: (ready: boolean) => void
   onPptxSlideCount?: (count: number) => void
+  onPptxSlideAspect?: (aspect: number) => void
   /** Learn page: full-bleed deck, chrome overlay, no duplicate hints. */
   learnDeck?: boolean
   /** Learn page: media fills the frame (video/PDF/PPTX); no slide counter on video. */
@@ -41,6 +42,7 @@ export function CourseSlideViewer({
   onVideoProgress,
   onPptxReadyChange,
   onPptxSlideCount,
+  onPptxSlideAspect,
   learnDeck = false,
   learnMode = false,
   pptxLoading = false,
@@ -121,6 +123,7 @@ export function CourseSlideViewer({
             className="h-full w-full min-h-0"
             onReadyChange={onPptxReadyChange}
             onSlideCount={onPptxSlideCount}
+            onSlideAspect={onPptxSlideAspect}
           />
         ) : slide.type === 'video' ? (
           <VideoSlidePlayer

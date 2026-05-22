@@ -13,15 +13,13 @@ import {
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Button } from '@/components/Button'
+import { OrderDiscountSummary } from '@/components/OrderDiscountSummary'
 import { toInitCap } from '@/lib/courseDisplay'
+import { formatUsd } from '@/lib/pricing'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { t } from '@/i18n/t'
 import type { MyOrderRow } from '@/api/localData'
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
-}
 
 function formatOrderDate(iso: string) {
   const d = new Date(iso)
@@ -121,8 +119,11 @@ function OrderCard({ order }: { order: MyOrderRow }) {
             </div>
             <div className="shrink-0 text-right">
               <p className="font-display text-xl font-bold tracking-tight text-brand-900">
-                {formatPrice(order.amountCents)}
+                {formatUsd(order.amountCents)}
               </p>
+              {order.listPriceCents > order.amountCents ? (
+                <p className="text-xs text-slate-400 line-through">{formatUsd(order.listPriceCents)}</p>
+              ) : null}
               <span
                 className={clsx(
                   'mt-1.5 inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
@@ -147,6 +148,15 @@ function OrderCard({ order }: { order: MyOrderRow }) {
               {t('ui_orders_id_label', { defaultValue: 'Order' })} {shortOrderId(order.orderId)}
             </span>
           </div>
+
+          <OrderDiscountSummary
+            listPriceCents={order.listPriceCents}
+            amountCents={order.amountCents}
+            courseDiscountPercent={order.courseDiscountPercent}
+            promoCode={order.promoCode}
+            promoDiscountPercent={order.promoDiscountPercent}
+            compact
+          />
 
           <div className="flex flex-wrap gap-2 border-t border-slate-100/90 pt-3">
             {order.courseId ? (
@@ -216,7 +226,7 @@ export function OrderHistorySection({ orders }: Props) {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-brand-900 shadow-sm ring-1 ring-amber-200/60">
                 <Sparkles className="h-3.5 w-3.5 text-amber-600" aria-hidden />
                 {t('ui_orders_total_spent', {
-                  amount: formatPrice(totalSpentCents),
+                  amount: formatUsd(totalSpentCents),
                   defaultValue: '{{amount}} total',
                 })}
               </span>

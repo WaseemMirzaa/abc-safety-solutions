@@ -12,6 +12,7 @@ import { CertificateEntity } from './entities/certificate.entity'
 import { CourseTestEntity } from './entities/course-test.entity'
 import { MediaAssetEntity } from './entities/media-asset.entity'
 import { AnnouncementEntity } from './entities/announcement.entity'
+import { PromoCodeEntity } from './entities/promo-code.entity'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { CategoriesModule } from './categories/categories.module'
@@ -26,6 +27,7 @@ import { AnnouncementsModule } from './announcements/announcements.module'
 import { OrdersModule } from './orders/orders.module'
 import { UploadModule } from './upload/upload.module'
 import { StripeModule } from './stripe/stripe.module'
+import { PromoCodesModule } from './promo-codes/promo-codes.module'
 import { HealthModule } from './health/health.module'
 import { SchemaMigrationsService } from './database/schema-migrations.service'
 
@@ -56,6 +58,7 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
           CourseTestEntity,
           MediaAssetEntity,
           AnnouncementEntity,
+          PromoCodeEntity,
         ],
         autoLoadEntities: true,
         synchronize: config.get('NODE_ENV') !== 'production',
@@ -76,6 +79,7 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
     OrdersModule,
     UploadModule,
     StripeModule,
+    PromoCodesModule,
     HealthModule,
   ],
   providers: [SchemaMigrationsService],

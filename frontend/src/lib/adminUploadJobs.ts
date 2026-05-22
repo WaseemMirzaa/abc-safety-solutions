@@ -39,6 +39,11 @@ function notify() {
   listeners.forEach((l) => l())
 }
 
+export function resetAdminUploadJobs() {
+  jobs.clear()
+  notify()
+}
+
 export function subscribeAdminUploadJobs(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)

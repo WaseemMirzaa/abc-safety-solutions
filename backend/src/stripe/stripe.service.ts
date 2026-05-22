@@ -11,6 +11,9 @@ import Stripe from 'stripe'
 import { UserEntity } from '../entities/user.entity'
 import { CoursesService } from '../courses/courses.service'
 import { EnrollmentsService, isStripePaidOrderId } from '../enrollments/enrollments.service'
+import type { EnrollmentPricingSnapshot } from '../enrollments/enrollment-pricing.types'
+import { PromoCodesService } from '../promo-codes/promo-codes.service'
+import { computeCheckoutPricing } from '../common/pricing.util'
 import type { CheckoutBillingLinks, CheckoutConfirmation, EnrichedOrderRow } from './checkout-confirmation.types'
 import type { OrderRow } from '../orders/orders.service'
 
@@ -24,6 +27,7 @@ export class StripeService {
     private readonly users: Repository<UserEntity>,
     private readonly courses: CoursesService,
     private readonly enrollments: EnrollmentsService,
+    private readonly promoCodes: PromoCodesService,
   ) {
     const key = this.config.get<string>('STRIPE_SECRET_KEY', '')
     this.stripe = key ? new Stripe(key) : null
@@ -56,40 +60,101 @@ export class StripeService {
     return customer.id
   }
 
-  async createCheckoutSession(params: { courseId: string; userId: string; email: string }) {
-    const course = await this.courses.findEntity(params.courseId)
+  private async resolvePricing(courseId: string, promoCodeRaw?: string) {
+    const course = await this.courses.findEntity(courseId)
     if (!course || !course.published) throw new NotFoundException('Course not found')
-    const base = (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173').split(',')[0]!.trim()
     if (course.priceCents < 1) {
       throw new BadRequestException('This course is free; enroll without payment.')
     }
+
+    let promoDiscountPercent = 0
+    let promoCode: string | null = null
+    if (promoCodeRaw?.trim()) {
+      const promo = await this.promoCodes.resolveForCheckout(promoCodeRaw)
+      promoDiscountPercent = promo.discountPercent
+      promoCode = promo.code
+    }
+
+    const pricing = computeCheckoutPricing({
+      listPriceCents: course.priceCents,
+      courseDiscountPercent: course.discountPercent ?? 0,
+      promoDiscountPercent,
+      promoCode,
+    })
+
+    return { course, pricing }
+  }
+
+  private pricingFromSessionMetadata(
+    session: Stripe.Checkout.Session,
+    fallbackList: number,
+  ): EnrollmentPricingSnapshot {
+    const m = session.metadata ?? {}
+    const listPriceCents = Number(m.listPriceCents) || fallbackList
+    const amountPaidCents = session.amount_total ?? (Number(m.amountPaidCents) || listPriceCents)
+    return {
+      listPriceCents,
+      amountPaidCents,
+      courseDiscountPercent: Number(m.courseDiscountPercent) || 0,
+      promoCode: m.promoCode?.trim() || null,
+      promoDiscountPercent: Number(m.promoDiscountPercent) || 0,
+    }
+  }
+
+  async createCheckoutSession(params: {
+    courseId: string
+    userId: string
+    email: string
+    promoCode?: string
+  }) {
+    const { course, pricing } = await this.resolvePricing(params.courseId, params.promoCode)
+
+    if (pricing.amountCents < 1) {
+      return { url: null, sessionId: null, freeEnroll: true as const, pricing }
+    }
+
+    const base = (this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:5173').split(',')[0]!.trim()
 
     const user = await this.users.findOne({ where: { id: params.userId } })
     if (!user) throw new NotFoundException('User not found')
 
     const customerId = await this.getOrCreateCustomer(user)
+    const discountNote =
+      pricing.courseDiscountPercent > 0 || pricing.promoDiscountPercent > 0
+        ? ` (discounted from ${(pricing.listPriceCents / 100).toFixed(2)} USD)`
+        : ''
+
     const session = await this.client().checkout.sessions.create({
       mode: 'payment',
       customer: customerId,
       invoice_creation: { enabled: true },
       success_url: `${base}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/checkout?course=${encodeURIComponent(course.slug)}`,
+      cancel_url: `${base}/checkout?course=${encodeURIComponent(course.slug)}${pricing.promoCode ? `&promo=${encodeURIComponent(pricing.promoCode)}` : ''}`,
       line_items: [
         {
           price_data: {
             currency: 'usd',
-            unit_amount: course.priceCents,
+            unit_amount: pricing.amountCents,
             product_data: {
               name: course.title,
-              description: course.summary?.slice(0, 200) || undefined,
+              description:
+                ((course.summary?.slice(0, 180) || '') + discountNote).trim() || undefined,
             },
           },
           quantity: 1,
         },
       ],
-      metadata: { courseId: params.courseId, userId: params.userId },
+      metadata: {
+        courseId: params.courseId,
+        userId: params.userId,
+        listPriceCents: String(pricing.listPriceCents),
+        amountPaidCents: String(pricing.amountCents),
+        courseDiscountPercent: String(pricing.courseDiscountPercent),
+        promoDiscountPercent: String(pricing.promoDiscountPercent),
+        promoCode: pricing.promoCode ?? '',
+      },
     })
-    return { url: session.url, sessionId: session.id }
+    return { url: session.url, sessionId: session.id, freeEnroll: false as const, pricing }
   }
 
   private async billingLinksForSession(sessionId: string): Promise<CheckoutBillingLinks> {
@@ -133,7 +198,11 @@ export class StripeService {
     const course = await this.courses.findEntity(courseId)
     if (!course) throw new NotFoundException('Course not found')
 
-    await this.enrollments.enrollFromOrder(userId, courseId, session.id)
+    const pricing = this.pricingFromSessionMetadata(session, course.priceCents)
+    await this.enrollments.enrollFromOrder(userId, courseId, session.id, pricing)
+    if (pricing.promoCode) {
+      await this.promoCodes.recordRedemption(pricing.promoCode)
+    }
 
     const billing = await this.billingLinksForSession(sessionId)
     const purchasedAt = session.created
@@ -146,7 +215,11 @@ export class StripeService {
       order: {
         orderId: session.id,
         purchasedAt,
-        amountCents: session.amount_total ?? course.priceCents,
+        amountCents: pricing.amountPaidCents,
+        listPriceCents: pricing.listPriceCents,
+        courseDiscountPercent: pricing.courseDiscountPercent,
+        promoCode: pricing.promoCode,
+        promoDiscountPercent: pricing.promoDiscountPercent,
         currency: (session.currency ?? 'usd').toUpperCase(),
       },
       course: this.courses.toDto(course),
@@ -192,7 +265,12 @@ export class StripeService {
     const userId = session.metadata?.userId
     const courseId = session.metadata?.courseId
     if (!userId || !courseId || session.payment_status !== 'paid') return
-    await this.enrollments.enrollFromOrder(userId, courseId, session.id)
+    const course = await this.courses.findEntity(courseId)
+    const pricing = this.pricingFromSessionMetadata(session, course?.priceCents ?? 0)
+    await this.enrollments.enrollFromOrder(userId, courseId, session.id, pricing)
+    if (pricing.promoCode) {
+      await this.promoCodes.recordRedemption(pricing.promoCode)
+    }
   }
 
   /** Full refund for a Checkout session (cs_…). Idempotent if Stripe already refunded. */

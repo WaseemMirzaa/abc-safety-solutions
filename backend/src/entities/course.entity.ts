@@ -28,6 +28,10 @@ export class CourseEntity {
   @Column({ type: 'int' })
   priceCents: number
 
+  /** Admin sale discount (0–100). Shown on catalog/detail; applied before promo codes. */
+  @Column({ type: 'int', default: 0 })
+  discountPercent: number
+
   @Column({ type: 'int' })
   durationMinutes: number
 

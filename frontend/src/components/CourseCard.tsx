@@ -12,10 +12,7 @@ import {
   displayCourseTitle,
   displaySlideCount,
 } from '@/lib/courseDisplay'
-
-function formatPrice(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
-}
+import { CoursePriceDisplay } from '@/components/CoursePriceDisplay'
 
 type Props = {
   course: Course
@@ -83,7 +80,7 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
         <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-slate-100/90 pt-2.5">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{t('CourseCard_69_from_e291070e50')}</p>
-            <p className="font-display text-xl font-bold leading-none tracking-tight text-brand-900">{formatPrice(course.priceCents)}</p>
+            <CoursePriceDisplay course={course} size="sm" />
           </div>
           <Link
             to={`/courses/${course.slug}`}

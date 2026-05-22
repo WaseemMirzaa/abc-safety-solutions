@@ -13,6 +13,7 @@ export const qk = {
   adminTests: ['admin', 'tests'] as const,
   adminAnnouncements: ['admin', 'announcements'] as const,
   adminOrders: ['admin', 'orders'] as const,
+  adminPromoCodes: ['admin', 'promoCodes'] as const,
   adminDirectory: ['admin', 'directory'] as const,
   purchases: ['purchases'] as const,
   progress: (courseId: string) => ['progress', courseId] as const,
