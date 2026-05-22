@@ -6,6 +6,7 @@ import type {
   Category,
   Certificate,
   Course,
+  CourseSlide,
   CourseLanguage,
   MediaAsset,
   Progress,
@@ -24,13 +25,28 @@ export type EnrollmentRow = {
   course: Course | null
 }
 
+function parseCourseSlides(raw: Course['slides']): CourseSlide[] | undefined {
+  if (raw == null) return undefined
+  let value: unknown = raw
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value) as unknown
+    } catch {
+      return undefined
+    }
+  }
+  if (!Array.isArray(value) || !value.length) return undefined
+  return value.filter((s) => s && typeof s === 'object' && typeof (s as CourseSlide).url === 'string') as CourseSlide[]
+}
+
 function asCourse(row: Course): Course {
+  const slides = parseCourseSlides(row.slides)
   return {
     ...row,
     languageId: row.languageId || 'lang-en',
     popular: Boolean(row.popular),
     slideImageUrls: row.slideImageUrls?.filter(Boolean),
-    slides: row.slides?.length ? row.slides : undefined,
+    slides,
     certificateValidityDays:
       row.certificateValidityDays === undefined ? null : row.certificateValidityDays,
   }
@@ -81,6 +97,15 @@ export async function fetchCourseById(id: string): Promise<Course | null> {
 export async function fetchAllCoursesAdmin(): Promise<Course[]> {
   const list = await apiJson<Course[]>('/api/admin/courses')
   return list.map(asCourse)
+}
+
+export async function fetchAdminCourseById(id: string): Promise<Course | null> {
+  try {
+    return asCourse(await apiJson<Course>(`/api/admin/courses/${encodeURIComponent(id)}`))
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null
+    throw e
+  }
 }
 
 export async function fetchMediaAssets(): Promise<MediaAsset[]> {
@@ -292,7 +317,7 @@ function courseToAdminPayload(c: Course): Record<string, unknown> {
     published: c.published,
     popular: Boolean(c.popular),
     slideImageUrls: undefined,
-    slides: c.slides?.length ? c.slides : undefined,
+    slides: c.slides === undefined ? undefined : c.slides.length ? c.slides : [],
   }
 }
 

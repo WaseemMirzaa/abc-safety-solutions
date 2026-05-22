@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { AdminGuard } from '../common/admin.guard'
+import { CourseEntity } from '../entities/course.entity'
 import { CoursesService } from './courses.service'
 import { AdminCourseDto } from './dto/admin-course.dto'
 
@@ -12,6 +13,11 @@ export class AdminCoursesController {
   @Get()
   list() {
     return this.courses.findAllAdmin()
+  }
+
+  @Get(':id')
+  getOne(@Param('id') id: string) {
+    return this.courses.findByIdAdmin(id)
   }
 
   @Post()
@@ -38,7 +44,7 @@ export class AdminCoursesController {
 
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: AdminCourseDto) {
-    return this.courses.update(id, {
+    const patch: Partial<CourseEntity> = {
       slug: dto.slug,
       title: dto.title,
       summary: dto.summary,
@@ -52,9 +58,14 @@ export class AdminCoursesController {
       imageUrl: dto.imageUrl,
       published: dto.published,
       popular: dto.popular,
-      slideImageUrls: dto.slideImageUrls?.length ? dto.slideImageUrls : null,
-      slides: dto.slides?.length ? dto.slides : null,
-    })
+    }
+    if (dto.slides !== undefined) {
+      patch.slides = dto.slides.length ? dto.slides : null
+    }
+    if (dto.slideImageUrls !== undefined) {
+      patch.slideImageUrls = dto.slideImageUrls.length ? dto.slideImageUrls : null
+    }
+    return this.courses.update(id, patch)
   }
 
   @Delete(':id')

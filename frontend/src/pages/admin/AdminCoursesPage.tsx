@@ -11,6 +11,7 @@ import {
   adminCreateCourseLanguage,
   adminDeleteCourse,
   adminUpdateCourse,
+  fetchAdminCourseById,
   fetchAllCoursesAdmin,
   fetchCategories,
   fetchCourseLanguages,
@@ -170,20 +171,28 @@ export function AdminCoursesPage() {
     setModal('create')
   }
 
-  const openEdit = (c: Course) => {
+  const openEdit = async (c: Course) => {
     revokeDeckBlob()
-    const slides = c.slides?.length ? c.slides : getCourseSlides(c)
-    setDraft({
-      ...c,
-      languageId: c.languageId || DEFAULT_COURSE_LANGUAGE_ID,
+    let row = c
+    try {
+      const fresh = await fetchAdminCourseById(c.id)
+      if (fresh) row = fresh
+    } catch {
+      /* use list row */
+    }
+    const slides = row.slides?.length ? row.slides : getCourseSlides(row)
+    const merged: Course = {
+      ...row,
+      languageId: row.languageId || DEFAULT_COURSE_LANGUAGE_ID,
       slides: slides.length ? slides : undefined,
       slideImageUrls: undefined,
-    })
+    }
+    setDraft(merged)
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
     setHeroPreviewBroken(false)
-    setDeliveryMode(getCourseContentMode(c))
+    setDeliveryMode(getCourseContentMode(merged))
     setShowAddLanguage(false)
     setNewLangName('')
     setNewLangCode('')
@@ -304,7 +313,7 @@ export function AdminCoursesPage() {
       priceCents: Math.max(0, Math.round(Number(draft.priceCents)) || 0),
       durationMinutes: Math.max(1, Math.round(Number(draft.durationMinutes)) || 1),
       slideCount,
-      slides: slides.length > 0 ? slides : undefined,
+      slides: slides.length > 0 ? slides : [],
       slideImageUrls: undefined,
       certificateValidityDays,
     }
@@ -332,8 +341,11 @@ export function AdminCoursesPage() {
   const seed = useMemo(() => (draft ? isSeedCourseId(draft.id) : false), [draft])
 
   const slideList: CourseSlide[] = draft?.slides ?? (draft ? getCourseSlides(draft) : [])
-  const pptxDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt')
+  const presentationDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt')
   const videoDeck = slideList.find((s) => s.type === 'video')
+  const activeDeck = deliveryMode === 'video' ? videoDeck : presentationDeck
+  const otherModeDeck = deliveryMode === 'video' ? presentationDeck : videoDeck
+  const pptxDeck = presentationDeck
   const effectiveSlideCount =
     deliveryMode === 'video'
       ? 1
@@ -496,7 +508,7 @@ export function AdminCoursesPage() {
                         <Button
                           variant="secondary"
                           className="!rounded-lg !py-2 !text-xs"
-                          onClick={() => openEdit(c)}
+                          onClick={() => void openEdit(c)}
                         >
                           <Pencil className="mr-1 inline h-3.5 w-3.5" />
                           {t('ui_courses_edit')}
@@ -717,29 +729,19 @@ export function AdminCoursesPage() {
                     className="hidden"
                     onChange={onPickVideo}
                   />
-                  {deliveryMode === 'pptx' && !pptxDeck ? (
+                  {!activeDeck ? (
                     <Button
                       type="button"
                       variant="secondary"
-                      className="!rounded-lg !border-violet-300 !py-2 !text-xs"
+                      className={`!rounded-lg !py-2 !text-xs ${deliveryMode === 'video' ? '!border-sky-300' : '!border-violet-300'}`}
                       disabled={uploading}
-                      onClick={() => pptxInputRef.current?.click()}
+                      onClick={() =>
+                        deliveryMode === 'video' ? videoInputRef.current?.click() : pptxInputRef.current?.click()
+                      }
                     >
-                      {uploading ? 'Uploading…' : 'Upload presentation'}
+                      {uploading ? 'Uploading…' : deliveryMode === 'video' ? 'Upload video' : 'Upload presentation'}
                     </Button>
-                  ) : null}
-                  {deliveryMode === 'video' && !videoDeck ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="!rounded-lg !border-sky-300 !py-2 !text-xs"
-                      disabled={uploading}
-                      onClick={() => videoInputRef.current?.click()}
-                    >
-                      {uploading ? 'Uploading…' : 'Upload video'}
-                    </Button>
-                  ) : null}
-                  {(deliveryMode === 'pptx' && pptxDeck) || (deliveryMode === 'video' && videoDeck) ? (
+                  ) : (
                     <>
                       <Button
                         type="button"
@@ -748,7 +750,7 @@ export function AdminCoursesPage() {
                         disabled={uploading}
                         onClick={replaceDeck}
                       >
-                        {uploading ? 'Uploading…' : deliveryMode === 'video' ? 'Replace video' : 'Replace .pptx'}
+                        {uploading ? 'Uploading…' : deliveryMode === 'video' ? 'Replace video' : 'Replace file'}
                       </Button>
                       <Button
                         type="button"
@@ -761,7 +763,7 @@ export function AdminCoursesPage() {
                         Remove
                       </Button>
                     </>
-                  ) : null}
+                  )}
                 </div>
               </div>
               {uploading ? (
@@ -792,6 +794,13 @@ export function AdminCoursesPage() {
                   </div>
                 </div>
               ) : null}
+              {otherModeDeck && !activeDeck ? (
+                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  {deliveryMode === 'video'
+                    ? 'A presentation is already on file. Switch to PowerPoint (.pptx) above to replace it, or upload a video below.'
+                    : 'A video is already on file. Switch to Video above to replace it, or upload a presentation below.'}
+                </p>
+              ) : null}
               {fieldErrors.slides ? <p className="mt-2 text-xs font-medium text-red-600">{fieldErrors.slides}</p> : null}
               {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
               {pptxDeck && deliveryMode === 'pptx' ? (
@@ -814,10 +823,10 @@ export function AdminCoursesPage() {
                   />
                 </div>
               ) : null}
-              {!pptxDeck && !videoDeck ? (
+              {!activeDeck ? (
                 <p className="mt-3 text-xs text-amber-800">
                   {deliveryMode === 'pptx'
-                    ? 'No .pptx uploaded yet — required before you can save.'
+                    ? 'No presentation uploaded yet — required before you can save.'
                     : 'No video uploaded yet — required before you can save.'}
                 </p>
               ) : null}
