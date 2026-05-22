@@ -50,7 +50,7 @@ export function AdminCourseDeckPreview({
   }, [slide.url, blobPreviewUrl, renderedUrls.length])
 
   useEffect(() => {
-    if (slide.type !== 'pptx' && slide.type !== 'ppt') return
+    if (slide.type !== 'pptx' && slide.type !== 'ppt' && slide.type !== 'pdf') return
     const fromSlide = slide.renderedSlideUrls?.filter(Boolean) ?? []
     if (fromSlide.length > 0 || !serverFileUrl) return
 
@@ -77,7 +77,7 @@ export function AdminCourseDeckPreview({
     }
   }, [slide.type, useBlobPptxPreview, blobPreviewUrl])
 
-  if (slide.type === 'pptx' || slide.type === 'ppt') {
+  if (slide.type === 'pptx' || slide.type === 'pdf' || slide.type === 'ppt') {
     if (slide.type === 'ppt') {
       return (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 px-3 py-4 text-sm text-amber-950">
@@ -105,7 +105,8 @@ export function AdminCourseDeckPreview({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-sky-800">
-              Presentation · {pptxTotal} slides
+              {slide.type === 'pdf' ? 'PDF' : 'Presentation'} · {pptxTotal}{' '}
+              {slide.type === 'pdf' ? 'pages' : 'slides'}
             </p>
             {slide.title ? (
               <p className="mt-1 truncate text-sm font-medium text-brand-900">{slide.title}</p>
@@ -137,7 +138,7 @@ export function AdminCourseDeckPreview({
               <div className="flex h-full min-h-[180px] items-center justify-center bg-slate-50">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-sky-500" />
               </div>
-            ) : useBlobPptxPreview && blobPreviewUrl ? (
+            ) : slide.type === 'pptx' && useBlobPptxPreview && blobPreviewUrl ? (
               <PptxSlideViewer
                 url={blobPreviewUrl}
                 slideIndex={index}
@@ -147,12 +148,14 @@ export function AdminCourseDeckPreview({
               />
             ) : (
               <div className="flex h-full min-h-[180px] items-center justify-center px-4 text-center text-xs text-slate-600">
-                Slide images are not ready yet. Save after upload or ensure LibreOffice is installed on the server.
+                {slide.type === 'pdf'
+                  ? 'Converting PDF to slide images… Re-open after upload or install poppler-utils on the server.'
+                  : 'Slide images are not ready yet. Save after upload or ensure LibreOffice and poppler-utils are installed.'}
               </div>
             )}
           </div>
         </div>
-        {pptxTotal > 1 && (useImagePreview || useBlobPptxPreview) ? (
+        {pptxTotal > 1 && (useImagePreview || (slide.type === 'pptx' && useBlobPptxPreview)) ? (
           <div className="mt-3 flex items-center justify-center gap-3">
             <Button
               type="button"
@@ -182,14 +185,6 @@ export function AdminCourseDeckPreview({
   }
 
   const src = blobPreviewUrl ?? fileUrl
-
-  if (slide.type === 'pdf') {
-    return (
-      <div className="mt-4 overflow-hidden rounded-xl border border-amber-200 bg-white ring-1 ring-amber-100">
-        <iframe title={slide.title ?? 'PDF preview'} src={`${src}#view=FitH`} className="h-[min(280px,40vh)] w-full" />
-      </div>
-    )
-  }
 
   if (slide.type === 'video') {
     return (

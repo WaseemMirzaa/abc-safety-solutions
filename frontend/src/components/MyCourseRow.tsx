@@ -20,7 +20,7 @@ import {
   formatDurationSec,
   publishedTestMeta,
 } from '@/lib/myCourseProgress'
-import { isPptxDeckCourse, isVideoCourse } from '@/lib/courseSlides'
+import { isPdfDeckCourse, isPptxDeckCourse, isVideoCourse } from '@/lib/courseSlides'
 import { fetchMyProgress, fetchPublishedTestForCourse } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { listItem } from '@/lib/motionPresets'
@@ -62,6 +62,7 @@ function MetaChip({
 export function MyCourseRow({ course }: Props) {
   const video = isVideoCourse(course)
   const pptx = isPptxDeckCourse(course)
+  const pdf = isPdfDeckCourse(course)
 
   const { data: prog } = useQuery({
     queryKey: qk.progress(course.id),
@@ -81,9 +82,11 @@ export function MyCourseRow({ course }: Props) {
 
   const contentLabel = video
     ? t('ui_mycourses_format_video', { defaultValue: 'Video training' })
-    : pptx
-      ? t('ui_mycourses_format_pptx', { defaultValue: 'PowerPoint slides' })
-      : t('ui_mycourses_format_slides', {
+    : pdf
+      ? t('ui_mycourses_format_pdf', { defaultValue: 'PDF slides' })
+      : pptx
+        ? t('ui_mycourses_format_pptx', { defaultValue: 'PowerPoint slides' })
+        : t('ui_mycourses_format_slides', {
           count: summary.totalUnits,
           defaultValue: '{{count}} slides',
         })

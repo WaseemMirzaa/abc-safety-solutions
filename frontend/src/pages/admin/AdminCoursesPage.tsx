@@ -268,12 +268,12 @@ export function AdminCoursesPage() {
     if (!draft.imageUrl.trim()) errors.imageUrl = 'Hero image URL is required.'
     if (Number.isNaN(draft.priceCents) || draft.priceCents < 0) errors.priceCents = 'Enter a valid price (USD cents).'
     if (!draft.durationMinutes || draft.durationMinutes < 1) errors.durationMinutes = 'Duration must be at least 1 minute.'
-    const presentationDeck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt')
+    const presentationDeck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
     const videoDeck = slides.find((s) => s.type === 'video')
     if (deliveryMode === 'pptx') {
       if (!presentationDeck) {
-        errors.slides = 'Upload a presentation (.pptx or .ppt) (required).'
-      } else if (slides.some((s) => s.type !== 'pptx' && s.type !== 'ppt')) {
+        errors.slides = 'Upload a presentation (.pptx, .ppt, or .pdf) (required).'
+      } else if (slides.some((s) => s.type !== 'pptx' && s.type !== 'ppt' && s.type !== 'pdf')) {
         errors.slides = 'Only one presentation deck is allowed. Remove other slide types first.'
       }
     } else if (!videoDeck) {
@@ -347,7 +347,7 @@ export function AdminCoursesPage() {
   const seed = useMemo(() => (draft ? isSeedCourseId(draft.id) : false), [draft])
 
   const slideList: CourseSlide[] = draft?.slides ?? (draft ? getCourseSlides(draft) : [])
-  const presentationDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt')
+  const presentationDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
   const videoDeck = slideList.find((s) => s.type === 'video')
   const activeDeck = deliveryMode === 'video' ? videoDeck : presentationDeck
   const otherModeDeck = deliveryMode === 'video' ? presentationDeck : videoDeck
@@ -390,7 +390,7 @@ export function AdminCoursesPage() {
   const mergeRenderedUrlsOnDeck = (urls: string[]) => {
     if (!draft || urls.length === 0) return
     const slides = draft.slides ?? []
-    const deckIdx = slides.findIndex((s) => s.type === 'pptx' || s.type === 'ppt')
+    const deckIdx = slides.findIndex((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
     if (deckIdx < 0) return
     const deck = slides[deckIdx]
     if ((deck.renderedSlideUrls?.filter(Boolean).length ?? 0) > 0) return
@@ -443,8 +443,8 @@ export function AdminCoursesPage() {
     e.target.value = ''
     if (!file) return
     const type = slideTypeFromFile(file)
-    if (type !== 'pptx' && type !== 'ppt') {
-      setSlideUploadErr('Use a PowerPoint file (.pptx or .ppt). For best playback, save as .pptx.')
+    if (type !== 'pptx' && type !== 'ppt' && type !== 'pdf') {
+      setSlideUploadErr('Use a PowerPoint file (.pptx or .ppt) or PDF.')
       return
     }
     revokeDeckBlob()
@@ -704,7 +704,7 @@ export function AdminCoursesPage() {
                   }`}
                   onClick={() => switchDeliveryMode('pptx')}
                 >
-                  {t('ui_admin_format_pptx', { defaultValue: 'PowerPoint (.pptx)' })}
+                  {t('ui_admin_format_pptx', { defaultValue: 'Slides (.pptx / PDF)' })}
                 </button>
                 <button
                   type="button"
@@ -722,7 +722,7 @@ export function AdminCoursesPage() {
                 {deliveryMode === 'pptx'
                   ? t('ui_admin_format_pptx_help', {
                       defaultValue:
-                        'Learners move through slides with Previous / Next, then take the knowledge check.',
+                        'Upload PowerPoint or PDF; learners move through slides with Previous / Next, then take the knowledge check.',
                     })
                   : t('ui_admin_format_video_help', {
                       defaultValue:
@@ -733,16 +733,23 @@ export function AdminCoursesPage() {
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
                     {deliveryMode === 'pptx'
-                      ? t('ui_admin_pptx_label', { defaultValue: 'Presentation (.pptx)' })
+                      ? t('ui_admin_pptx_label', { defaultValue: 'Presentation (.pptx or .pdf)' })
                       : t('ui_admin_video_label', { defaultValue: 'Training video' })}{' '}
                     <span className="text-red-600">*</span>
                   </label>
+                  {deliveryMode === 'pptx' ? (
+                    <p className="mt-1 text-[11px] text-violet-800/90">
+                      {t('ui_admin_accepted_deck_files', {
+                        defaultValue: 'Accepted: .pptx, .ppt, or .pdf',
+                      })}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <input
                     ref={pptxInputRef}
                     type="file"
-                    accept=".pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
+                    accept=".pptx,.ppt,.pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint,application/pdf"
                     className="hidden"
                     onChange={onPickPresentation}
                   />
@@ -763,7 +770,11 @@ export function AdminCoursesPage() {
                         deliveryMode === 'video' ? videoInputRef.current?.click() : pptxInputRef.current?.click()
                       }
                     >
-                      {uploading ? 'Uploading…' : deliveryMode === 'video' ? 'Upload video' : 'Upload presentation'}
+                      {uploading
+                        ? 'Uploading…'
+                        : deliveryMode === 'video'
+                          ? 'Upload video'
+                          : t('ui_admin_upload_presentation', { defaultValue: 'Upload .pptx or PDF' })}
                     </Button>
                   ) : (
                     <>
@@ -774,7 +785,11 @@ export function AdminCoursesPage() {
                         disabled={uploading}
                         onClick={replaceDeck}
                       >
-                        {uploading ? 'Uploading…' : deliveryMode === 'video' ? 'Replace video' : 'Replace file'}
+                        {uploading
+                          ? 'Uploading…'
+                          : deliveryMode === 'video'
+                            ? 'Replace video'
+                            : t('ui_admin_replace_presentation', { defaultValue: 'Replace .pptx or PDF' })}
                       </Button>
                       <Button
                         type="button"
@@ -821,7 +836,7 @@ export function AdminCoursesPage() {
               {otherModeDeck && !activeDeck ? (
                 <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   {deliveryMode === 'video'
-                    ? 'A presentation is already on file. Switch to PowerPoint (.pptx) above to replace it, or upload a video below.'
+                    ? 'A presentation is already on file. Switch to Slides (.pptx / PDF) above to replace it, or upload a video below.'
                     : 'A video is already on file. Switch to Video above to replace it, or upload a presentation below.'}
                 </p>
               ) : null}
@@ -831,7 +846,8 @@ export function AdminCoursesPage() {
                 <div className="mt-4 rounded-xl border border-violet-200 bg-white p-3 text-sm">
                   <p className="font-medium text-brand-900">{pptxDeck.title ?? 'Presentation'}</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    {pptxDeck.deckSlideCount ?? '?'} slides
+                    {pptxDeck.deckSlideCount ?? '?'}{' '}
+                    {pptxDeck.type === 'pdf' ? 'pages' : 'slides'}
                   </p>
                   <AdminCourseDeckPreview
                     slide={pptxDeck}

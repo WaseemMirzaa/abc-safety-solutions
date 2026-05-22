@@ -27,7 +27,7 @@ import {
   getCourseSlides,
   getDeckLearnerSlideCount,
   getDeckRenderedSlideUrls,
-  getPptxDeckSlide,
+  getPresentationDeckSlide,
   getVideoSlide,
   isVideoCourse,
 } from '@/lib/courseSlides'
@@ -134,7 +134,7 @@ export function LearnPage() {
 
   const videoCourse = course ? isVideoCourse(course) : false
   const courseSlides = course ? getCourseSlides(course) : []
-  const pptxDeck = course && !videoCourse ? getPptxDeckSlide(course) : undefined
+  const pptxDeck = course && !videoCourse ? getPresentationDeckSlide(course) : undefined
   const deckRenderedUrls = course ? getDeckRenderedSlideUrls(course) : []
   const catalogSlideCount = course ? getDeckLearnerSlideCount(course) : 1
   const totalSlides = useMemo(() => {

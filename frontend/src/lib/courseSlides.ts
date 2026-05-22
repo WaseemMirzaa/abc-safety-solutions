@@ -13,15 +13,27 @@ export function getCourseSlides(course: Course): CourseSlide[] {
   }))
 }
 
+const PRESENTATION_TYPES = new Set<CourseSlideType>(['pptx', 'ppt', 'pdf'])
+
+export function isPresentationDeckType(type: CourseSlideType | undefined): boolean {
+  return type != null && PRESENTATION_TYPES.has(type)
+}
+
+/** Primary slide deck: PowerPoint or PDF (image-based playback). */
+export function getPresentationDeckSlide(course: Course): CourseSlide | undefined {
+  return getCourseSlides(course).find((s) => isPresentationDeckType(s.type))
+}
+
+/** @deprecated Use getPresentationDeckSlide */
 export function getPptxDeckSlide(course: Course): CourseSlide | undefined {
-  return getCourseSlides(course).find((s) => s.type === 'pptx' || s.type === 'ppt')
+  return getPresentationDeckSlide(course)
 }
 
 /** Learner-facing slide total for a deck (prefer server-rendered PNG count). */
 export function getDeckLearnerSlideCount(course: Course): number {
   if (isVideoCourse(course)) return 1
   const slides = getCourseSlides(course)
-  const deck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt')
+  const deck = slides.find((s) => isPresentationDeckType(s.type))
   if (deck) {
     const rendered = deck.renderedSlideUrls?.filter(Boolean).length ?? 0
     if (rendered > 0) return rendered
@@ -29,14 +41,14 @@ export function getDeckLearnerSlideCount(course: Course): number {
     return Math.max(1, course.slideCount || 1)
   }
   if (slides.length > 0) {
-    if (slides.every((s) => s.type === 'pptx' || s.type === 'ppt')) return Math.max(1, course.slideCount)
+    if (slides.every((s) => isPresentationDeckType(s.type))) return Math.max(1, course.slideCount)
     return slides.length
   }
   return Math.max(1, course.slideCount)
 }
 
 export function getDeckRenderedSlideUrls(course: Course): string[] {
-  const deck = getPptxDeckSlide(course)
+  const deck = getPresentationDeckSlide(course)
   return deck?.renderedSlideUrls?.filter(Boolean) ?? []
 }
 
@@ -47,9 +59,9 @@ export function getVideoSlide(course: Course): CourseSlide | undefined {
 /** Primary delivery format: one .pptx deck or one training video. */
 export function getCourseContentMode(course: Course): CourseContentMode {
   const slides = getCourseSlides(course)
-  const hasPptx = slides.some((s) => s.type === 'pptx' || s.type === 'ppt')
+  const hasPresentation = slides.some((s) => isPresentationDeckType(s.type))
   const hasVideo = slides.some((s) => s.type === 'video')
-  if (hasVideo && !hasPptx) return 'video'
+  if (hasVideo && !hasPresentation) return 'video'
   return 'pptx'
 }
 
@@ -57,13 +69,21 @@ export function isVideoCourse(course: Course): boolean {
   return getCourseContentMode(course) === 'video'
 }
 
+export function isPresentationDeckCourse(course: Course): boolean {
+  const deck = getPresentationDeckSlide(course)
+  return Boolean(deck && (deck.type === 'pptx' || deck.type === 'pdf'))
+}
+
 export function isPptxDeckCourse(course: Course): boolean {
-  const deck = getPptxDeckSlide(course)
-  return Boolean(deck && deck.type === 'pptx')
+  return getPresentationDeckSlide(course)?.type === 'pptx'
+}
+
+export function isPdfDeckCourse(course: Course): boolean {
+  return getPresentationDeckSlide(course)?.type === 'pdf'
 }
 
 export function isLegacyPptDeck(course: Course): boolean {
-  return getPptxDeckSlide(course)?.type === 'ppt'
+  return getPresentationDeckSlide(course)?.type === 'ppt'
 }
 
 export function getCourseSlideCount(course: Course): number {
@@ -91,6 +111,9 @@ export function slideTypeFromFile(file: File): CourseSlideType | null {
   }
   if ((mime === 'application/octet-stream' || !mime) && name.endsWith('.ppt')) {
     return 'ppt'
+  }
+  if ((mime === 'application/octet-stream' || !mime) && name.endsWith('.pdf')) {
+    return 'pdf'
   }
   return null
 }

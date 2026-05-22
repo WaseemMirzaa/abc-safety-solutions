@@ -54,9 +54,10 @@ export function CourseSlideViewer({
   const isVideo = slideType === 'video'
   const isPdf = slideType === 'pdf'
   const isPptx = slideType === 'pptx'
-  const isPptxLearn = learnDeck && isPptx
-  const contentFullBleed = learnMode && (isVideo || isPdf || isPptx || slideType === 'image')
-  const showSlideLabel = !isVideo && !(learnMode && (isPdf || isPptx))
+  const isPresentationSlide = isPptx || isPdf
+  const isDeckLearn = learnDeck && isPresentationSlide
+  const contentFullBleed = learnMode && (isVideo || isPresentationSlide || slideType === 'image')
+  const showSlideLabel = !isVideo && !(learnMode && isPresentationSlide)
 
   // When server-side rendered images are available use them directly (fastest path).
   const renderedImages = (() => {
@@ -85,7 +86,7 @@ export function CourseSlideViewer({
     <div
       className={`relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden ${className}`}
     >
-      {isPptxLearn ? (
+      {isDeckLearn ? (
         <LearnSlideChrome slideNum={slideNum} totalSlides={totalSlides} loading={pptxLoading} />
       ) : showSlideLabel ? (
         <p className="pointer-events-none absolute left-2 top-2 z-10 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:left-3 sm:top-3 sm:text-xs">
@@ -95,11 +96,11 @@ export function CourseSlideViewer({
 
       <div
         className={`flex h-full min-h-0 w-full flex-1 items-center justify-center overflow-hidden ${
-          isPptxLearn
+          isDeckLearn
             ? 'min-h-0 bg-slate-900/5 p-1 pt-12 pb-1'
             : contentFullBleed
               ? 'min-h-0 p-0'
-              : slide?.type === 'pptx'
+              : isPresentationSlide
                 ? 'min-h-0 p-2 pt-9 pb-8 sm:p-3 sm:pt-10 sm:pb-9'
                 : 'p-8 pt-10 pb-9 sm:p-10 sm:pt-11 sm:pb-10'
         }`}
@@ -111,27 +112,16 @@ export function CourseSlideViewer({
             </p>
             <p className="mt-3 text-xs text-slate-600">{t('ui_learn_upload_hint')}</p>
           </div>
-        ) : slide.type === 'pdf' ? (
-          renderedImages ? (
-            // PDF rendered as navigable slide images
-            <SlideImageViewer
-              slideImages={renderedImages}
-              slideIndex={pptxSlideIndex}
-              className="h-full w-full min-h-0"
-              onReadyChange={onPptxReadyChange}
-              onSlideCount={onPptxSlideCount}
-            />
-          ) : (
-            <iframe
-              title={slide.title ?? `Slide ${slideNum} PDF`}
-              src={`${src}#view=FitH&toolbar=1`}
-              className={
-                contentFullBleed
-                  ? 'h-full w-full min-h-0 border-0 bg-white'
-                  : 'h-full w-full min-h-0 rounded-lg bg-white ring-1 ring-slate-200/60'
-              }
-            />
-          )
+        ) : slide.type === 'pdf' && !renderedImages ? (
+          <iframe
+            title={slide.title ?? `Slide ${slideNum} PDF`}
+            src={`${src}#view=FitH&toolbar=1`}
+            className={
+              contentFullBleed
+                ? 'h-full w-full min-h-0 border-0 bg-white'
+                : 'h-full w-full min-h-0 rounded-lg bg-white ring-1 ring-slate-200/60'
+            }
+          />
         ) : slide.type === 'ppt' ? (
           <div className="max-w-lg px-4 text-center">
             <p className="font-display text-lg font-semibold text-brand-900">
@@ -143,27 +133,23 @@ export function CourseSlideViewer({
               })}
             </p>
           </div>
+        ) : isPresentationSlide && renderedImages ? (
+          <SlideImageViewer
+            slideImages={renderedImages}
+            slideIndex={pptxSlideIndex}
+            className="h-full w-full min-h-0"
+            onReadyChange={onPptxReadyChange}
+            onSlideCount={onPptxSlideCount}
+          />
         ) : slide.type === 'pptx' ? (
-          renderedImages ? (
-            // Fast path: server-rendered images — no PPTX parsing in browser
-            <SlideImageViewer
-              slideImages={renderedImages}
-              slideIndex={pptxSlideIndex}
-              className="h-full w-full min-h-0"
-              onReadyChange={onPptxReadyChange}
-              onSlideCount={onPptxSlideCount}
-            />
-          ) : (
-            // Fallback: client-side pptx-preview (used when LibreOffice not available on server)
-            <PptxSlideViewer
-              url={slide.url}
-              slideIndex={pptxSlideIndex}
-              className="h-full w-full min-h-0"
-              onReadyChange={onPptxReadyChange}
-              onSlideCount={onPptxSlideCount}
-              onSlideAspect={onPptxSlideAspect}
-            />
-          )
+          <PptxSlideViewer
+            url={slide.url}
+            slideIndex={pptxSlideIndex}
+            className="h-full w-full min-h-0"
+            onReadyChange={onPptxReadyChange}
+            onSlideCount={onPptxSlideCount}
+            onSlideAspect={onPptxSlideAspect}
+          />
         ) : slide.type === 'video' ? (
           <VideoSlidePlayer
             src={src}

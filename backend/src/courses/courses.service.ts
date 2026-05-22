@@ -50,7 +50,7 @@ export class CoursesService {
   }
 
   private deckSlideCount(slides: CourseSlide[] | undefined, fallback: number): number {
-    const deck = slides?.find((s) => s.type === 'pptx' || s.type === 'ppt')
+    const deck = slides?.find((s) => s.type === 'pptx' || s.type === 'ppt' || s.type === 'pdf')
     const rendered = deck?.renderedSlideUrls?.filter(Boolean).length ?? 0
     if (rendered > 0) return rendered
     if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount

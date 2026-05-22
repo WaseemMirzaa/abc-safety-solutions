@@ -4,7 +4,8 @@ import {
   getCourseSlideCount,
   getCourseSlides,
   getDeckLearnerSlideCount,
-  getPptxDeckSlide,
+  getPresentationDeckSlide,
+  isPdfDeckCourse,
   isPptxDeckCourse,
   isVideoCourse,
 } from '@/lib/courseSlides'
@@ -65,11 +66,11 @@ export function displaySlideCount(course: Course): number | null {
   const slides = getCourseSlides(course)
   if (!slides.length) return null
   if (isVideoCourse(course)) return 1
-  const deck = getPptxDeckSlide(course)
+  const deck = getPresentationDeckSlide(course)
   const learnerCount = getDeckLearnerSlideCount(course)
   if (learnerCount > 0) return learnerCount
   if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
-  if (isPptxDeckCourse(course)) return getCourseSlideCount(course)
+  if (isPptxDeckCourse(course) || isPdfDeckCourse(course)) return getCourseSlideCount(course)
   return slides.length
 }
 
@@ -83,6 +84,12 @@ export function displaySlidesLabel(course: Course): string {
   if (isVideoCourse(course)) {
     return t('ui_course_format_video', {
       defaultValue: 'Video-based training — complete the video to unlock the test',
+    })
+  }
+  if (isPdfDeckCourse(course)) {
+    return t('ui_course_slides_pdf', {
+      count,
+      defaultValue: '{{count}} PDF pages with voice-over',
     })
   }
   if (isPptxDeckCourse(course)) {

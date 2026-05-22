@@ -165,7 +165,7 @@ export function startAdminFileUpload(
 export function startCourseDeckUpload(
   file: File,
   draftId: string,
-  slideType: 'pptx' | 'ppt' | 'video',
+  slideType: 'pptx' | 'ppt' | 'pdf' | 'video',
 ): string {
   const id = createJob(file.name)
   void (async () => {
@@ -200,22 +200,21 @@ export function startCourseDeckUpload(
         return
       }
 
-      // PPTX / PPT: enter processing phase for slide count + server-side rendering
+      // Presentation deck: render to PNGs (PDF → images; PPTX → PDF → images on server)
       patchJob(id, { status: 'processing', phase: 'processing', percent: 100 })
 
       let deckSlideCount = 1
       let renderedSlideUrls: string[] = []
 
-      // Run slide count (client-side JSZip) and server-side rendering in parallel
       const [countResult, renderResult] = await Promise.allSettled([
         slideType === 'pptx' ? countPptxSlides(file) : Promise.resolve(1),
-        (slideType === 'pptx' || slideType === 'ppt') ? fetchRenderedSlideUrls(url) : Promise.resolve([]),
+        slideType === 'pptx' || slideType === 'ppt' || slideType === 'pdf'
+          ? fetchRenderedSlideUrls(url)
+          : Promise.resolve([]),
       ])
 
       if (countResult.status === 'fulfilled') deckSlideCount = countResult.value
       if (renderResult.status === 'fulfilled') renderedSlideUrls = renderResult.value
-
-      // Prefer the server-rendered count when available (more accurate)
       if (renderedSlideUrls.length > 0) deckSlideCount = renderedSlideUrls.length
 
       const slides: CourseSlide[] = [
@@ -224,7 +223,8 @@ export function startCourseDeckUpload(
           type: slideType,
           url,
           title,
-          deckSlideCount: slideType === 'pptx' || slideType === 'ppt' ? deckSlideCount : undefined,
+          deckSlideCount:
+            slideType === 'pptx' || slideType === 'ppt' || slideType === 'pdf' ? deckSlideCount : undefined,
           renderedSlideUrls: renderedSlideUrls.length > 0 ? renderedSlideUrls : undefined,
         },
       ]
