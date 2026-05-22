@@ -29,6 +29,9 @@ systemctl start docker
 echo "==> Installing Git..."
 apt-get install -y git
 
+echo "==> Installing slide render tools (LibreOffice + poppler)..."
+apt-get install -y --no-install-recommends libreoffice-impress poppler-utils
+
 echo "==> Configuring UFW firewall..."
 ufw allow OpenSSH
 ufw allow 80/tcp
