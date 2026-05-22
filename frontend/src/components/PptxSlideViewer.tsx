@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { init } from 'pptx-preview'
 import { PresentationLoader } from '@/components/learn/PresentationLoader'
 import { getOrFetchPptxBuffer, prefetchPptxBuffer } from '@/lib/pptxDeckCache'
@@ -60,7 +60,10 @@ export function PptxSlideViewer({
   const [reloadToken, setReloadToken] = useState(0)
   const [slideAspect, setSlideAspect] = useState(SLIDE_ASPECT_16_9)
 
-  slideIndexRef.current = slideIndex
+  // Sync ref before effects fire so async callbacks always see the latest index
+  useLayoutEffect(() => {
+    slideIndexRef.current = slideIndex
+  })
 
   const resolved = resolveMediaUrl(url)
 
@@ -97,14 +100,6 @@ export function PptxSlideViewer({
     onReadyChange?.(phase === 'ready')
   }, [phase, onReadyChange])
 
-  useEffect(() => {
-    setPhase('downloading')
-    setErr('')
-    setDownloadPct(0)
-    setSlideAspect(SLIDE_ASPECT_16_9)
-    onReadyChange?.(false)
-  }, [url, onReadyChange])
-
   const retry = useCallback(() => {
     setErr('')
     setPhase('downloading')
@@ -131,8 +126,9 @@ export function PptxSlideViewer({
       setPhase('downloading')
       setErr('')
       setDownloadPct(0)
+      setSlideAspect(SLIDE_ASPECT_16_9)
 
-      const { width, height } = measureHost(hostRef.current, compact, slideAspect)
+      const { width, height } = measureHost(hostRef.current, compact, SLIDE_ASPECT_16_9)
 
       try {
         if (previewerRef.current) {
@@ -192,7 +188,7 @@ export function PptxSlideViewer({
       previewer?.destroy()
       previewerRef.current = null
     }
-  }, [url, reloadToken, compact, slideAspect, applyCanvasFit])
+  }, [url, reloadToken, compact, slideAspect, applyCanvasFit, onSlideCount])
 
   useEffect(() => {
     if (phase !== 'ready' || !previewerRef.current) return

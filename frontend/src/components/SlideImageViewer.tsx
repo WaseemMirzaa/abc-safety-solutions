@@ -25,7 +25,9 @@ export function SlideImageViewer({
 }: Props) {
   const clampedIndex = Math.max(0, Math.min(slideIndex, slideImages.length - 1))
   const src = resolveMediaUrl(slideImages[clampedIndex] ?? '')
-  const [loaded, setLoaded] = useState(false)
+  // Track which src has finished loading — avoids synchronous setState inside effects
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  const isLoaded = loadedSrc === src
   const prefetchedRef = useRef<Set<string>>(new Set())
 
   // Report slide count once on mount
@@ -33,9 +35,8 @@ export function SlideImageViewer({
     if (slideImages.length > 0) onSlideCount?.(slideImages.length)
   }, [slideImages.length, onSlideCount])
 
-  // Report ready as soon as the current image loads (or immediately if it's cached)
+  // Notify parent that the slide is not ready whenever src changes
   useEffect(() => {
-    setLoaded(false)
     onReadyChange?.(false)
   }, [src, onReadyChange])
 
@@ -60,7 +61,7 @@ export function SlideImageViewer({
     <div
       className={`relative flex h-full w-full items-center justify-center overflow-hidden bg-white ${className}`}
     >
-      {!loaded && (
+      {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-sky-500" />
         </div>
@@ -71,14 +72,14 @@ export function SlideImageViewer({
         alt=""
         draggable={false}
         onLoad={() => {
-          setLoaded(true)
+          setLoadedSrc(src)
           onReadyChange?.(true)
         }}
         onError={() => {
-          setLoaded(true)
+          setLoadedSrc(src)
           onReadyChange?.(true)
         }}
-        className={`h-full w-full object-contain transition-opacity duration-150 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`h-full w-full object-contain transition-opacity duration-150 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
       />
     </div>
   )
