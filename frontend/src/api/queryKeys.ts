@@ -1,6 +1,7 @@
 export const qk = {
   courses: ['courses'] as const,
   categories: ['categories'] as const,
+  courseLanguages: ['courseLanguages'] as const,
   course: (slug: string) => ['course', slug] as const,
   courseById: (id: string) => ['courseById', id] as const,
   enrollments: ['enrollments'] as const,

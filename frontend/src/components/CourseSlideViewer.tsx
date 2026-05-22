@@ -10,11 +10,20 @@ type Props = {
   totalSlides: number
   /** 0-based index inside a .pptx deck (Learn page prev/next). */
   pptxSlideIndex?: number
+  /** Fired when a training video plays through to the end. */
+  onVideoEnded?: () => void
   className?: string
 }
 
 /** Renders image, PDF, PowerPoint (.pptx), or video. */
-export function CourseSlideViewer({ slide, slideNum, totalSlides, pptxSlideIndex = 0, className = '' }: Props) {
+export function CourseSlideViewer({
+  slide,
+  slideNum,
+  totalSlides,
+  pptxSlideIndex = 0,
+  onVideoEnded,
+  className = '',
+}: Props) {
   const src = slide ? resolveMediaUrl(slide.url) : ''
 
   return (
@@ -58,6 +67,7 @@ export function CourseSlideViewer({ slide, slideNum, totalSlides, pptxSlideIndex
           src={src}
           controls
           playsInline
+          onEnded={() => onVideoEnded?.()}
           className="max-h-full max-w-full rounded-xl object-contain shadow-md ring-1 ring-slate-200/80"
         >
           <track kind="captions" />

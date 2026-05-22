@@ -71,6 +71,7 @@ function c(
     slug,
     title,
     categoryId,
+    languageId: 'lang-en',
     priceCents: price * 100,
     durationMinutes: minutes,
     slideCount: slides,

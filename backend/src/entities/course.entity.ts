@@ -21,6 +21,10 @@ export class CourseEntity {
   @Column({ type: 'varchar', length: 36 })
   categoryId: string
 
+  /** Instruction language (course_languages.id). Defaults to English. */
+  @Column({ type: 'varchar', length: 36, default: 'lang-en' })
+  languageId: string
+
   @Column({ type: 'int' })
   priceCents: number
 

@@ -6,6 +6,7 @@ import type {
   Category,
   Certificate,
   Course,
+  CourseLanguage,
   MediaAsset,
   Progress,
   UserSession,
@@ -26,11 +27,26 @@ export type EnrollmentRow = {
 function asCourse(row: Course): Course {
   return {
     ...row,
+    languageId: row.languageId || 'lang-en',
     slideImageUrls: row.slideImageUrls?.filter(Boolean),
     slides: row.slides?.length ? row.slides : undefined,
     certificateValidityDays:
       row.certificateValidityDays === undefined ? null : row.certificateValidityDays,
   }
+}
+
+export async function fetchCourseLanguages(): Promise<CourseLanguage[]> {
+  return apiJson<CourseLanguage[]>('/api/languages')
+}
+
+export async function adminCreateCourseLanguage(body: {
+  name: string
+  code?: string
+}): Promise<CourseLanguage> {
+  return apiJson<CourseLanguage>('/api/admin/languages', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function fetchCategories(): Promise<Category[]> {

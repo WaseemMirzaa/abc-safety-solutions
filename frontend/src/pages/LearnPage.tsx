@@ -20,7 +20,13 @@ import {
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { CourseSlideViewer } from '@/components/CourseSlideViewer'
-import { getCourseSlideCount, getCourseSlides, getPptxDeckSlide } from '@/lib/courseSlides'
+import {
+  getCourseSlideCount,
+  getCourseSlides,
+  getPptxDeckSlide,
+  getVideoSlide,
+  isVideoCourse,
+} from '@/lib/courseSlides'
 import { useAuth } from '@/contexts/AuthContext'
 import { easeOut, transition } from '@/lib/motionPresets'
 import type { AdminTest, Certificate } from '@/types'
@@ -97,11 +103,19 @@ export function LearnPage() {
   const [submitted, setSubmitted] = useState(false)
   const [testErr, setTestErr] = useState('')
   const [freshCert, setFreshCert] = useState<Certificate | null>(null)
+  const [videoDoneLocal, setVideoDoneLocal] = useState(false)
 
+  const videoCourse = course ? isVideoCourse(course) : false
   const totalSlides = course ? getCourseSlideCount(course) : 1
   const courseSlides = course ? getCourseSlides(course) : []
-  const pptxDeck = course ? getPptxDeckSlide(course) : undefined
-  const currentSlide = pptxDeck ?? courseSlides[slideIndex]
+  const pptxDeck = course && !videoCourse ? getPptxDeckSlide(course) : undefined
+  const videoSlide = course && videoCourse ? getVideoSlide(course) : undefined
+  const currentSlide = videoSlide ?? pptxDeck ?? courseSlides[slideIndex]
+  const contentComplete = Boolean(progressRow?.completedSlides) || videoDoneLocal
+
+  useEffect(() => {
+    setVideoDoneLocal(false)
+  }, [courseId])
 
   useEffect(() => {
     if (!courseId || !course || !progressReady || !progressRow) return
@@ -110,7 +124,7 @@ export function LearnPage() {
   }, [course, courseId, progressReady, progressRow])
 
   useEffect(() => {
-    if (!courseId || !course) return
+    if (!courseId || !course || videoCourse) return
     const tmr = window.setTimeout(() => {
       saveProgress.mutate({
         slideIndex,
@@ -119,7 +133,24 @@ export function LearnPage() {
       })
     }, 400)
     return () => window.clearTimeout(tmr)
-  }, [course, courseId, slideIndex, totalSlides, saveProgress])
+  }, [course, courseId, slideIndex, totalSlides, saveProgress, videoCourse])
+
+  const markVideoComplete = useCallback(() => {
+    if (!courseId || !videoCourse) return
+    setVideoDoneLocal(true)
+    saveProgress.mutate(
+      {
+        slideIndex: 0,
+        audioTimeSec: 0,
+        completedSlides: true,
+      },
+      {
+        onSuccess: () => {
+          void qc.invalidateQueries({ queryKey: qk.progress(courseId) })
+        },
+      },
+    )
+  }, [courseId, saveProgress, videoCourse, qc])
 
   const submitCustomTest = useCallback(async () => {
     if (!publishedTest?.questions.length || !course) return
@@ -224,9 +255,13 @@ export function LearnPage() {
     customTestReady && submitted && scoreMeetsPassThreshold(publishedTest!, mcAnswers)
   const fallbackPassed = submitted && fallbackAnswer === 'a'
 
-  const slideNum = Math.min(slideIndex + 1, totalSlides)
-  const isLastSlide = slideIndex >= totalSlides - 1
-  const progressPct = Math.round(((slideIndex + 1) / totalSlides) * 100)
+  const slideNum = videoCourse ? 1 : Math.min(slideIndex + 1, totalSlides)
+  const isLastSlide = videoCourse ? contentComplete : slideIndex >= totalSlides - 1
+  const progressPct = videoCourse
+    ? contentComplete
+      ? 100
+      : 0
+    : Math.round(((slideIndex + 1) / totalSlides) * 100)
 
   const passCert =
     freshCert && freshCert.courseId === course.id
@@ -425,36 +460,60 @@ export function LearnPage() {
                 slideNum={slideNum}
                 totalSlides={totalSlides}
                 pptxSlideIndex={pptxDeck ? slideIndex : 0}
+                onVideoEnded={videoCourse ? markVideoComplete : undefined}
               />
             </motion.div>
           </div>
           <div className="flex flex-col gap-4 border-t border-slate-200/90 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 sm:px-8">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                className="!rounded-xl"
-                disabled={slideIndex <= 0}
-                onClick={() => setSlideIndex((i) => Math.max(0, i - 1))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {t('ui_learn_previous')}
-              </Button>
-              <Button
-                variant="secondary"
-                className="!rounded-xl"
-                disabled={isLastSlide}
-                onClick={() => setSlideIndex((i) => Math.min(totalSlides - 1, i + 1))}
-              >
-                {t('ui_learn_next')}
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-            {isLastSlide ? (
-              <Button className="!rounded-xl sm:shrink-0" onClick={openTest}>
-                {t('ui_learn_take_knowledge_check')}
-              </Button>
+            {videoCourse ? (
+              <>
+                <span className="text-center text-sm text-slate-600 sm:text-left">
+                  {contentComplete
+                    ? t('ui_learn_video_complete', {
+                        defaultValue: 'Video completed. You can take the knowledge check.',
+                      })
+                    : t('ui_learn_video_watch_full', {
+                        defaultValue: 'Watch the full video to unlock the knowledge check.',
+                      })}
+                </span>
+                {contentComplete ? (
+                  <Button className="!rounded-xl sm:shrink-0" onClick={openTest}>
+                    {t('ui_learn_take_knowledge_check')}
+                  </Button>
+                ) : null}
+              </>
             ) : (
-              <span className="text-center text-sm text-slate-600 sm:text-left">{t('LearnPage_389_complete_all_slides_to_unlock_the_test_0825f886f3')}</span>
+              <>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    className="!rounded-xl"
+                    disabled={slideIndex <= 0}
+                    onClick={() => setSlideIndex((i) => Math.max(0, i - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    {t('ui_learn_previous')}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="!rounded-xl"
+                    disabled={isLastSlide}
+                    onClick={() => setSlideIndex((i) => Math.min(totalSlides - 1, i + 1))}
+                  >
+                    {t('ui_learn_next')}
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                {isLastSlide ? (
+                  <Button className="!rounded-xl sm:shrink-0" onClick={openTest}>
+                    {t('ui_learn_take_knowledge_check')}
+                  </Button>
+                ) : (
+                  <span className="text-center text-sm text-slate-600 sm:text-left">
+                    {t('LearnPage_389_complete_all_slides_to_unlock_the_test_0825f886f3')}
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>

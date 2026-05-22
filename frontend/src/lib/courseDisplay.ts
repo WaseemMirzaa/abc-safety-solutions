@@ -5,6 +5,7 @@ import {
   getCourseSlides,
   getPptxDeckSlide,
   isPptxDeckCourse,
+  isVideoCourse,
 } from '@/lib/courseSlides'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import {
@@ -47,6 +48,7 @@ export function displayCourseImageUrl(course: Course): string {
 export function displaySlideCount(course: Course): number | null {
   const slides = getCourseSlides(course)
   if (!slides.length) return null
+  if (isVideoCourse(course)) return 1
   const deck = getPptxDeckSlide(course)
   if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
   if (isPptxDeckCourse(course)) return getCourseSlideCount(course)
@@ -58,6 +60,11 @@ export function displaySlidesLabel(course: Course): string {
   if (count == null) {
     return t('ui_course_slides_pending', {
       defaultValue: 'Slide deck — added by your instructor in Admin',
+    })
+  }
+  if (isVideoCourse(course)) {
+    return t('ui_course_format_video', {
+      defaultValue: 'Video-based training — complete the video to unlock the test',
     })
   }
   if (isPptxDeckCourse(course)) {

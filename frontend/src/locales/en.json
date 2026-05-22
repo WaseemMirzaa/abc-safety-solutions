@@ -511,5 +511,22 @@
   "ui_admin_slides_help": "Optional. Up to {{max}} items: images, PDF decks, or video. Shown in order in the learner player.",
   "ui_admin_add_slides": "Add slides (image, PDF, video)",
   "ui_learn_pdf_hint": "PDF — use player controls; embedded video and images play inside the document.",
-  "ui_learn_video_hint": "Video slide — use playback controls."
+  "ui_learn_video_hint": "Watch the full video to unlock the knowledge check.",
+  "ui_learn_video_watch_full": "Watch the full video to unlock the knowledge check.",
+  "ui_learn_video_complete": "Video completed. You can take the knowledge check.",
+  "ui_course_format_video": "Video-based training — complete the video to unlock the test",
+  "ui_admin_format_pptx": "PowerPoint (.pptx)",
+  "ui_admin_format_video": "Video",
+  "ui_admin_format_pptx_help": "Learners move through slides with Previous / Next, then take the knowledge check.",
+  "ui_admin_format_video_help": "Learners watch the full video; when it finishes, the knowledge check unlocks.",
+  "ui_admin_pptx_label": "Presentation (.pptx)",
+  "ui_admin_video_label": "Training video",
+  "ui_admin_course_language": "Course language",
+  "ui_admin_language_add_new": "+ Add a new language",
+  "ui_admin_language_cancel_add": "Cancel",
+  "ui_admin_language_name": "Language name",
+  "ui_admin_language_code": "Code (optional)",
+  "ui_admin_language_save": "Add language",
+  "ui_admin_language_saving": "Saving…",
+  "ui_admin_language_english": "English"
 }

@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { UserEntity } from './entities/user.entity'
 import { CategoryEntity } from './entities/category.entity'
 import { CourseEntity } from './entities/course.entity'
+import { CourseLanguageEntity } from './entities/course-language.entity'
 import { EnrollmentEntity } from './entities/enrollment.entity'
 import { ProgressEntity } from './entities/progress.entity'
 import { CertificateEntity } from './entities/certificate.entity'
@@ -14,6 +15,7 @@ import { AnnouncementEntity } from './entities/announcement.entity'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
 import { CategoriesModule } from './categories/categories.module'
+import { LanguagesModule } from './languages/languages.module'
 import { CoursesModule } from './courses/courses.module'
 import { EnrollmentsModule } from './enrollments/enrollments.module'
 import { ProgressModule } from './progress/progress.module'
@@ -61,6 +63,7 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
     AuthModule,
     UsersModule,
     CategoriesModule,
+    LanguagesModule,
     CoursesModule,
     EnrollmentsModule,
     ProgressModule,

@@ -1,0 +1,1 @@
+-- Course languages + courses.languageId. Handled by scripts/run-db-migrations.sh (004 case).

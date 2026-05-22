@@ -511,5 +511,22 @@
   "ui_admin_slides_help": "Opcional. Hasta {{max}} elementos: imágenes, PDF o video. Se muestran en orden en el reproductor.",
   "ui_admin_add_slides": "Añadir diapositivas (imagen, PDF, video)",
   "ui_learn_pdf_hint": "PDF — use los controles del visor; el video y las imágenes incrustados se reproducen dentro del documento.",
-  "ui_learn_video_hint": "Diapositiva de video — use los controles de reproducción."
+  "ui_learn_video_hint": "Vea el video completo para desbloquear la evaluación.",
+  "ui_learn_video_watch_full": "Vea el video completo para desbloquear la evaluación.",
+  "ui_learn_video_complete": "Video completado. Puede realizar la evaluación.",
+  "ui_course_format_video": "Curso en video — complete el video para desbloquear la prueba",
+  "ui_admin_format_pptx": "PowerPoint (.pptx)",
+  "ui_admin_format_video": "Video",
+  "ui_admin_format_pptx_help": "Los alumnos avanzan con Anterior / Siguiente y luego realizan la evaluación.",
+  "ui_admin_format_video_help": "Los alumnos ven el video completo; al terminar, se desbloquea la evaluación.",
+  "ui_admin_pptx_label": "Presentación (.pptx)",
+  "ui_admin_video_label": "Video de capacitación",
+  "ui_admin_course_language": "Idioma del curso",
+  "ui_admin_language_add_new": "+ Agregar idioma",
+  "ui_admin_language_cancel_add": "Cancelar",
+  "ui_admin_language_name": "Nombre del idioma",
+  "ui_admin_language_code": "Código (opcional)",
+  "ui_admin_language_save": "Agregar idioma",
+  "ui_admin_language_saving": "Guardando…",
+  "ui_admin_language_english": "Inglés"
 }

@@ -57,6 +57,10 @@ export class AdminCourseDto {
   @IsString()
   categoryId: string
 
+  @IsString()
+  @MinLength(1)
+  languageId: string
+
   @IsInt()
   @Min(0)
   priceCents: number

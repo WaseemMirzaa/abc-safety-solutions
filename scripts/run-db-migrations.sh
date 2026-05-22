@@ -62,6 +62,33 @@ migrate_users_stripe_customer() {
   fi
 }
 
+migrate_course_languages() {
+  local table_exists
+  table_exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='course_languages';")"
+  if [ "${table_exists:-0}" = "0" ]; then
+    echo "   004_add_course_languages.sql — creating course_languages table"
+    mysql_scalar "CREATE TABLE course_languages (
+      id VARCHAR(36) NOT NULL,
+      code VARCHAR(16) NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      PRIMARY KEY (id),
+      UNIQUE KEY UQ_course_languages_code (code)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" >/dev/null
+  else
+    echo "   004_add_course_languages.sql — course_languages table exists (skip create)"
+  fi
+  mysql_scalar "INSERT IGNORE INTO course_languages (id, code, name) VALUES ('lang-en', 'en', 'English');" >/dev/null
+  local col
+  col="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='languageId';")"
+  if [ "${col:-0}" = "0" ]; then
+    echo "   004_add_course_languages.sql — adding courses.languageId"
+    mysql_scalar "ALTER TABLE courses ADD COLUMN languageId VARCHAR(36) NOT NULL DEFAULT 'lang-en';" >/dev/null
+    mysql_scalar "UPDATE courses SET languageId = 'lang-en' WHERE languageId IS NULL OR languageId = '';" >/dev/null
+  else
+    echo "   004_add_course_languages.sql — courses.languageId already exists (skip)"
+  fi
+}
+
 migrate_widen_order_id() {
   local len
   len="$(mysql_scalar "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='enrollments' AND COLUMN_NAME='orderId';")"
@@ -105,6 +132,7 @@ for f in "${files[@]}"; do
     001_add_courses_slides.sql) migrate_courses_slides ;;
     002_add_users_stripe_customer.sql) migrate_users_stripe_customer ;;
     003_widen_enrollments_order_id.sql) migrate_widen_order_id ;;
+    004_add_course_languages.sql) migrate_course_languages ;;
     *)
       echo "   $base"
       mysql_file "$f"

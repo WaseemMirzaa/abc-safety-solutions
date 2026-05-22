@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { LanguagesModule } from '../languages/languages.module'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
@@ -7,7 +8,7 @@ import { CoursesController } from './courses.controller'
 import { AdminCoursesController } from './admin-courses.controller'
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CourseEntity, CategoryEntity])],
+  imports: [TypeOrmModule.forFeature([CourseEntity, CategoryEntity]), LanguagesModule],
   controllers: [CoursesController, AdminCoursesController],
   providers: [CoursesService],
   exports: [CoursesService],

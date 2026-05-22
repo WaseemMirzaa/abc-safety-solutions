@@ -1,5 +1,7 @@
 import type { Course, CourseSlide, CourseSlideType } from '@/types'
 
+export type CourseContentMode = 'pptx' | 'video'
+
 /** Effective slide list (new `slides` field or legacy `slideImageUrls`). */
 export function getCourseSlides(course: Course): CourseSlide[] {
   if (course.slides?.length) return course.slides
@@ -15,6 +17,23 @@ export function getPptxDeckSlide(course: Course): CourseSlide | undefined {
   return getCourseSlides(course).find((s) => s.type === 'pptx' || s.type === 'ppt')
 }
 
+export function getVideoSlide(course: Course): CourseSlide | undefined {
+  return getCourseSlides(course).find((s) => s.type === 'video')
+}
+
+/** Primary delivery format: one .pptx deck or one training video. */
+export function getCourseContentMode(course: Course): CourseContentMode {
+  const slides = getCourseSlides(course)
+  const hasPptx = slides.some((s) => s.type === 'pptx' || s.type === 'ppt')
+  const hasVideo = slides.some((s) => s.type === 'video')
+  if (hasVideo && !hasPptx) return 'video'
+  return 'pptx'
+}
+
+export function isVideoCourse(course: Course): boolean {
+  return getCourseContentMode(course) === 'video'
+}
+
 export function isPptxDeckCourse(course: Course): boolean {
   const deck = getPptxDeckSlide(course)
   return Boolean(deck && deck.type === 'pptx')
@@ -25,6 +44,7 @@ export function isLegacyPptDeck(course: Course): boolean {
 }
 
 export function getCourseSlideCount(course: Course): number {
+  if (isVideoCourse(course)) return 1
   const slides = getCourseSlides(course)
   const deck = slides.find((s) => s.type === 'pptx' || s.type === 'ppt')
   if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount

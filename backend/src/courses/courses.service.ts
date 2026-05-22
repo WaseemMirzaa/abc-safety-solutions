@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { In, Repository } from 'typeorm'
 import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
+import { DEFAULT_LANGUAGE_ID, LanguagesService } from '../languages/languages.service'
 import type { CourseSlide } from '../common/course-slide.types'
 
 export type CourseDto = {
@@ -12,6 +13,7 @@ export type CourseDto = {
   summary: string
   description: string
   categoryId: string
+  languageId: string
   priceCents: number
   durationMinutes: number
   slideCount: number
@@ -29,6 +31,7 @@ export class CoursesService {
     private readonly courses: Repository<CourseEntity>,
     @InjectRepository(CategoryEntity)
     private readonly categories: Repository<CategoryEntity>,
+    private readonly languages: LanguagesService,
   ) {}
 
   private normalizeSlides(c: CourseEntity): CourseSlide[] | undefined {
@@ -62,6 +65,7 @@ export class CoursesService {
       summary: c.summary,
       description: c.description,
       categoryId: c.categoryId,
+      languageId: c.languageId || DEFAULT_LANGUAGE_ID,
       priceCents: c.priceCents,
       durationMinutes: c.durationMinutes,
       slideCount: Math.max(1, slideCount),
@@ -113,6 +117,7 @@ export class CoursesService {
   async create(data: Partial<CourseEntity> & Pick<CourseEntity, 'id' | 'slug' | 'title' | 'categoryId'>) {
     const row = this.courses.create({
       ...data,
+      languageId: data.languageId?.trim() || DEFAULT_LANGUAGE_ID,
       certificateValidityDays: data.certificateValidityDays ?? null,
       slideImageUrls: data.slideImageUrls ?? null,
       slides: data.slides ?? null,
@@ -122,6 +127,7 @@ export class CoursesService {
   }
 
   async update(id: string, patch: Partial<CourseEntity>) {
+    if (patch.languageId) await this.languages.findOne(patch.languageId)
     await this.courses.update({ id }, patch)
     const c = await this.courses.findOne({ where: { id } })
     if (!c) throw new NotFoundException()

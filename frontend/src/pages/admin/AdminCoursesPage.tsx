@@ -9,20 +9,28 @@ import { ApiError } from '@/api/client'
 import { logError } from '@/lib/log'
 import {
   adminCreateCourse,
+  adminCreateCourseLanguage,
   adminDeleteCourse,
   adminUpdateCourse,
   adminUploadFile,
   adminUploadImage,
   fetchAllCoursesAdmin,
   fetchCategories,
+  fetchCourseLanguages,
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { findCategory, isSeedCourseId } from '@/data/catalog'
-import { getCourseSlides, slideTypeFromFile } from '@/lib/courseSlides'
+import {
+  getCourseContentMode,
+  getCourseSlides,
+  slideTypeFromFile,
+  type CourseContentMode,
+} from '@/lib/courseSlides'
 import { countPptxSlides } from '@/lib/pptxDeck'
 import { fieldClass } from '@/lib/adminForm'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import type { Course, CourseSlide } from '@/types'
+import { DEFAULT_COURSE_LANGUAGE_ID } from '@/types'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { t } from '@/i18n/t'
 
@@ -38,6 +46,7 @@ function emptyCustomCourse(categoryId: string): Course {
     summary: '',
     description: '',
     categoryId,
+    languageId: DEFAULT_COURSE_LANGUAGE_ID,
     priceCents: 2999,
     durationMinutes: 60,
     slideCount: 1,
@@ -51,6 +60,10 @@ export function AdminCoursesPage() {
   const qc = useQueryClient()
   const { data: courses = [], isLoading } = useQuery({ queryKey: qk.adminCourses, queryFn: fetchAllCoursesAdmin })
   const { data: categoryList = [] } = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
+  const { data: languageList = [] } = useQuery({
+    queryKey: qk.courseLanguages,
+    queryFn: fetchCourseLanguages,
+  })
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<Course | null>(null)
   const [slugErr, setSlugErr] = useState('')
@@ -62,7 +75,14 @@ export function AdminCoursesPage() {
   const [deckBlobUrl, setDeckBlobUrl] = useState<string | null>(null)
   const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
   const pptxInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
   const heroImageRef = useRef<HTMLInputElement>(null)
+  const [deliveryMode, setDeliveryMode] = useState<CourseContentMode>('pptx')
+  const [showAddLanguage, setShowAddLanguage] = useState(false)
+  const [newLangName, setNewLangName] = useState('')
+  const [newLangCode, setNewLangCode] = useState('')
+  const [langBusy, setLangBusy] = useState(false)
+  const [langErr, setLangErr] = useState('')
 
   const revokeDeckBlob = () => {
     if (deckBlobUrl) {
@@ -84,6 +104,11 @@ export function AdminCoursesPage() {
     setSlideUploadErr('')
     setFieldErrors({})
     setHeroPreviewBroken(false)
+    setDeliveryMode('pptx')
+    setShowAddLanguage(false)
+    setNewLangName('')
+    setNewLangCode('')
+    setLangErr('')
     setModal('create')
   }
 
@@ -92,6 +117,7 @@ export function AdminCoursesPage() {
     const slides = c.slides?.length ? c.slides : getCourseSlides(c)
     setDraft({
       ...c,
+      languageId: c.languageId || DEFAULT_COURSE_LANGUAGE_ID,
       slides: slides.length ? slides : undefined,
       slideImageUrls: undefined,
     })
@@ -99,6 +125,11 @@ export function AdminCoursesPage() {
     setSlideUploadErr('')
     setFieldErrors({})
     setHeroPreviewBroken(false)
+    setDeliveryMode(getCourseContentMode(c))
+    setShowAddLanguage(false)
+    setNewLangName('')
+    setNewLangCode('')
+    setLangErr('')
     setModal('edit')
   }
 
@@ -118,6 +149,31 @@ export function AdminCoursesPage() {
     qc.invalidateQueries({ queryKey: qk.courses })
   }
 
+  const addLanguage = async () => {
+    const name = newLangName.trim()
+    if (!name) {
+      setLangErr('Enter a language name.')
+      return
+    }
+    setLangBusy(true)
+    setLangErr('')
+    try {
+      const row = await adminCreateCourseLanguage({
+        name,
+        code: newLangCode.trim() || undefined,
+      })
+      await qc.invalidateQueries({ queryKey: qk.courseLanguages })
+      if (draft) setDraft({ ...draft, languageId: row.id })
+      setShowAddLanguage(false)
+      setNewLangName('')
+      setNewLangCode('')
+    } catch (err) {
+      setLangErr(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Could not add language.')
+    } finally {
+      setLangBusy(false)
+    }
+  }
+
   const toggle = async (row: Course, published: boolean) => {
     await adminUpdateCourse({ ...row, published: !published })
     invalidate()
@@ -135,16 +191,24 @@ export function AdminCoursesPage() {
     if (!draft.summary.trim()) errors.summary = 'Summary is required.'
     if (!draft.description.trim()) errors.description = 'Description is required.'
     if (!draft.categoryId) errors.categoryId = 'Select a category.'
+    if (!draft.languageId?.trim()) errors.languageId = 'Select a course language.'
     if (!draft.imageUrl.trim()) errors.imageUrl = 'Hero image URL is required.'
     if (Number.isNaN(draft.priceCents) || draft.priceCents < 0) errors.priceCents = 'Enter a valid price (USD cents).'
     if (!draft.durationMinutes || draft.durationMinutes < 1) errors.durationMinutes = 'Duration must be at least 1 minute.'
     const pptxDeck = slides.find((s) => s.type === 'pptx')
-    if (!pptxDeck) {
-      errors.slides = 'Upload a .pptx presentation (required).'
-    } else if (slides.some((s) => s.type === 'ppt')) {
-      errors.slides = 'Use .pptx (not .ppt) so learners can move through slides.'
-    } else if (slides.some((s) => s.type !== 'pptx')) {
-      errors.slides = 'Only one .pptx deck is allowed. Remove other slide types first.'
+    const videoDeck = slides.find((s) => s.type === 'video')
+    if (deliveryMode === 'pptx') {
+      if (!pptxDeck) {
+        errors.slides = 'Upload a .pptx presentation (required).'
+      } else if (slides.some((s) => s.type === 'ppt')) {
+        errors.slides = 'Use .pptx (not .ppt) so learners can move through slides.'
+      } else if (slides.some((s) => s.type !== 'pptx')) {
+        errors.slides = 'Only one .pptx deck is allowed. Remove other slide types first.'
+      }
+    } else if (!videoDeck) {
+      errors.slides = 'Upload a training video (required).'
+    } else if (slides.some((s) => s.type !== 'video')) {
+      errors.slides = 'Only one video is allowed for video-based courses.'
     }
     if (Object.keys(errors).length) {
       setFieldErrors(errors)
@@ -158,11 +222,14 @@ export function AdminCoursesPage() {
     }
     setSlugErr('')
     setFieldErrors({})
-    const slideCount = pptxDeck?.deckSlideCount
-      ? pptxDeck.deckSlideCount
-      : slides.length > 0
-        ? slides.length
-        : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
+    const slideCount =
+      deliveryMode === 'video'
+        ? 1
+        : pptxDeck?.deckSlideCount
+          ? pptxDeck.deckSlideCount
+          : slides.length > 0
+            ? slides.length
+            : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
     const cv = draft.certificateValidityDays
     const certificateValidityDays =
       cv === null || cv === undefined || Number.isNaN(Number(cv)) || Number(cv) <= 0
@@ -206,12 +273,29 @@ export function AdminCoursesPage() {
 
   const slideList: CourseSlide[] = draft?.slides ?? (draft ? getCourseSlides(draft) : [])
   const pptxDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt')
+  const videoDeck = slideList.find((s) => s.type === 'video')
   const effectiveSlideCount =
-    pptxDeck?.deckSlideCount && pptxDeck.deckSlideCount > 0
-      ? pptxDeck.deckSlideCount
-      : slideList.length > 0
-        ? slideList.length
-        : draft?.slideCount ?? 1
+    deliveryMode === 'video'
+      ? 1
+      : pptxDeck?.deckSlideCount && pptxDeck.deckSlideCount > 0
+        ? pptxDeck.deckSlideCount
+        : slideList.length > 0
+          ? slideList.length
+          : draft?.slideCount ?? 1
+
+  const switchDeliveryMode = (mode: CourseContentMode) => {
+    if (mode === deliveryMode) return
+    if (
+      slideList.length > 0 &&
+      !window.confirm('Switching course format removes the current presentation or video. Continue?')
+    ) {
+      return
+    }
+    revokeDeckBlob()
+    setDeliveryMode(mode)
+    patchDraft({ slides: undefined, slideCount: 1 })
+    setSlideUploadErr('')
+  }
 
   const patchDraft = (patch: Partial<Course> & { slides?: CourseSlide[] | undefined }) => {
     if (!draft) return
@@ -224,9 +308,10 @@ export function AdminCoursesPage() {
   }
 
   const removeDeck = () => {
+    const label = deliveryMode === 'video' ? 'video' : 'presentation'
     if (
       slideList.length > 0 &&
-      !window.confirm('Remove the uploaded presentation? You must upload a new .pptx before saving.')
+      !window.confirm(`Remove the uploaded ${label}? You must upload new content before saving.`)
     ) {
       return
     }
@@ -236,7 +321,55 @@ export function AdminCoursesPage() {
   }
 
   const replaceDeck = () => {
-    pptxInputRef.current?.click()
+    if (deliveryMode === 'video') videoInputRef.current?.click()
+    else pptxInputRef.current?.click()
+  }
+
+  const onPickVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!draft) return
+    setSlideUploadErr('')
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const type = slideTypeFromFile(file)
+    if (type !== 'video') {
+      setSlideUploadErr('Only video files are allowed (MP4, WebM, etc.).')
+      return
+    }
+    setUploading(true)
+    setUploadProgress(0)
+    setUploadPhase('upload')
+    try {
+      revokeDeckBlob()
+      const { url, fileName } = await adminUploadFile(file, (p) => {
+        setUploadPhase('upload')
+        setUploadProgress(p.percent)
+      })
+      patchDraft({
+        slides: [
+          {
+            id: `video-${Date.now()}`,
+            type: 'video',
+            url,
+            title: fileName,
+          },
+        ],
+        slideCount: 1,
+      })
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Upload failed.'
+      setSlideUploadErr(msg)
+      logError('admin:video-upload', err, { file: file.name, type: file.type })
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
+      setUploadPhase('upload')
+    }
   }
 
   const onPickPptx = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -327,6 +460,7 @@ export function AdminCoursesPage() {
                 <th className="px-4 py-3">{t('AdminCoursesPage_212_course_643487d5fc')}</th>
                 <th className="px-4 py-3">{t('AdminCoursesPage_213_source_c12d345808')}</th>
                 <th className="px-4 py-3">{t('AdminCoursesPage_214_category_2b504ab8de')}</th>
+                <th className="px-4 py-3">{t('ui_admin_course_language', { defaultValue: 'Language' })}</th>
                 <th className="px-4 py-3">{t('AdminCoursesPage_215_price_cfe1c6373b')}</th>
                 <th className="px-4 py-3">{t('AdminCoursesPage_216_status_7f2ee9e47f')}</th>
                 <th className="px-4 py-3 text-right">{t('AdminCoursesPage_217_actions_4ea6e66f10')}</th>
@@ -343,6 +477,10 @@ export function AdminCoursesPage() {
                       {fromSeed ? t('ui_courses_source_seed') : t('ui_courses_source_custom')}
                     </td>
                     <td className="px-4 py-4 text-slate-600">{cat?.name ?? t('ui_em_dash')}</td>
+                    <td className="px-4 py-4 text-slate-600">
+                      {languageList.find((l) => l.id === (c.languageId || DEFAULT_COURSE_LANGUAGE_ID))?.name ??
+                        t('ui_admin_language_english', { defaultValue: 'English' })}
+                    </td>
                     <td className="px-4 py-4 font-medium">{formatPrice(c.priceCents)}</td>
                     <td className="px-4 py-4">
                       <span
@@ -438,6 +576,75 @@ export function AdminCoursesPage() {
               </select>
             </div>
             <div className="sm:col-span-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                {t('ui_admin_course_language', { defaultValue: 'Course language' })}{' '}
+                <span className="text-red-600">*</span>
+              </label>
+              <select
+                className={fieldClass(Boolean(fieldErrors.languageId))}
+                value={draft.languageId || DEFAULT_COURSE_LANGUAGE_ID}
+                onChange={(e) => setDraft({ ...draft, languageId: e.target.value })}
+              >
+                {languageList.map((lang) => (
+                  <option key={lang.id} value={lang.id}>
+                    {lang.name} ({lang.code})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.languageId ? (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.languageId}</p>
+              ) : null}
+              <button
+                type="button"
+                className="mt-2 text-xs font-semibold text-sky-700 hover:text-sky-900"
+                onClick={() => {
+                  setShowAddLanguage((v) => !v)
+                  setLangErr('')
+                }}
+              >
+                {showAddLanguage
+                  ? t('ui_admin_language_cancel_add', { defaultValue: 'Cancel' })
+                  : t('ui_admin_language_add_new', { defaultValue: '+ Add a new language' })}
+              </button>
+              {showAddLanguage ? (
+                <div className="mt-3 rounded-xl border border-sky-200/80 bg-sky-50/50 p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        {t('ui_admin_language_name', { defaultValue: 'Language name' })}
+                      </label>
+                      <input
+                        className={fieldClass(false)}
+                        value={newLangName}
+                        placeholder="e.g. Spanish"
+                        onChange={(e) => setNewLangName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                        {t('ui_admin_language_code', { defaultValue: 'Code (optional)' })}
+                      </label>
+                      <input
+                        className={fieldClass(false)}
+                        value={newLangCode}
+                        placeholder="e.g. es"
+                        onChange={(e) => setNewLangCode(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {langErr ? <p className="mt-2 text-xs text-red-600">{langErr}</p> : null}
+                  <Button
+                    type="button"
+                    className="mt-3 !rounded-lg !py-2 !text-xs"
+                    disabled={langBusy}
+                    onClick={() => void addLanguage()}
+                  >
+                    {langBusy ? t('ui_admin_language_saving', { defaultValue: 'Saving…' }) : t('ui_admin_language_save', { defaultValue: 'Add language' })}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+            <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_322_summary_3f66b35883')}</label>
               <input
                 className={fieldClass(Boolean(fieldErrors.summary))}
@@ -456,16 +663,52 @@ export function AdminCoursesPage() {
               {fieldErrors.description ? <p className="mt-1 text-xs text-red-600">{fieldErrors.description}</p> : null}
             </div>
             <div className="sm:col-span-2 rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
-              <div className="flex flex-wrap items-end justify-between gap-3">
+              <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
+                Course format <span className="text-red-600">*</span>
+              </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                    deliveryMode === 'pptx'
+                      ? 'border-violet-500 bg-white text-violet-900 shadow-sm'
+                      : 'border-violet-200/80 bg-violet-50/50 text-slate-600 hover:bg-white'
+                  }`}
+                  onClick={() => switchDeliveryMode('pptx')}
+                >
+                  {t('ui_admin_format_pptx', { defaultValue: 'PowerPoint (.pptx)' })}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
+                    deliveryMode === 'video'
+                      ? 'border-sky-500 bg-white text-sky-900 shadow-sm'
+                      : 'border-sky-200/80 bg-sky-50/50 text-slate-600 hover:bg-white'
+                  }`}
+                  onClick={() => switchDeliveryMode('video')}
+                >
+                  {t('ui_admin_format_video', { defaultValue: 'Video' })}
+                </button>
+              </div>
+              <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-slate-600">
+                {deliveryMode === 'pptx'
+                  ? t('ui_admin_format_pptx_help', {
+                      defaultValue:
+                        'Learners move through slides with Previous / Next, then take the knowledge check.',
+                    })
+                  : t('ui_admin_format_video_help', {
+                      defaultValue:
+                        'Learners watch the full video; when it finishes, the knowledge check unlocks.',
+                    })}
+              </p>
+              <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
-                    Course presentation (.pptx) <span className="text-red-600">*</span>
+                    {deliveryMode === 'pptx'
+                      ? t('ui_admin_pptx_label', { defaultValue: 'Presentation (.pptx)' })
+                      : t('ui_admin_video_label', { defaultValue: 'Training video' })}{' '}
+                    <span className="text-red-600">*</span>
                   </label>
-                  <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
-                    Required. One <strong>.pptx</strong> file per course. Files are stored in{' '}
-                    <code className="rounded bg-white px-1">backend/uploads/</code> and served at{' '}
-                    <code className="rounded bg-white px-1">/uploads/…</code>. See <code>docs/UPLOADS.md</code>.
-                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <input
@@ -475,7 +718,14 @@ export function AdminCoursesPage() {
                     className="hidden"
                     onChange={onPickPptx}
                   />
-                  {!pptxDeck ? (
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*,.mp4,.webm,.mov,.m4v"
+                    className="hidden"
+                    onChange={onPickVideo}
+                  />
+                  {deliveryMode === 'pptx' && !pptxDeck ? (
                     <Button
                       type="button"
                       variant="secondary"
@@ -485,16 +735,28 @@ export function AdminCoursesPage() {
                     >
                       {uploading ? 'Uploading…' : 'Upload .pptx'}
                     </Button>
-                  ) : (
+                  ) : null}
+                  {deliveryMode === 'video' && !videoDeck ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="!rounded-lg !border-sky-300 !py-2 !text-xs"
+                      disabled={uploading}
+                      onClick={() => videoInputRef.current?.click()}
+                    >
+                      {uploading ? 'Uploading…' : 'Upload video'}
+                    </Button>
+                  ) : null}
+                  {(deliveryMode === 'pptx' && pptxDeck) || (deliveryMode === 'video' && videoDeck) ? (
                     <>
                       <Button
                         type="button"
                         variant="secondary"
-                        className="!rounded-lg !border-violet-300 !py-2 !text-xs"
+                        className="!rounded-lg !py-2 !text-xs"
                         disabled={uploading}
                         onClick={replaceDeck}
                       >
-                        {uploading ? 'Uploading…' : 'Replace .pptx'}
+                        {uploading ? 'Uploading…' : deliveryMode === 'video' ? 'Replace video' : 'Replace .pptx'}
                       </Button>
                       <Button
                         type="button"
@@ -504,10 +766,10 @@ export function AdminCoursesPage() {
                         onClick={removeDeck}
                       >
                         <Trash2 className="mr-1 inline h-3.5 w-3.5" />
-                        Remove presentation
+                        Remove
                       </Button>
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
               {uploading ? (
@@ -516,7 +778,7 @@ export function AdminCoursesPage() {
                     <span>
                       {uploadPhase === 'processing'
                         ? 'Counting slides…'
-                        : `Uploading presentation… ${uploadProgress}%`}
+                        : `Uploading… ${uploadProgress}%`}
                     </span>
                     {uploadPhase === 'upload' && uploadProgress > 0 && uploadProgress < 100 ? (
                       <span className="font-mono text-[10px]">{uploadProgress}%</span>
@@ -540,19 +802,36 @@ export function AdminCoursesPage() {
               ) : null}
               {fieldErrors.slides ? <p className="mt-2 text-xs font-medium text-red-600">{fieldErrors.slides}</p> : null}
               {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
-              {pptxDeck ? (
+              {pptxDeck && deliveryMode === 'pptx' ? (
                 <div className="mt-4 rounded-xl border border-violet-200 bg-white p-3 text-sm">
                   <p className="font-medium text-brand-900">{pptxDeck.title ?? 'Presentation'}</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    {pptxDeck.deckSlideCount ?? '?'} slides · saved at{' '}
+                    {pptxDeck.deckSlideCount ?? '?'} slides ·{' '}
                     <span className="font-mono text-[10px]">{resolveMediaUrl(pptxDeck.url)}</span>
                   </p>
+                  <AdminCourseDeckPreview slide={pptxDeck} blobPreviewUrl={deckBlobUrl} />
                 </div>
-              ) : (
-                <p className="mt-3 text-xs text-amber-800">No .pptx uploaded yet — required before you can save.</p>
-              )}
-              {pptxDeck ? (
-                <AdminCourseDeckPreview slide={pptxDeck} blobPreviewUrl={deckBlobUrl} />
+              ) : null}
+              {videoDeck && deliveryMode === 'video' ? (
+                <div className="mt-4 rounded-xl border border-sky-200 bg-white p-3 text-sm">
+                  <p className="font-medium text-brand-900">{videoDeck.title ?? 'Training video'}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    <span className="font-mono text-[10px]">{resolveMediaUrl(videoDeck.url)}</span>
+                  </p>
+                  <video
+                    src={resolveMediaUrl(videoDeck.url)}
+                    controls
+                    playsInline
+                    className="mt-3 max-h-64 w-full rounded-xl bg-black object-contain"
+                  />
+                </div>
+              ) : null}
+              {!pptxDeck && !videoDeck ? (
+                <p className="mt-3 text-xs text-amber-800">
+                  {deliveryMode === 'pptx'
+                    ? 'No .pptx uploaded yet — required before you can save.'
+                    : 'No video uploaded yet — required before you can save.'}
+                </p>
               ) : null}
             </div>
             <div>

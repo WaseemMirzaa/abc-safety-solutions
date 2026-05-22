@@ -1,3 +1,11 @@
+export type CourseLanguage = {
+  id: string
+  code: string
+  name: string
+}
+
+export const DEFAULT_COURSE_LANGUAGE_ID = 'lang-en'
+
 export type Category = {
   id: string
   name: string
@@ -25,6 +33,8 @@ export type Course = {
   summary: string
   description: string
   categoryId: string
+  /** Instruction language (course_languages.id). */
+  languageId: string
   priceCents: number
   durationMinutes: number
   slideCount: number
