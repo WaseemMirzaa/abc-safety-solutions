@@ -1,4 +1,4 @@
-import { apiJson, ApiError, adminUploadFile, adminUploadImage, adminUploadMedia, publicJson } from './client'
+import { apiJson, ApiError, publicJson } from './client'
 import type {
   AdminDirectoryUser,
   AdminTest,
