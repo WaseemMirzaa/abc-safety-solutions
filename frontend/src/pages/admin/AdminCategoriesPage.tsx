@@ -12,6 +12,7 @@ import {
 import { qk } from '@/api/queryKeys'
 import { getSeedCategories, isSeedCategoryId } from '@/data/catalog'
 import type { Category } from '@/types'
+import { fieldClass } from '@/lib/adminForm'
 import { t } from '@/i18n/t'
 
 function slugify(input: string) {
@@ -29,6 +30,7 @@ export function AdminCategoriesPage() {
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<Category | null>(null)
   const [err, setErr] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: qk.categories })
@@ -45,12 +47,14 @@ export function AdminCategoriesPage() {
       certificationText: '',
     })
     setErr('')
+    setFieldErrors({})
     setModal('create')
   }
 
   const openEdit = (c: Category) => {
     setDraft({ ...c })
     setErr('')
+    setFieldErrors({})
     setModal('edit')
   }
 
@@ -58,28 +62,31 @@ export function AdminCategoriesPage() {
     setModal('closed')
     setDraft(null)
     setErr('')
+    setFieldErrors({})
   }
 
   const save = async () => {
     if (!draft) return
     const name = draft.name.trim()
     let slug = draft.slug.trim()
-    if (!name) {
-      setErr('Name is required.')
-      return
-    }
+    const errors: Record<string, string> = {}
+    if (!name) errors.name = 'Name is required.'
     if (!slug) slug = slugify(name)
     else slug = slugify(slug)
-    if (!slug) {
-      setErr('Enter a valid slug.')
-      return
-    }
+    if (!slug) errors.slug = 'Enter a valid slug.'
     const taken = allCategories.some((c) => c.slug === slug && c.id !== draft.id)
-    if (taken) {
-      setErr('Slug already used.')
+    if (taken) errors.slug = 'Slug already used.'
+    const certText = (draft.certificationText ?? '').trim()
+    if (modal === 'create' && certText.length < 10) {
+      errors.certificationText = 'Certificate text is required (at least 10 characters).'
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors)
+      setErr('Fix the highlighted fields before saving.')
       return
     }
-    const certText = (draft.certificationText ?? '').trim()
+    setFieldErrors({})
+    setErr('')
     if (modal === 'edit' && isSeedCategoryId(draft.id)) {
       await adminUpdateCategory(draft.id, { certificationText: certText })
       invalidate()
@@ -205,11 +212,12 @@ export function AdminCategoriesPage() {
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCategoriesPage_195_display_name_523033cfc2')}</label>
               <input
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.name))}
                 value={draft.name}
                 disabled={modal === 'edit' && isSeedCategoryId(draft.id)}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
+              {fieldErrors.name ? <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p> : null}
               {modal === 'edit' && isSeedCategoryId(draft.id) ? (
                 <p className="mt-1 text-[11px] text-slate-500">{t('AdminCategoriesPage_203_seed_category_name_is_defined_in_code_edit_certi_45b959c4cf')}</p>
               ) : null}
@@ -217,22 +225,26 @@ export function AdminCategoriesPage() {
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCategoriesPage_207_url_slug_aefe2a6105')}</label>
               <input
-                className="input-pro mt-1.5 w-full font-mono text-sm"
+                className={fieldClass(Boolean(fieldErrors.slug), 'input-pro mt-1.5 w-full font-mono text-sm')}
                 value={draft.slug}
                 disabled={modal === 'edit' && isSeedCategoryId(draft.id)}
                 onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
                 placeholder="auto from name if empty"
               />
+              {fieldErrors.slug ? <p className="mt-1 text-xs text-red-600">{fieldErrors.slug}</p> : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCategoriesPage_217_certificate_text_5c75771159')}</label>
               <p className="mt-0.5 text-[11px] text-slate-500">{t('AdminCategoriesPage_218_shown_on_completion_certificates_for_courses_in_f035dae8dd')}</p>
               <textarea
-                className="input-pro mt-1.5 min-h-[88px] w-full resize-y"
+                className={fieldClass(Boolean(fieldErrors.certificationText), 'input-pro mt-1.5 min-h-[88px] w-full resize-y')}
                 value={draft.certificationText ?? ''}
                 onChange={(e) => setDraft({ ...draft, certificationText: e.target.value })}
                 placeholder="e.g. Program completed in accordance with…"
               />
+              {fieldErrors.certificationText ? (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.certificationText}</p>
+              ) : null}
             </div>
             {err ? <p className="text-sm font-medium text-red-600">{err}</p> : null}
           </div>

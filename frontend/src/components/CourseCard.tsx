@@ -3,10 +3,15 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Clock, Layers, ArrowUpRight } from 'lucide-react'
 import type { Category, Course } from '@/types'
 import { findCategory } from '@/data/catalog'
-import { getCourseSlideCount } from '@/lib/courseSlides'
 import { easeOut, transition } from '@/lib/motionPresets'
 import { t } from '@/i18n/t'
-import { localizedCategoryName, localizedCourseSummary, localizedCourseTitle } from '@/lib/catalogLocale'
+import {
+  displayCategoryName,
+  displayCourseImageUrl,
+  displayCourseSummary,
+  displayCourseTitle,
+  displaySlideCount,
+} from '@/lib/courseDisplay'
 
 function formatPrice(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
@@ -22,7 +27,8 @@ type Props = {
 export function CourseCard({ course, categories = [], entrance = true }: Props) {
   const reduce = useReducedMotion()
   const cat = findCategory(categories, course.categoryId)
-  const catDisplay = cat ? localizedCategoryName(cat.id, cat.name) : ''
+  const catDisplay = cat ? displayCategoryName(cat) : ''
+  const slideCount = displaySlideCount(course)
   const shortCat = cat
     ? `${catDisplay.split('(')[0].trim().slice(0, 26)}${catDisplay.length > 26 ? '…' : ''}`
     : ''
@@ -34,7 +40,7 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
     <>
       <Link to={`/courses/${course.slug}`} className="relative block aspect-[16/10] overflow-hidden bg-slate-200">
         <motion.img
-          src={course.imageUrl}
+          src={displayCourseImageUrl(course) || course.imageUrl}
           alt=""
           className="h-full w-full object-cover"
           loading="lazy"
@@ -55,10 +61,10 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
           to={`/courses/${course.slug}`}
           className="font-display text-lg font-semibold leading-snug text-brand-900 transition group-hover:text-amber-800"
         >
-          {localizedCourseTitle(course.slug, course.title)}
+          {displayCourseTitle(course)}
         </Link>
         <p className="mt-3 line-clamp-2 flex-1 text-sm leading-relaxed text-slate-600">
-          {localizedCourseSummary(course.slug, course.summary)}
+          {displayCourseSummary(course)}
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-500">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
@@ -67,7 +73,9 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
             <Layers className="h-3.5 w-3.5 text-sky-600" />
-            {t('ui_course_card_slide_count', { count: getCourseSlideCount(course) })}
+            {slideCount != null
+              ? t('ui_course_card_slide_count', { count: slideCount })
+              : t('ui_course_card_self_paced', { defaultValue: 'Self-paced' })}
           </span>
         </div>
         <div className="mt-6 flex items-end justify-between gap-4 border-t border-slate-100 pt-5">

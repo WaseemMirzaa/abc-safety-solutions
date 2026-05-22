@@ -31,13 +31,24 @@ export class EnrollmentsService {
   }
 
   async enrollDirect(userId: string, courseId: string) {
+    return this.enrollFromOrder(userId, courseId, `order_${Date.now()}`)
+  }
+
+  /** Idempotent enrollment after Stripe checkout or webhook. */
+  async enrollFromOrder(userId: string, courseId: string, orderId: string) {
     const exists = await this.enrollments.findOne({ where: { userId, courseId } })
-    if (exists) return exists
+    if (exists && !exists.refunded) return exists
+    if (exists?.refunded) {
+      exists.refunded = false
+      exists.orderId = orderId
+      exists.purchasedAt = new Date()
+      return this.enrollments.save(exists)
+    }
     const row = this.enrollments.create({
       id: randomUUID(),
       userId,
       courseId,
-      orderId: `order_${Date.now()}`,
+      orderId,
       refunded: false,
     })
     return this.enrollments.save(row)

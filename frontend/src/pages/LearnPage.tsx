@@ -20,12 +20,12 @@ import {
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { CourseSlideViewer } from '@/components/CourseSlideViewer'
-import { getCourseSlideCount, getCourseSlides } from '@/lib/courseSlides'
+import { getCourseSlideCount, getCourseSlides, getPptxDeckSlide } from '@/lib/courseSlides'
 import { useAuth } from '@/contexts/AuthContext'
 import { easeOut, transition } from '@/lib/motionPresets'
 import type { AdminTest, Certificate } from '@/types'
 import { t } from '@/i18n/t'
-import { localizedCourseTitle } from '@/lib/catalogLocale'
+import { displayCourseTitle } from '@/lib/courseDisplay'
 
 function scoreMeetsPassThreshold(test: AdminTest, answers: Record<string, string>): boolean {
   if (!test.questions.length) return false
@@ -98,7 +98,8 @@ export function LearnPage() {
 
   const totalSlides = course ? getCourseSlideCount(course) : 1
   const courseSlides = course ? getCourseSlides(course) : []
-  const currentSlide = courseSlides[slideIndex]
+  const pptxDeck = course ? getPptxDeckSlide(course) : undefined
+  const currentSlide = pptxDeck ?? courseSlides[slideIndex]
 
   useEffect(() => {
     if (!courseId || !course || !progressReady || !progressRow) return
@@ -237,7 +238,7 @@ export function LearnPage() {
         <Container className="w-full min-w-0 max-w-2xl">
           <h1 className="font-display text-2xl font-bold text-brand-900 sm:text-3xl">{t('LearnPage_173_knowledge_check_e4ec131477')}</h1>
           <p className="mt-2 break-words text-sm text-slate-600">
-            {localizedCourseTitle(course.slug, course.title)}
+            {displayCourseTitle(course)}
           </p>
           {publishedTest?.title ? (
             <p className="mt-1 text-xs font-medium text-sky-800">{publishedTest.title}</p>
@@ -372,7 +373,7 @@ export function LearnPage() {
           <div className="min-w-0 flex-1">
             <p className="font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-700">{t('LearnPage_305_now_learning_08b44848c4')}</p>
             <h1 className="mt-1 break-words font-display text-lg font-semibold text-brand-900 sm:text-xl md:text-2xl">
-              {localizedCourseTitle(course.slug, course.title)}
+              {displayCourseTitle(course)}
             </h1>
           </div>
           <Link
@@ -407,7 +408,12 @@ export function LearnPage() {
               transition={{ duration: reduce ? 0 : 0.18, ease: easeOut }}
               className="relative flex h-full min-h-[min(70vh,520px)] w-full flex-col"
             >
-              <CourseSlideViewer slide={currentSlide} slideNum={slideNum} totalSlides={totalSlides} />
+              <CourseSlideViewer
+                slide={currentSlide}
+                slideNum={slideNum}
+                totalSlides={totalSlides}
+                pptxSlideIndex={pptxDeck ? slideIndex : 0}
+              />
             </motion.div>
           </div>
           <div className="flex flex-col gap-4 border-t border-slate-200/90 bg-slate-50/80 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 sm:px-8">

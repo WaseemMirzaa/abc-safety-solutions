@@ -7,6 +7,7 @@ import { adminCreateMedia, adminDeleteMedia, adminUploadImage, fetchMediaAssets 
 import { qk } from '@/api/queryKeys'
 import { inferMediaKind } from '@/lib/readFileAsDataUrl'
 import type { MediaAsset } from '@/types'
+import { fieldClass } from '@/lib/adminForm'
 import { t } from '@/i18n/t'
 
 const kinds: MediaAsset['kind'][] = ['image', 'audio', 'document', 'other']
@@ -23,6 +24,8 @@ export function AdminMediaPage() {
   const [kind, setKind] = useState<MediaAsset['kind']>('image')
   const [fileName, setFileName] = useState<string | null>(null)
   const [uploadErr, setUploadErr] = useState('')
+  const [formErr, setFormErr] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminMedia })
 
@@ -32,6 +35,8 @@ export function AdminMediaPage() {
     setKind('image')
     setFileName(null)
     setUploadErr('')
+    setFormErr('')
+    setFieldErrors({})
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -60,7 +65,16 @@ export function AdminMediaPage() {
   }
 
   const add = async () => {
-    if (!label.trim() || !url.trim()) return
+    const errors: Record<string, string> = {}
+    if (!label.trim()) errors.label = 'Label is required.'
+    if (!url.trim()) errors.url = 'Upload a file or enter a URL.'
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors)
+      setFormErr('Fix the highlighted fields before saving.')
+      return
+    }
+    setFormErr('')
+    setFieldErrors({})
     const a: MediaAsset = {
       id: `media-${Date.now()}`,
       label: label.trim(),
@@ -188,7 +202,13 @@ export function AdminMediaPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_187_label_ca62a379ec')}</label>
-                <input className="input-pro mt-1.5 w-full" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Hero image — OSHA module" />
+                <input
+                  className={fieldClass(Boolean(fieldErrors.label))}
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Hero image — OSHA module"
+                />
+                {fieldErrors.label ? <p className="mt-1 text-xs text-red-600">{fieldErrors.label}</p> : null}
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_191_asset_type_a556034dcf')}</label>
@@ -203,7 +223,7 @@ export function AdminMediaPage() {
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_201_url_https_or_data_from_upload_above_6226707a13')}</label>
                 <textarea
-                  className="input-pro mt-1.5 min-h-[72px] w-full resize-y font-mono text-xs"
+                  className={fieldClass(Boolean(fieldErrors.url), 'input-pro mt-1.5 min-h-[72px] w-full resize-y font-mono text-xs')}
                   value={url}
                   onChange={(e) => {
                     setUrl(e.target.value)
@@ -211,9 +231,11 @@ export function AdminMediaPage() {
                   }}
                   placeholder="https://…"
                 />
+                {fieldErrors.url ? <p className="mt-1 text-xs text-red-600">{fieldErrors.url}</p> : null}
               </div>
             </div>
           </div>
+          {formErr ? <p className="mt-4 text-sm font-medium text-red-600">{formErr}</p> : null}
           <div className="mt-8 flex gap-3">
             <Button type="button" onClick={() => void add()}>
               Save

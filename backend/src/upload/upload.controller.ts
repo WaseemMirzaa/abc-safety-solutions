@@ -4,7 +4,7 @@ import { AuthGuard } from '@nestjs/passport'
 import { AdminGuard } from '../common/admin.guard'
 import {
   assertAllowedUpload,
-  maxBytesForMime,
+  maxBytesForKind,
   mediaKindFromMime,
   uploadDiskStorage,
   uploadUrlForFile,
@@ -19,7 +19,7 @@ export class UploadController {
       storage: uploadDiskStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
-        if (!mediaKindFromMime(file.mimetype)) {
+        if (mediaKindFromMime(file.mimetype, file.originalname) !== 'image') {
           cb(new Error('Images only'), false)
           return
         }
@@ -39,11 +39,12 @@ export class UploadController {
       storage: uploadDiskStorage(),
       limits: { fileSize: 100 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
-        if (!mediaKindFromMime(file.mimetype)) {
-          cb(new Error('Allowed: image/*, application/pdf, video/*'), false)
+        const kind = mediaKindFromMime(file.mimetype, file.originalname)
+        if (!kind) {
+          cb(new Error('Allowed: images, PDF, .pptx/.ppt, video/*'), false)
           return
         }
-        const max = maxBytesForMime(file.mimetype)
+        const max = maxBytesForKind(kind)
         if (file.size > max) {
           cb(new Error(`File exceeds ${Math.round(max / 1024 / 1024)} MB limit`), false)
           return

@@ -7,13 +7,15 @@ export type Category = {
   certificationText: string
 }
 
-export type CourseSlideType = 'image' | 'pdf' | 'video'
+export type CourseSlideType = 'image' | 'pdf' | 'video' | 'pptx' | 'ppt'
 
 export type CourseSlide = {
   id: string
   type: CourseSlideType
   url: string
   title?: string
+  /** Number of slides inside a .pptx deck. */
+  deckSlideCount?: number
 }
 
 export type Course = {
@@ -30,7 +32,7 @@ export type Course = {
   certificateValidityDays?: number | null
   /** @deprecated Legacy image-only slides; use `slides`. */
   slideImageUrls?: string[]
-  /** Ordered learner content: images, PDFs, or videos. */
+  /** Ordered learner content: images, PDFs, PowerPoint (.pptx), or videos. */
   slides?: CourseSlide[]
   imageUrl: string
   published: boolean

@@ -15,6 +15,7 @@ import { LearnPage } from '@/pages/LearnPage'
 import { CertificatesPage } from '@/pages/CertificatesPage'
 import { AccountPage } from '@/pages/AccountPage'
 import { CheckoutPage } from '@/pages/CheckoutPage'
+import { CheckoutSuccessPage } from '@/pages/CheckoutSuccessPage'
 import { VerifyCertificatePage } from '@/pages/VerifyCertificatePage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
@@ -42,6 +43,7 @@ export function AppRoutes() {
           <Route path="courses" element={<CoursesPage />} />
           <Route path="courses/:slug" element={<CourseDetailPage />} />
           <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="checkout/success" element={<CheckoutSuccessPage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
-import { localizedCourseTitle } from '@/lib/catalogLocale'
+import { displayCourseTitle } from '@/lib/courseDisplay'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Container } from '@/components/Container'
@@ -31,7 +31,7 @@ function EnrolledCourseRow({ course }: { course: Course }) {
         <img src={course.imageUrl} alt="" className="h-24 w-36 rounded-2xl object-cover ring-1 ring-slate-200/80" />
         <div>
           <h2 className="font-display text-lg font-semibold text-brand-900">
-            {localizedCourseTitle(course.slug, course.title)}
+            {displayCourseTitle(course)}
           </h2>
           <p
             className={clsx(

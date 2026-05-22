@@ -18,7 +18,7 @@ class CourseSlideDto {
   id: string
 
   @IsString()
-  @IsIn(['image', 'pdf', 'video'])
+  @IsIn(['image', 'pdf', 'video', 'pptx', 'ppt'])
   type: CourseSlideType
 
   @IsString()
@@ -28,6 +28,11 @@ class CourseSlideDto {
   @IsOptional()
   @IsString()
   title?: string
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  deckSlideCount?: number
 }
 
 export class AdminCourseDto {

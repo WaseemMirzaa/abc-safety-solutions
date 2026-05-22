@@ -1,5 +1,6 @@
-import { FileText, Film } from 'lucide-react'
+import { FileText, Film, Presentation } from 'lucide-react'
 import type { CourseSlide } from '@/types'
+import { PptxSlideViewer } from '@/components/PptxSlideViewer'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import { t } from '@/i18n/t'
 
@@ -7,11 +8,13 @@ type Props = {
   slide: CourseSlide | undefined
   slideNum: number
   totalSlides: number
+  /** 0-based index inside a .pptx deck (Learn page prev/next). */
+  pptxSlideIndex?: number
   className?: string
 }
 
-/** Renders image, PDF (browser-native, supports embedded video/images), or video. */
-export function CourseSlideViewer({ slide, slideNum, totalSlides, className = '' }: Props) {
+/** Renders image, PDF, PowerPoint (.pptx), or video. */
+export function CourseSlideViewer({ slide, slideNum, totalSlides, pptxSlideIndex = 0, className = '' }: Props) {
   const src = slide ? resolveMediaUrl(slide.url) : ''
 
   return (
@@ -36,6 +39,19 @@ export function CourseSlideViewer({ slide, slideNum, totalSlides, className = ''
           src={`${src}#view=FitH&toolbar=1`}
           className="h-full min-h-[min(70vh,520px)] w-full rounded-xl bg-white shadow-md ring-1 ring-slate-200/80"
         />
+      ) : slide.type === 'ppt' ? (
+        <div className="max-w-lg px-6 text-center">
+          <p className="font-display text-lg font-semibold text-brand-900">
+            {t('ui_learn_ppt_legacy_title', { defaultValue: 'Legacy .ppt file' })}
+          </p>
+          <p className="mt-3 text-sm text-slate-600">
+            {t('ui_learn_ppt_legacy_body', {
+              defaultValue: 'Re-upload this course as .pptx in Admin → Courses for slide playback.',
+            })}
+          </p>
+        </div>
+      ) : slide.type === 'pptx' ? (
+        <PptxSlideViewer url={slide.url} slideIndex={pptxSlideIndex} className="flex-1" />
       ) : slide.type === 'video' ? (
         <video
           key={src}
@@ -58,6 +74,12 @@ export function CourseSlideViewer({ slide, slideNum, totalSlides, className = ''
         <p className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow-sm ring-1 ring-slate-200/80 sm:text-xs">
           <FileText className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
           {t('ui_learn_pdf_hint')}
+        </p>
+      ) : null}
+      {slide?.type === 'pptx' ? (
+        <p className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 text-[10px] text-slate-600 shadow-sm ring-1 ring-slate-200/80 sm:text-xs">
+          <Presentation className="h-3.5 w-3.5 shrink-0 text-violet-700" aria-hidden />
+          {t('ui_learn_pptx_hint', { defaultValue: 'Use Previous / Next to move through the presentation.' })}
         </p>
       ) : null}
       {slide?.type === 'video' ? (

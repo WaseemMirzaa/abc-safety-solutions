@@ -378,10 +378,21 @@ export async function authForgotPassword(email: string): Promise<void> {
   })
 }
 
+export async function fetchStripeConfig(): Promise<{ enabled: boolean }> {
+  return apiJson<{ enabled: boolean }>('/api/stripe/config')
+}
+
 export async function createStripeCheckoutSession(courseId: string): Promise<{ url: string | null }> {
   return apiJson<{ url: string | null }>('/api/stripe/checkout', {
     method: 'POST',
     body: JSON.stringify({ courseId }),
+  })
+}
+
+export async function completeStripeCheckout(sessionId: string): Promise<{ ok: boolean; courseId: string }> {
+  return apiJson('/api/stripe/session/complete', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
   })
 }
 

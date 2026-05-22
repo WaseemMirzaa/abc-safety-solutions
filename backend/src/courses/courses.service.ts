@@ -42,10 +42,19 @@ export class CoursesService {
     }))
   }
 
+  private deckSlideCount(slides: CourseSlide[] | undefined, fallback: number): number {
+    const deck = slides?.find((s) => s.type === 'pptx' || s.type === 'ppt')
+    if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
+    if (deck && fallback >= 1) return fallback
+    return 0
+  }
+
   private map(c: CourseEntity): CourseDto {
     const slides = this.normalizeSlides(c)
-    const slideCount =
-      slides?.length ?? (c.slideImageUrls?.length ? c.slideImageUrls.length : c.slideCount)
+    const deckCount = this.deckSlideCount(slides, c.slideCount)
+    const slideCount = deckCount > 0
+      ? deckCount
+      : slides?.length ?? (c.slideImageUrls?.length ? c.slideImageUrls.length : c.slideCount)
     return {
       id: c.id,
       slug: c.slug,

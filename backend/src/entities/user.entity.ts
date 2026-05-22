@@ -19,6 +19,9 @@ export class UserEntity {
   @Column({ type: 'enum', enum: ['learner', 'admin'], default: 'learner' })
   role: UserRole
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  stripeCustomerId: string | null
+
   @CreateDateColumn()
   createdAt: Date
 }

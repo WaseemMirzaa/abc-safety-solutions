@@ -9,15 +9,18 @@ import {
   adminDeleteCourse,
   adminUpdateCourse,
   adminUploadFile,
+  adminUploadImage,
   fetchAllCoursesAdmin,
   fetchCategories,
 } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
 import { findCategory, isSeedCourseId } from '@/data/catalog'
 import { getCourseSlides, slideTypeFromFile } from '@/lib/courseSlides'
+import { countPptxSlides } from '@/lib/pptxDeck'
+import { fieldClass } from '@/lib/adminForm'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import type { Course, CourseSlide } from '@/types'
-import { ChevronDown, ChevronUp, FileText, Film, ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
 import { t } from '@/i18n/t'
 
 const MAX_SLIDES = 30
@@ -51,12 +54,16 @@ export function AdminCoursesPage() {
   const [draft, setDraft] = useState<Course | null>(null)
   const [slugErr, setSlugErr] = useState('')
   const [slideUploadErr, setSlideUploadErr] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const slidesInputRef = useRef<HTMLInputElement>(null)
+  const pptxInputRef = useRef<HTMLInputElement>(null)
+  const heroImageRef = useRef<HTMLInputElement>(null)
 
   const openCreate = () => {
     setDraft(emptyCustomCourse(categoryList[0]?.id ?? 'cat-ohs'))
     setSlugErr('')
     setSlideUploadErr('')
+    setFieldErrors({})
     setModal('create')
   }
 
@@ -69,6 +76,7 @@ export function AdminCoursesPage() {
     })
     setSlugErr('')
     setSlideUploadErr('')
+    setFieldErrors({})
     setModal('edit')
   }
 
@@ -77,6 +85,7 @@ export function AdminCoursesPage() {
     setDraft(null)
     setSlugErr('')
     setSlideUploadErr('')
+    setFieldErrors({})
   }
 
   const invalidate = () => {
@@ -94,18 +103,37 @@ export function AdminCoursesPage() {
 
   const save = async () => {
     if (!draft) return
-    if (!draft.title.trim() || !draft.slug.trim()) {
-      setSlugErr('Title and slug are required.')
+    const slides = (draft.slides ?? []).filter((s) => s.url)
+    const errors: Record<string, string> = {}
+    if (!draft.title.trim()) errors.title = 'Title is required.'
+    if (!draft.slug.trim()) errors.slug = 'Slug is required.'
+    if (!draft.summary.trim()) errors.summary = 'Summary is required.'
+    if (!draft.description.trim()) errors.description = 'Description is required.'
+    if (!draft.categoryId) errors.categoryId = 'Select a category.'
+    if (!draft.imageUrl.trim()) errors.imageUrl = 'Hero image URL is required.'
+    if (Number.isNaN(draft.priceCents) || draft.priceCents < 0) errors.priceCents = 'Enter a valid price (USD cents).'
+    if (!draft.durationMinutes || draft.durationMinutes < 1) errors.durationMinutes = 'Duration must be at least 1 minute.'
+    if (slides.some((s) => s.type === 'ppt')) {
+      errors.slides = 'Use .pptx (not .ppt) so learners can move through slides.'
+    }
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors)
+      setSlugErr('Fix the highlighted fields before saving.')
       return
     }
     if (slugTaken(draft.slug.trim(), draft.id)) {
       setSlugErr('Slug must be unique.')
+      setFieldErrors({ slug: 'Slug already used.' })
       return
     }
     setSlugErr('')
-    const slides = (draft.slides ?? []).filter((s) => s.url)
-    const slideCount =
-      slides.length > 0 ? slides.length : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
+    setFieldErrors({})
+    const pptxDeck = slides.find((s) => s.type === 'pptx')
+    const slideCount = pptxDeck?.deckSlideCount
+      ? pptxDeck.deckSlideCount
+      : slides.length > 0
+        ? slides.length
+        : Math.max(1, Math.round(Number(draft.slideCount)) || 1)
     const cv = draft.certificateValidityDays
     const certificateValidityDays =
       cv === null || cv === undefined || Number.isNaN(Number(cv)) || Number(cv) <= 0
@@ -154,16 +182,6 @@ export function AdminCoursesPage() {
     setDraft({ ...draft, slides: slides?.length ? slides : undefined, slideImageUrls: undefined })
   }
 
-  const moveSlide = (from: number, dir: -1 | 1) => {
-    if (!draft) return
-    const to = from + dir
-    if (to < 0 || to >= slideList.length) return
-    const next = [...slideList]
-    const [row] = next.splice(from, 1)
-    next.splice(to, 0, row)
-    setSlides(next)
-  }
-
   const removeSlide = (index: number) => {
     if (!draft) return
     setSlides(slideList.filter((_, i) => i !== index))
@@ -183,13 +201,40 @@ export function AdminCoursesPage() {
     let list = [...(draft.slides ?? getCourseSlides(draft))]
     try {
       for (const file of Array.from(files)) {
-        if (list.length >= MAX_SLIDES) {
-          setSlideUploadErr(`Stopped at ${MAX_SLIDES} slides (max).`)
-          break
-        }
         const type = slideTypeFromFile(file)
         if (!type) {
-          setSlideUploadErr('Use images, PDF, or video files (MP4, WebM).')
+          setSlideUploadErr('Use .pptx, images, PDF, or video (MP4, WebM).')
+          break
+        }
+        if (type === 'pptx' || type === 'ppt') {
+          const { url, fileName, kind } = await adminUploadFile(file)
+          let deckSlideCount = 1
+          if (type === 'pptx') {
+            try {
+              deckSlideCount = await countPptxSlides(file)
+            } catch {
+              setSlideUploadErr('Could not read this .pptx file. Try saving again from PowerPoint.')
+              return
+            }
+          } else {
+            setSlideUploadErr('Legacy .ppt stored — re-save as .pptx for slide playback.')
+          }
+          list = [
+            {
+              id: `deck-${Date.now()}`,
+              type: (kind as CourseSlide['type']) || type,
+              url,
+              title: fileName,
+              deckSlideCount: type === 'pptx' ? deckSlideCount : undefined,
+            },
+          ]
+          if (type === 'pptx') {
+            setDraft((d) => (d ? { ...d, slideCount: deckSlideCount } : d))
+          }
+          break
+        }
+        if (list.length >= MAX_SLIDES) {
+          setSlideUploadErr(`Stopped at ${MAX_SLIDES} slides (max).`)
           break
         }
         const { url, fileName, kind } = await adminUploadFile(file)
@@ -321,24 +366,26 @@ export function AdminCoursesPage() {
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_291_title_0bea3ec844')}</label>
               <input
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.title))}
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               />
+              {fieldErrors.title ? <p className="mt-1 text-xs text-red-600">{fieldErrors.title}</p> : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_299_slug_url_c745b6cc61')}</label>
               <input
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.slug))}
                 value={draft.slug}
                 disabled={seed}
                 onChange={(e) => setDraft({ ...draft, slug: e.target.value })}
               />
+              {fieldErrors.slug ? <p className="mt-1 text-xs text-red-600">{fieldErrors.slug}</p> : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_308_category_75270fc1ad')}</label>
               <select
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.categoryId))}
                 value={draft.categoryId}
                 onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
               >
@@ -352,36 +399,119 @@ export function AdminCoursesPage() {
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_322_summary_3f66b35883')}</label>
               <input
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.summary))}
                 value={draft.summary}
                 onChange={(e) => setDraft({ ...draft, summary: e.target.value })}
               />
+              {fieldErrors.summary ? <p className="mt-1 text-xs text-red-600">{fieldErrors.summary}</p> : null}
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_330_description_49dc831b7d')}</label>
               <textarea
-                className="input-pro mt-1.5 min-h-[88px] w-full resize-y"
+                className={fieldClass(Boolean(fieldErrors.description), 'input-pro mt-1.5 min-h-[88px] w-full resize-y')}
                 value={draft.description}
                 onChange={(e) => setDraft({ ...draft, description: e.target.value })}
               />
+              {fieldErrors.description ? <p className="mt-1 text-xs text-red-600">{fieldErrors.description}</p> : null}
+            </div>
+            <div className="sm:col-span-2 rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
+                    Course slides / PowerPoint
+                  </label>
+                  <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
+                    Upload a <strong>.pptx</strong> deck (recommended) or images/PDF/video. Scroll down if you do not see this section on smaller screens.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    ref={pptxInputRef}
+                    type="file"
+                    accept=".pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
+                    className="hidden"
+                    onChange={onPickSlides}
+                  />
+                  <input
+                    ref={slidesInputRef}
+                    type="file"
+                    accept="image/*,application/pdf,video/*,.pptx,.ppt"
+                    multiple
+                    className="hidden"
+                    onChange={onPickSlides}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="!rounded-lg !border-violet-300 !py-2 !text-xs"
+                    onClick={() => pptxInputRef.current?.click()}
+                  >
+                    Upload .pptx / .ppt
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="!rounded-lg !py-2 !text-xs"
+                    onClick={() => slidesInputRef.current?.click()}
+                  >
+                    <ImagePlus className="mr-1 inline h-3.5 w-3.5" />
+                    {t('ui_admin_add_slides')}
+                  </Button>
+                  {slideList.length > 0 ? (
+                    <Button type="button" variant="secondary" className="!rounded-lg !py-2 !text-xs" onClick={clearSlides}>
+                      Clear all
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {fieldErrors.slides ? <p className="mt-2 text-xs font-medium text-red-600">{fieldErrors.slides}</p> : null}
+              {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
+              {slideList.length > 0 ? (
+                <ul className="mt-4 flex max-h-40 flex-col gap-2 overflow-y-auto">
+                  {slideList.map((slide, i) => (
+                    <li
+                      key={slide.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2 pr-3 text-xs"
+                    >
+                      <span className="font-medium uppercase text-violet-800">{slide.type}</span>
+                      <span className="min-w-0 flex-1 truncate text-slate-700">{slide.title ?? slide.url}</span>
+                      {slide.deckSlideCount ? (
+                        <span className="text-slate-500">{slide.deckSlideCount} slides</span>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!h-8 !border-red-200 !px-2 !text-red-800"
+                        onClick={() => removeSlide(i)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-xs text-slate-500">No slides uploaded yet — learners will see a placeholder until you add a .pptx deck.</p>
+              )}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_338_price_usd_cents_16bc7ab177')}</label>
               <input
                 type="number"
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.priceCents))}
                 value={draft.priceCents}
                 onChange={(e) => setDraft({ ...draft, priceCents: Number(e.target.value) })}
               />
+              {fieldErrors.priceCents ? <p className="mt-1 text-xs text-red-600">{fieldErrors.priceCents}</p> : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_347_duration_minutes_8e1195fdec')}</label>
               <input
                 type="number"
-                className="input-pro mt-1.5 w-full"
+                className={fieldClass(Boolean(fieldErrors.durationMinutes))}
                 value={draft.durationMinutes}
                 onChange={(e) => setDraft({ ...draft, durationMinutes: Number(e.target.value) })}
               />
+              {fieldErrors.durationMinutes ? <p className="mt-1 text-xs text-red-600">{fieldErrors.durationMinutes}</p> : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_356_slide_count_491e07694f')}</label>
@@ -428,109 +558,47 @@ export function AdminCoursesPage() {
                 Visible in catalog
               </label>
             </div>
-            <div className="sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_381_image_url_7a3e5b90a0')}</label>
+            <div className="sm:col-span-2 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Course hero image (catalog + detail page)
+              </label>
+              <p className="mt-1 text-[11px] text-slate-500">Upload an image or paste a URL. Shown on the course card and detail page.</p>
+              {draft.imageUrl ? (
+                <img
+                  src={resolveMediaUrl(draft.imageUrl)}
+                  alt=""
+                  className="mt-3 max-h-36 w-full rounded-xl object-cover ring-1 ring-slate-200"
+                />
+              ) : null}
               <input
-                className="input-pro mt-1.5 w-full font-mono text-xs"
+                ref={heroImageRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (!file || !draft) return
+                  try {
+                    const { url } = await adminUploadImage(file)
+                    setDraft({ ...draft, imageUrl: url })
+                  } catch (err) {
+                    setSlideUploadErr(err instanceof Error ? err.message : 'Image upload failed.')
+                  }
+                }}
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" className="!rounded-lg !py-2 !text-xs" onClick={() => heroImageRef.current?.click()}>
+                  Upload hero image
+                </Button>
+              </div>
+              <input
+                className={fieldClass(Boolean(fieldErrors.imageUrl), 'input-pro mt-3 w-full font-mono text-xs')}
                 value={draft.imageUrl}
                 onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })}
+                placeholder="/uploads/… or https://…"
               />
-            </div>
-            <div className="sm:col-span-2 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_391_slide_images_7ff457e52d')}</label>
-                  <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-500">
-                    {t('ui_admin_slides_help', { max: MAX_SLIDES })}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    ref={slidesInputRef}
-                    type="file"
-                    accept="image/*,application/pdf,video/*"
-                    multiple
-                    className="hidden"
-                    onChange={onPickSlides}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="!rounded-lg !py-2 !text-xs"
-                    onClick={() => slidesInputRef.current?.click()}
-                  >
-                    <ImagePlus className="mr-1 inline h-3.5 w-3.5" />
-                    {t('ui_admin_add_slides')}
-                  </Button>
-                  {slideList.length > 0 ? (
-                    <Button type="button" variant="secondary" className="!rounded-lg !py-2 !text-xs" onClick={clearSlides}>
-                      Clear all
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-              {slideUploadErr ? <p className="mt-3 text-xs font-medium text-red-600">{slideUploadErr}</p> : null}
-              {slideList.length > 0 ? (
-                <ul className="mt-4 flex max-h-56 flex-col gap-2 overflow-y-auto">
-                  {slideList.map((slide, i) => (
-                    <li
-                      key={slide.id}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2 pr-3"
-                    >
-                      {slide.type === 'image' ? (
-                        <img
-                          src={resolveMediaUrl(slide.url)}
-                          alt=""
-                          className="h-14 w-24 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
-                        />
-                      ) : slide.type === 'pdf' ? (
-                        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-amber-50 ring-1 ring-amber-200">
-                          <FileText className="h-7 w-7 text-amber-800" aria-hidden />
-                        </div>
-                      ) : (
-                        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-sky-50 ring-1 ring-sky-200">
-                          <Film className="h-7 w-7 text-sky-800" aria-hidden />
-                        </div>
-                      )}
-                      <span className="min-w-0 flex-1 text-xs font-medium text-slate-600">
-                        {t('ui_courses_slide_label', { n: i + 1 })} · {slide.type}
-                        {slide.title ? <span className="block truncate font-normal text-slate-500">{slide.title}</span> : null}
-                      </span>
-                      <div className="flex shrink-0 gap-1">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!h-8 !min-w-0 !px-2 !py-0"
-                          aria-label="Move up"
-                          disabled={i === 0}
-                          onClick={() => moveSlide(i, -1)}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!h-8 !min-w-0 !px-2 !py-0"
-                          aria-label="Move down"
-                          disabled={i === slideList.length - 1}
-                          onClick={() => moveSlide(i, 1)}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="!h-8 !border-red-200 !px-2 !text-red-800 hover:!bg-red-50"
-                          aria-label="Remove slide"
-                          onClick={() => removeSlide(i)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              {fieldErrors.imageUrl ? <p className="mt-1 text-xs text-red-600">{fieldErrors.imageUrl}</p> : null}
             </div>
           </div>
           {slugErr ? <p className="mt-4 text-sm font-medium text-red-600">{slugErr}</p> : null}

@@ -7,7 +7,12 @@ export const UPLOAD_MIMES = {
   image: /^image\//,
   pdf: /^application\/pdf$/,
   video: /^video\//,
+  pptx:
+    /^application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation$/,
+  ppt: /^application\/vnd\.ms-powerpoint$/,
 } as const
+
+export type UploadMediaKind = 'image' | 'pdf' | 'video' | 'pptx' | 'ppt'
 
 export function uploadDir(): string {
   return join(process.cwd(), (process.env.UPLOAD_DIR ?? './uploads').replace(/^\.\//, ''))
@@ -23,18 +28,39 @@ export function uploadDiskStorage() {
   })
 }
 
-export function mediaKindFromMime(mime: string): 'image' | 'pdf' | 'video' | null {
-  if (UPLOAD_MIMES.image.test(mime)) return 'image'
-  if (UPLOAD_MIMES.pdf.test(mime)) return 'pdf'
-  if (UPLOAD_MIMES.video.test(mime)) return 'video'
+export function mediaKindFromFilename(filename: string): UploadMediaKind | null {
+  const ext = extname(filename).toLowerCase()
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'].includes(ext)) return 'image'
+  if (ext === '.pdf') return 'pdf'
+  if (['.mp4', '.webm', '.mov', '.ogg', '.m4v'].includes(ext)) return 'video'
+  if (ext === '.pptx') return 'pptx'
+  if (ext === '.ppt') return 'ppt'
   return null
 }
 
-export function maxBytesForMime(mime: string): number {
-  if (UPLOAD_MIMES.image.test(mime)) return 5 * 1024 * 1024
-  if (UPLOAD_MIMES.pdf.test(mime)) return 50 * 1024 * 1024
-  if (UPLOAD_MIMES.video.test(mime)) return 100 * 1024 * 1024
+export function mediaKindFromMime(mime: string, filename?: string): UploadMediaKind | null {
+  if (UPLOAD_MIMES.image.test(mime)) return 'image'
+  if (UPLOAD_MIMES.pdf.test(mime)) return 'pdf'
+  if (UPLOAD_MIMES.video.test(mime)) return 'video'
+  if (UPLOAD_MIMES.pptx.test(mime)) return 'pptx'
+  if (UPLOAD_MIMES.ppt.test(mime)) return 'ppt'
+  if (!mime || mime === 'application/octet-stream') {
+    return filename ? mediaKindFromFilename(filename) : null
+  }
+  return null
+}
+
+export function maxBytesForKind(kind: UploadMediaKind): number {
+  if (kind === 'image') return 5 * 1024 * 1024
+  if (kind === 'pdf') return 50 * 1024 * 1024
+  if (kind === 'video') return 100 * 1024 * 1024
+  if (kind === 'pptx' || kind === 'ppt') return 100 * 1024 * 1024
   return 0
+}
+
+export function maxBytesForMime(mime: string, filename?: string): number {
+  const kind = mediaKindFromMime(mime, filename)
+  return kind ? maxBytesForKind(kind) : 0
 }
 
 export function uploadUrlForFile(filename: string): string {
@@ -42,11 +68,13 @@ export function uploadUrlForFile(filename: string): string {
 }
 
 export function assertAllowedUpload(file: Express.Multer.File) {
-  const kind = mediaKindFromMime(file.mimetype)
+  const kind = mediaKindFromMime(file.mimetype, file.originalname)
   if (!kind) {
-    throw new BadRequestException('Allowed types: images, PDF, and video (MP4, WebM, etc.).')
+    throw new BadRequestException(
+      'Allowed types: images, PDF, PowerPoint (.pptx or .ppt), and video (MP4, WebM, etc.).',
+    )
   }
-  const max = maxBytesForMime(file.mimetype)
+  const max = maxBytesForKind(kind)
   if (file.size > max) {
     const mb = Math.round(max / 1024 / 1024)
     throw new BadRequestException(`File too large. Max ${mb} MB for ${kind} uploads.`)

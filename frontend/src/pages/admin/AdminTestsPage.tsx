@@ -40,6 +40,9 @@ function emptyTest(courseId: string): AdminTest {
 function validateTest(test: AdminTest): string | null {
   if (!test.title.trim()) return 'Enter a test title.'
   if (!test.courseId) return 'Select a course.'
+  if (Number.isNaN(test.passPercent) || test.passPercent < 0 || test.passPercent > 100) {
+    return 'Pass threshold must be between 0 and 100.'
+  }
   if (test.questions.length < 1) return 'Add at least one question.'
   for (let i = 0; i < test.questions.length; i++) {
     const q = test.questions[i]
@@ -263,6 +266,7 @@ export function AdminTestsPage() {
 
       {modal !== 'closed' && draft ? (
         <AdminModal title={modal === 'create' ? t('ui_tests_modal_build') : t('ui_tests_modal_edit')} wide onClose={close}>
+          {err ? <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{err}</p> : null}
           <div className="max-h-[min(70vh,560px)] space-y-6 overflow-y-auto pr-1">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -385,8 +389,6 @@ export function AdminTestsPage() {
               Published (learners who finish slides will take this test)
             </label>
           </div>
-
-          {err ? <p className="mt-4 text-sm font-medium text-red-600">{err}</p> : null}
 
           <div className="mt-8 flex flex-wrap gap-3 border-t border-slate-100 pt-6">
             <Button type="button" onClick={() => void save()}>

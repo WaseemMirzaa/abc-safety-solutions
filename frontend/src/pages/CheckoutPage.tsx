@@ -5,12 +5,16 @@ import { Button } from '@/components/Button'
 import { CreditCard } from 'lucide-react'
 import { t } from '@/i18n/t'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchCourseBySlug, purchaseCourse, createStripeCheckoutSession } from '@/api/localData'
+import { fetchCourseBySlug, fetchStripeConfig, purchaseCourse, createStripeCheckoutSession } from '@/api/localData'
 import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { useState } from 'react'
 
-const stripeEnabled = import.meta.env.VITE_STRIPE_ENABLED === 'true'
+const viteStripe = import.meta.env.VITE_STRIPE_ENABLED === 'true'
+
+function formatPrice(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
+}
 
 export function CheckoutPage() {
   const [sp] = useSearchParams()
@@ -27,6 +31,14 @@ export function CheckoutPage() {
     enabled: Boolean(courseSlug),
   })
 
+  const { data: stripeConfig } = useQuery({
+    queryKey: ['stripe', 'config'],
+    queryFn: fetchStripeConfig,
+    staleTime: 60_000,
+  })
+
+  const stripeEnabled = stripeConfig?.enabled ?? viteStripe
+
   const loginHref = `/login?redirect=${encodeURIComponent(`/checkout?course=${encodeURIComponent(courseSlug)}`)}`
 
   async function pay() {
@@ -34,7 +46,7 @@ export function CheckoutPage() {
     setErr(null)
     setBusy(true)
     try {
-      if (stripeEnabled) {
+      if (stripeEnabled && course.priceCents > 0) {
         const { url } = await createStripeCheckoutSession(course.id)
         if (url) window.location.href = url
         else setErr(t('ui_checkout_stripe_fail'))
@@ -74,7 +86,12 @@ export function CheckoutPage() {
           <p className="mt-4 text-sm text-slate-600">{t('ui_checkout_busy')}</p>
         ) : !course ? (
           <p className="mt-4 text-sm text-red-600">{t('ui_checkout_err')}</p>
-        ) : null}
+        ) : (
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="font-display text-lg font-semibold text-brand-900">{course.title}</p>
+            <p className="mt-2 font-display text-2xl font-bold text-brand-900">{formatPrice(course.priceCents)}</p>
+          </div>
+        )}
         <div className="card-elevated mt-8 space-y-4 p-6">
           {err ? <p className="text-sm text-red-600">{err}</p> : null}
           {!ready ? null : !user ? (

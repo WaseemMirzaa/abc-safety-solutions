@@ -51,6 +51,17 @@ mysql_file() {
   fi
 }
 
+migrate_users_stripe_customer() {
+  local exists
+  exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='users' AND COLUMN_NAME='stripeCustomerId';")"
+  if [ "${exists:-0}" = "0" ]; then
+    echo "   002_add_users_stripe_customer.sql — adding column stripeCustomerId"
+    mysql_scalar "ALTER TABLE users ADD COLUMN stripeCustomerId VARCHAR(64) NULL;" >/dev/null
+  else
+    echo "   002_add_users_stripe_customer.sql — stripeCustomerId already exists (skip)"
+  fi
+}
+
 migrate_courses_slides() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='slides';")"
@@ -81,6 +92,7 @@ for f in "${files[@]}"; do
   base="$(basename "$f")"
   case "$base" in
     001_add_courses_slides.sql) migrate_courses_slides ;;
+    002_add_users_stripe_customer.sql) migrate_users_stripe_customer ;;
     *)
       echo "   $base"
       mysql_file "$f"
