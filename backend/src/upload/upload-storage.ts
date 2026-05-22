@@ -63,8 +63,16 @@ export function maxBytesForMime(mime: string, filename?: string): number {
   return kind ? maxBytesForKind(kind) : 0
 }
 
+/** Site root from .env, e.g. http://2.24.110.154 (no trailing slash). */
+export function publicBaseUrl(): string {
+  return (process.env.PUBLIC_BASE_URL ?? '').replace(/\/$/, '')
+}
+
+/** Public URL stored in DB — includes server IP/domain when PUBLIC_BASE_URL is set. */
 export function uploadUrlForFile(filename: string): string {
-  return `/uploads/${filename}`
+  const path = `/uploads/${filename}`
+  const base = publicBaseUrl()
+  return base ? `${base}${path}` : path
 }
 
 export function assertAllowedUpload(file: Express.Multer.File) {

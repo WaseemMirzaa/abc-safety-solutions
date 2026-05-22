@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
+import { AdminCourseDeckPreview } from '@/components/admin/AdminCourseDeckPreview'
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
 import {
@@ -20,10 +21,8 @@ import { countPptxSlides } from '@/lib/pptxDeck'
 import { fieldClass } from '@/lib/adminForm'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import type { Course, CourseSlide } from '@/types'
-import { ImagePlus, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { t } from '@/i18n/t'
-
-const MAX_SLIDES = 30
 
 function formatPrice(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
@@ -39,7 +38,7 @@ function emptyCustomCourse(categoryId: string): Course {
     categoryId,
     priceCents: 2999,
     durationMinutes: 60,
-    slideCount: 20,
+    slideCount: 1,
     certificateValidityDays: null,
     imageUrl: 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/Occupational-Health-Safety-Training-min.jpg',
     published: false,
@@ -55,19 +54,37 @@ export function AdminCoursesPage() {
   const [slugErr, setSlugErr] = useState('')
   const [slideUploadErr, setSlideUploadErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const slidesInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [deckBlobUrl, setDeckBlobUrl] = useState<string | null>(null)
+  const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
   const pptxInputRef = useRef<HTMLInputElement>(null)
   const heroImageRef = useRef<HTMLInputElement>(null)
 
+  const revokeDeckBlob = () => {
+    if (deckBlobUrl) {
+      URL.revokeObjectURL(deckBlobUrl)
+      setDeckBlobUrl(null)
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (deckBlobUrl) URL.revokeObjectURL(deckBlobUrl)
+    }
+  }, [deckBlobUrl])
+
   const openCreate = () => {
+    revokeDeckBlob()
     setDraft(emptyCustomCourse(categoryList[0]?.id ?? 'cat-ohs'))
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
+    setHeroPreviewBroken(false)
     setModal('create')
   }
 
   const openEdit = (c: Course) => {
+    revokeDeckBlob()
     const slides = c.slides?.length ? c.slides : getCourseSlides(c)
     setDraft({
       ...c,
@@ -77,15 +94,19 @@ export function AdminCoursesPage() {
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
+    setHeroPreviewBroken(false)
     setModal('edit')
   }
 
   const closeModal = () => {
+    revokeDeckBlob()
     setModal('closed')
     setDraft(null)
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
+    setUploading(false)
+    setHeroPreviewBroken(false)
   }
 
   const invalidate = () => {
@@ -113,8 +134,13 @@ export function AdminCoursesPage() {
     if (!draft.imageUrl.trim()) errors.imageUrl = 'Hero image URL is required.'
     if (Number.isNaN(draft.priceCents) || draft.priceCents < 0) errors.priceCents = 'Enter a valid price (USD cents).'
     if (!draft.durationMinutes || draft.durationMinutes < 1) errors.durationMinutes = 'Duration must be at least 1 minute.'
-    if (slides.some((s) => s.type === 'ppt')) {
+    const pptxDeck = slides.find((s) => s.type === 'pptx')
+    if (!pptxDeck) {
+      errors.slides = 'Upload a .pptx presentation (required).'
+    } else if (slides.some((s) => s.type === 'ppt')) {
       errors.slides = 'Use .pptx (not .ppt) so learners can move through slides.'
+    } else if (slides.some((s) => s.type !== 'pptx')) {
+      errors.slides = 'Only one .pptx deck is allowed. Remove other slide types first.'
     }
     if (Object.keys(errors).length) {
       setFieldErrors(errors)
@@ -128,7 +154,6 @@ export function AdminCoursesPage() {
     }
     setSlugErr('')
     setFieldErrors({})
-    const pptxDeck = slides.find((s) => s.type === 'pptx')
     const slideCount = pptxDeck?.deckSlideCount
       ? pptxDeck.deckSlideCount
       : slides.length > 0
@@ -176,78 +201,75 @@ export function AdminCoursesPage() {
   const seed = useMemo(() => (draft ? isSeedCourseId(draft.id) : false), [draft])
 
   const slideList: CourseSlide[] = draft?.slides ?? (draft ? getCourseSlides(draft) : [])
+  const pptxDeck = slideList.find((s) => s.type === 'pptx' || s.type === 'ppt')
+  const effectiveSlideCount =
+    pptxDeck?.deckSlideCount && pptxDeck.deckSlideCount > 0
+      ? pptxDeck.deckSlideCount
+      : slideList.length > 0
+        ? slideList.length
+        : draft?.slideCount ?? 1
 
-  const setSlides = (slides: CourseSlide[] | undefined) => {
+  const patchDraft = (patch: Partial<Course> & { slides?: CourseSlide[] | undefined }) => {
     if (!draft) return
-    setDraft({ ...draft, slides: slides?.length ? slides : undefined, slideImageUrls: undefined })
+    setDraft({
+      ...draft,
+      ...patch,
+      slides: patch.slides !== undefined ? patch.slides : draft.slides,
+      slideImageUrls: undefined,
+    })
   }
 
-  const removeSlide = (index: number) => {
-    if (!draft) return
-    setSlides(slideList.filter((_, i) => i !== index))
-  }
-
-  const clearSlides = () => {
-    setSlides(undefined)
+  const removeDeck = () => {
+    if (
+      slideList.length > 0 &&
+      !window.confirm('Remove the uploaded presentation? You must upload a new .pptx before saving.')
+    ) {
+      return
+    }
+    revokeDeckBlob()
+    patchDraft({ slides: undefined, slideCount: 1 })
     setSlideUploadErr('')
   }
 
-  const onPickSlides = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const replaceDeck = () => {
+    pptxInputRef.current?.click()
+  }
+
+  const onPickPptx = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!draft) return
     setSlideUploadErr('')
-    const files = e.target.files
+    const file = e.target.files?.[0]
     e.target.value = ''
-    if (!files?.length) return
-    let list = [...(draft.slides ?? getCourseSlides(draft))]
+    if (!file) return
+    const type = slideTypeFromFile(file)
+    if (type !== 'pptx') {
+      setSlideUploadErr('Only .pptx files are allowed. In PowerPoint: File → Save As → .pptx')
+      return
+    }
+    setUploading(true)
     try {
-      for (const file of Array.from(files)) {
-        const type = slideTypeFromFile(file)
-        if (!type) {
-          setSlideUploadErr('Use .pptx, images, PDF, or video (MP4, WebM).')
-          break
-        }
-        if (type === 'pptx' || type === 'ppt') {
-          const { url, fileName, kind } = await adminUploadFile(file)
-          let deckSlideCount = 1
-          if (type === 'pptx') {
-            try {
-              deckSlideCount = await countPptxSlides(file)
-            } catch {
-              setSlideUploadErr('Could not read this .pptx file. Try saving again from PowerPoint.')
-              return
-            }
-          } else {
-            setSlideUploadErr('Legacy .ppt stored — re-save as .pptx for slide playback.')
-          }
-          list = [
-            {
-              id: `deck-${Date.now()}`,
-              type: (kind as CourseSlide['type']) || type,
-              url,
-              title: fileName,
-              deckSlideCount: type === 'pptx' ? deckSlideCount : undefined,
-            },
-          ]
-          if (type === 'pptx') {
-            setDraft((d) => (d ? { ...d, slideCount: deckSlideCount } : d))
-          }
-          break
-        }
-        if (list.length >= MAX_SLIDES) {
-          setSlideUploadErr(`Stopped at ${MAX_SLIDES} slides (max).`)
-          break
-        }
-        const { url, fileName, kind } = await adminUploadFile(file)
-        list.push({
-          id: `slide-${Date.now()}-${list.length}`,
-          type: (kind as CourseSlide['type']) || type,
-          url,
-          title: fileName,
-        })
-      }
-      setSlides(list)
+      revokeDeckBlob()
+      const deckSlideCount = await countPptxSlides(file)
+      setDeckBlobUrl(URL.createObjectURL(file))
+      const { url, fileName } = await adminUploadFile(file)
+      revokeDeckBlob()
+      patchDraft({
+        slides: [
+          {
+            id: `deck-${Date.now()}`,
+            type: 'pptx',
+            url,
+            title: fileName,
+            deckSlideCount,
+          },
+        ],
+        slideCount: deckSlideCount,
+      })
     } catch (err) {
       setSlideUploadErr(err instanceof Error ? err.message : 'Upload failed.')
+      revokeDeckBlob()
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -418,80 +440,73 @@ export function AdminCoursesPage() {
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
-                    Course slides / PowerPoint
+                    Course presentation (.pptx) <span className="text-red-600">*</span>
                   </label>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
-                    Upload a <strong>.pptx</strong> deck (recommended) or images/PDF/video. Scroll down if you do not see this section on smaller screens.
+                    Required. One <strong>.pptx</strong> file per course. Files are stored in{' '}
+                    <code className="rounded bg-white px-1">backend/uploads/</code> and served at{' '}
+                    <code className="rounded bg-white px-1">/uploads/…</code>. See <code>docs/UPLOADS.md</code>.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <input
                     ref={pptxInputRef}
                     type="file"
-                    accept=".pptx,.ppt,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint"
+                    accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                     className="hidden"
-                    onChange={onPickSlides}
+                    onChange={onPickPptx}
                   />
-                  <input
-                    ref={slidesInputRef}
-                    type="file"
-                    accept="image/*,application/pdf,video/*,.pptx,.ppt"
-                    multiple
-                    className="hidden"
-                    onChange={onPickSlides}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="!rounded-lg !border-violet-300 !py-2 !text-xs"
-                    onClick={() => pptxInputRef.current?.click()}
-                  >
-                    Upload .pptx / .ppt
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="!rounded-lg !py-2 !text-xs"
-                    onClick={() => slidesInputRef.current?.click()}
-                  >
-                    <ImagePlus className="mr-1 inline h-3.5 w-3.5" />
-                    {t('ui_admin_add_slides')}
-                  </Button>
-                  {slideList.length > 0 ? (
-                    <Button type="button" variant="secondary" className="!rounded-lg !py-2 !text-xs" onClick={clearSlides}>
-                      Clear all
+                  {!pptxDeck ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="!rounded-lg !border-violet-300 !py-2 !text-xs"
+                      disabled={uploading}
+                      onClick={() => pptxInputRef.current?.click()}
+                    >
+                      {uploading ? 'Uploading…' : 'Upload .pptx'}
                     </Button>
-                  ) : null}
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!rounded-lg !border-violet-300 !py-2 !text-xs"
+                        disabled={uploading}
+                        onClick={replaceDeck}
+                      >
+                        {uploading ? 'Uploading…' : 'Replace .pptx'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="!rounded-lg !border-red-200 !py-2 !text-xs !text-red-800"
+                        disabled={uploading}
+                        onClick={removeDeck}
+                      >
+                        <Trash2 className="mr-1 inline h-3.5 w-3.5" />
+                        Remove presentation
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
               {fieldErrors.slides ? <p className="mt-2 text-xs font-medium text-red-600">{fieldErrors.slides}</p> : null}
               {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
-              {slideList.length > 0 ? (
-                <ul className="mt-4 flex max-h-40 flex-col gap-2 overflow-y-auto">
-                  {slideList.map((slide, i) => (
-                    <li
-                      key={slide.id}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-2 pr-3 text-xs"
-                    >
-                      <span className="font-medium uppercase text-violet-800">{slide.type}</span>
-                      <span className="min-w-0 flex-1 truncate text-slate-700">{slide.title ?? slide.url}</span>
-                      {slide.deckSlideCount ? (
-                        <span className="text-slate-500">{slide.deckSlideCount} slides</span>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="!h-8 !border-red-200 !px-2 !text-red-800"
-                        onClick={() => removeSlide(i)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
+              {pptxDeck ? (
+                <div className="mt-4 rounded-xl border border-violet-200 bg-white p-3 text-sm">
+                  <p className="font-medium text-brand-900">{pptxDeck.title ?? 'Presentation'}</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {pptxDeck.deckSlideCount ?? '?'} slides · saved at{' '}
+                    <span className="font-mono text-[10px]">{resolveMediaUrl(pptxDeck.url)}</span>
+                  </p>
+                </div>
               ) : (
-                <p className="mt-3 text-xs text-slate-500">No slides uploaded yet — learners will see a placeholder until you add a .pptx deck.</p>
+                <p className="mt-3 text-xs text-amber-800">No .pptx uploaded yet — required before you can save.</p>
               )}
+              {pptxDeck ? (
+                <AdminCourseDeckPreview slide={pptxDeck} blobPreviewUrl={deckBlobUrl} />
+              ) : null}
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_338_price_usd_cents_16bc7ab177')}</label>
@@ -519,7 +534,7 @@ export function AdminCoursesPage() {
                 type="number"
                 className="input-pro mt-1.5 w-full"
                 disabled={slideList.length > 0}
-                value={slideList.length > 0 ? slideList.length : draft.slideCount}
+                value={slideList.length > 0 ? effectiveSlideCount : draft.slideCount}
                 onChange={(e) => setDraft({ ...draft, slideCount: Number(e.target.value) })}
               />
               {slideList.length > 0 ? (
@@ -564,12 +579,25 @@ export function AdminCoursesPage() {
               </label>
               <p className="mt-1 text-[11px] text-slate-500">Upload an image or paste a URL. Shown on the course card and detail page.</p>
               {draft.imageUrl ? (
-                <img
-                  src={resolveMediaUrl(draft.imageUrl)}
-                  alt=""
-                  className="mt-3 max-h-36 w-full rounded-xl object-cover ring-1 ring-slate-200"
-                />
-              ) : null}
+                heroPreviewBroken ? (
+                  <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Could not load preview. Check the URL or upload again. Path: {draft.imageUrl}
+                  </p>
+                ) : (
+                  <img
+                    key={resolveMediaUrl(draft.imageUrl)}
+                    src={resolveMediaUrl(draft.imageUrl)}
+                    alt="Course thumbnail preview"
+                    className="mt-3 max-h-48 w-full rounded-xl object-cover ring-1 ring-slate-200"
+                    onLoad={() => setHeroPreviewBroken(false)}
+                    onError={() => setHeroPreviewBroken(true)}
+                  />
+                )
+              ) : (
+                <p className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-3 py-6 text-center text-xs text-slate-500">
+                  No thumbnail yet — upload an image above
+                </p>
+              )}
               <input
                 ref={heroImageRef}
                 type="file"
@@ -579,11 +607,15 @@ export function AdminCoursesPage() {
                   const file = e.target.files?.[0]
                   e.target.value = ''
                   if (!file || !draft) return
+                  setUploading(true)
+                  setHeroPreviewBroken(false)
                   try {
                     const { url } = await adminUploadImage(file)
                     setDraft({ ...draft, imageUrl: url })
                   } catch (err) {
                     setSlideUploadErr(err instanceof Error ? err.message : 'Image upload failed.')
+                  } finally {
+                    setUploading(false)
                   }
                 }}
               />
@@ -595,7 +627,10 @@ export function AdminCoursesPage() {
               <input
                 className={fieldClass(Boolean(fieldErrors.imageUrl), 'input-pro mt-3 w-full font-mono text-xs')}
                 value={draft.imageUrl}
-                onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })}
+                onChange={(e) => {
+                  setHeroPreviewBroken(false)
+                  setDraft({ ...draft, imageUrl: e.target.value })
+                }}
                 placeholder="/uploads/… or https://…"
               />
               {fieldErrors.imageUrl ? <p className="mt-1 text-xs text-red-600">{fieldErrors.imageUrl}</p> : null}

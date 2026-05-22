@@ -1,15 +1,18 @@
-/** Resolve stored upload paths for same-origin proxy (dev + production). */
+/** Resolve upload/media URLs for display and fetch (relative or absolute). */
 export function resolveMediaUrl(url: string): string {
-  if (!url) return url
-  if (url.startsWith('/')) return url
-  if (url.startsWith('data:') || url.startsWith('blob:')) return url
+  const trimmed = url?.trim() ?? ''
+  if (!trimmed) return ''
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  if (trimmed.startsWith('/uploads/')) return trimmed
   try {
-    const u = new URL(url)
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+    const u = new URL(trimmed, base)
     if (u.pathname.startsWith('/uploads/')) return u.pathname
   } catch {
-    /* relative or invalid */
+    if (trimmed.startsWith('/')) return trimmed
   }
-  return url
+  return trimmed
 }
 
 export function slideTypeFromUrl(url: string): 'image' | 'pdf' | 'video' {

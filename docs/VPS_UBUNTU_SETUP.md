@@ -318,7 +318,7 @@ server {
     include             /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
 
-    client_max_body_size 20M;
+    client_max_body_size 110M;
 
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -473,16 +473,35 @@ curl -s https://training.yourdomain.com/api/health
 
 ---
 
-## 13. Simpler alternative (HTTP only, no host Nginx)
+## 13. PM2 + IP only (e.g. http://2.24.110.154)
 
-For quick testing on a VPS IP **without SSL**:
+Use when the API runs under PM2 and the UI is built to `frontend/dist`.
 
-1. Keep `ports: "80:80"` on `web` in `docker-compose.yml`.
-2. Skip section 7.
-3. Set `PUBLIC_BASE_URL` and `FRONTEND_URL` to `http://YOUR_VPS_IP`.
-4. Open `http://YOUR_VPS_IP`.
+### `.env` (required)
 
-**Not recommended for production** (credentials sent in cleartext).
+```env
+PUBLIC_BASE_URL=http://2.24.110.154
+FRONTEND_URL=http://2.24.110.154
+```
+
+Upload responses and course `imageUrl` / `slides` will use `http://2.24.110.154/uploads/...`.
+
+### Host Nginx (must include `/uploads/`)
+
+```bash
+sudo cp /opt/abc-safety-solutions/deploy/nginx-pm2.conf /etc/nginx/sites-available/abc-safety
+sudo ln -sf /etc/nginx/sites-available/abc-safety /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Then:
+
+```bash
+cd /opt/abc-safety-solutions/backend && npm run build && pm2 restart abc-api
+```
+
+**Not recommended for production** without HTTPS (use Certbot + domain when ready).
 
 ---
 
@@ -524,7 +543,7 @@ Base path: `/api` (global prefix in NestJS).
 | Learner | `GET /api/enrollments/me`, `GET /api/me/orders`, progress, certificates |
 | Public | `GET /api/certificates/verify/:id` |
 | Admin | `GET /api/admin/courses`, media, tests, orders, directory, … |
-| Uploads | `POST /api/admin/upload/image`; files served at `/uploads/` |
+| Uploads | `POST /api/admin/upload/image`; files served at `/uploads/` — see `docs/UPLOADS.md` |
 | Stripe | `POST /api/stripe/checkout` (when enabled) |
 
 ---
