@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/Button'
+import { ApiError } from '@/api/client'
 import { adminToggleOrderRefund, fetchAdminOrders, type AdminOrderRow } from '@/api/localData'
+import { isPaidStripeOrder } from '@/lib/courseAccess'
 import { qk } from '@/api/queryKeys'
 import { t } from '@/i18n/t'
 
@@ -14,12 +16,23 @@ export function AdminOrdersPage() {
   const qc = useQueryClient()
   const { data: rows = [], isLoading } = useQuery({ queryKey: qk.adminOrders, queryFn: fetchAdminOrders })
   const [selected, setSelected] = useState<AdminOrderRow | null>(null)
+  const [refundBusy, setRefundBusy] = useState(false)
+  const [refundErr, setRefundErr] = useState<string | null>(null)
 
-  const toggleRefund = async (orderId: string) => {
-    await adminToggleOrderRefund(orderId)
-    await qc.invalidateQueries({ queryKey: qk.adminOrders })
-    await qc.invalidateQueries({ queryKey: qk.adminStats })
-    setSelected(null)
+  const toggleRefund = async (order: AdminOrderRow) => {
+    setRefundErr(null)
+    setRefundBusy(true)
+    try {
+      await adminToggleOrderRefund(order.orderId)
+      await qc.invalidateQueries({ queryKey: qk.adminOrders })
+      await qc.invalidateQueries({ queryKey: qk.adminStats })
+      await qc.invalidateQueries({ queryKey: qk.enrollments })
+      setSelected(null)
+    } catch (e) {
+      setRefundErr(e instanceof ApiError ? e.message : e instanceof Error ? e.message : 'Refund failed.')
+    } finally {
+      setRefundBusy(false)
+    }
   }
 
   return (
@@ -31,7 +44,9 @@ export function AdminOrdersPage() {
         <div>
           <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminOrdersPage_33_orders_8898490306')}</h1>
           <p className="mt-1 text-sm text-slate-600">
-            View and manage all course orders. Toggle refund status as needed.
+            {t('ui_orders_admin_blurb', {
+              defaultValue: 'Paid Stripe orders are refunded in Stripe and course access is revoked.',
+            })}
           </p>
         </div>
       </div>
@@ -121,14 +136,37 @@ export function AdminOrdersPage() {
               </dl>
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
-              <Button
-                type="button"
-                variant="secondary"
-                className={selected.refunded ? '' : '!border-amber-300 !text-amber-900'}
-                onClick={() => toggleRefund(selected.orderId)}
-              >
-                {selected.refunded ? t('ui_orders_mark_not_refunded') : t('ui_orders_mark_refunded')}
-              </Button>
+              {refundErr ? <p className="text-sm text-red-600">{refundErr}</p> : null}
+              {!selected.refunded ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="!border-amber-300 !text-amber-900"
+                  disabled={refundBusy}
+                  onClick={() => void toggleRefund(selected)}
+                >
+                  {refundBusy
+                    ? t('ui_orders_refund_busy', { defaultValue: 'Processing refund…' })
+                    : isPaidStripeOrder(selected.orderId)
+                      ? t('ui_orders_refund_stripe', { defaultValue: 'Refund in Stripe' })
+                      : t('ui_orders_mark_refunded')}
+                </Button>
+              ) : !isPaidStripeOrder(selected.orderId) ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={refundBusy}
+                  onClick={() => void toggleRefund(selected)}
+                >
+                  {t('ui_orders_mark_not_refunded')}
+                </Button>
+              ) : (
+                <p className="max-w-xs text-right text-xs text-slate-500">
+                  {t('ui_orders_stripe_refunded_note', {
+                    defaultValue: 'Refunded in Stripe. Access remains revoked.',
+                  })}
+                </p>
+              )}
               <Button type="button" variant="secondary" onClick={() => setSelected(null)}>
                 {t('ui_orders_close_detail')}
               </Button>

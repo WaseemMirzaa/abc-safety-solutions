@@ -46,6 +46,8 @@ export type Course = {
   slides?: CourseSlide[]
   imageUrl: string
   published: boolean
+  /** Homepage "Popular online courses" section. */
+  popular: boolean
 }
 
 export type UserRole = 'learner' | 'admin'

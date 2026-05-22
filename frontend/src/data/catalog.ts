@@ -77,6 +77,7 @@ function c(
     slideCount: slides,
     imageUrl: `${BASE}/${imagePath}`,
     published: true,
+    popular: false,
     summary,
     description: `${summary} This self-paced module includes slide-based instruction with voice-over, a knowledge check, and a certificate of completion upon passing.`,
   }
@@ -84,9 +85,9 @@ function c(
 
 /** Seed catalog (~20-style volume represented; expand by duplicating pattern) */
 export const seedCourses: Course[] = [
-  c('c1', 'osha-10-awareness', 'OSHA 10-Hour Awareness (Online)', 'cat-ohs', 59, 600, 48, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Core workplace safety awareness aligned with common OSHA outreach topics.'),
-  c('c2', 'osha-30-supervisor', 'OSHA 30-Hour Supervisor Orientation', 'cat-ohs', 159, 1800, 56, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Deeper coverage for supervisors and safety leads.'),
-  c('c3', 'hazwoper-8-refresher', 'HAZWOPER 8-Hour Refresher', 'cat-ohs', 45, 480, 42, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Annual refresher for hazardous waste site workers.'),
+  { ...c('c1', 'osha-10-awareness', 'OSHA 10-Hour Awareness (Online)', 'cat-ohs', 59, 600, 48, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Core workplace safety awareness aligned with common OSHA outreach topics.'), popular: true },
+  { ...c('c2', 'osha-30-supervisor', 'OSHA 30-Hour Supervisor Orientation', 'cat-ohs', 159, 1800, 56, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Deeper coverage for supervisors and safety leads.'), popular: true },
+  { ...c('c3', 'hazwoper-8-refresher', 'HAZWOPER 8-Hour Refresher', 'cat-ohs', 45, 480, 42, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Annual refresher for hazardous waste site workers.'), popular: true },
   c('c4', 'hazcom-ghs', 'Hazard Communication & GHS', 'cat-ohs', 29, 120, 36, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Labels, SDS, and employee right-to-know essentials.'),
   c('c5', 'confined-space-awareness', 'Confined Space Awareness', 'cat-ohs', 39, 180, 40, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Identify permit-required confined spaces and basic roles.'),
   c('c6', 'fall-protection-user', 'Fall Protection — Authorized User', 'cat-ohs', 49, 150, 38, '2021/10/Occupational-Health-Safety-Training-min.jpg', 'Harnesses, anchor points, and fall prevention fundamentals.'),

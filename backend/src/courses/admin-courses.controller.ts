@@ -30,6 +30,7 @@ export class AdminCoursesController {
       certificateValidityDays: dto.certificateValidityDays ?? null,
       imageUrl: dto.imageUrl,
       published: dto.published,
+      popular: dto.popular,
       slideImageUrls: dto.slideImageUrls?.length ? dto.slideImageUrls : null,
       slides: dto.slides?.length ? dto.slides : null,
     })
@@ -50,6 +51,7 @@ export class AdminCoursesController {
       certificateValidityDays: dto.certificateValidityDays ?? null,
       imageUrl: dto.imageUrl,
       published: dto.published,
+      popular: dto.popular,
       slideImageUrls: dto.slideImageUrls?.length ? dto.slideImageUrls : null,
       slides: dto.slides?.length ? dto.slides : null,
     })

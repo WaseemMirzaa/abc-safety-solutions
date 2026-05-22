@@ -4,7 +4,6 @@ import {
   fetchCategories,
   fetchMediaAssets,
   fetchAdminTests,
-  fetchAnnouncements,
   fetchAdminOrders,
   fetchAdminStats,
 } from '@/api/localData'
@@ -18,7 +17,6 @@ export function AdminDashboardPage() {
   const qCat = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
   const qMedia = useQuery({ queryKey: qk.adminMedia, queryFn: fetchMediaAssets })
   const qTests = useQuery({ queryKey: qk.adminTests, queryFn: fetchAdminTests })
-  const qAnn = useQuery({ queryKey: qk.adminAnnouncements, queryFn: fetchAnnouncements })
   const qOrders = useQuery({ queryKey: qk.adminOrders, queryFn: fetchAdminOrders })
   const qStats = useQuery({ queryKey: qk.adminStats, queryFn: fetchAdminStats })
 
@@ -30,7 +28,6 @@ export function AdminDashboardPage() {
     qCat.isPending ||
     qMedia.isPending ||
     qTests.isPending ||
-    qAnn.isPending ||
     qOrders.isPending ||
     qStats.isPending
 
@@ -38,7 +35,6 @@ export function AdminDashboardPage() {
   const allCats = qCat.data ?? []
   const media = qMedia.data ?? []
   const tests = qTests.data ?? []
-  const announcements = qAnn.data ?? []
   const orders = qOrders.data ?? []
 
   const metrics = [
@@ -48,7 +44,6 @@ export function AdminDashboardPage() {
     { label: t('ui_metric_certificates_issued'), value: certs },
     { label: t('ui_metric_media_assets'), value: media.length },
     { label: t('ui_metric_tests_configured'), value: tests.length },
-    { label: t('ui_metric_announcements'), value: announcements.length },
     { label: t('ui_metric_orders_local'), value: orders.length },
   ]
 

@@ -12,9 +12,13 @@ export function formatCertDate(iso: string): string {
 
 export type CertExpiryState = 'none' | 'active' | 'expired'
 
+export function certificateHasExpiry(expiresAt: string | null | undefined): boolean {
+  return Boolean(expiresAt?.trim())
+}
+
 export function certExpiryState(expiresAt: string | null | undefined): CertExpiryState {
-  if (!expiresAt) return 'none'
-  return new Date(expiresAt) < new Date() ? 'expired' : 'active'
+  if (!certificateHasExpiry(expiresAt)) return 'none'
+  return new Date(expiresAt!) < new Date() ? 'expired' : 'active'
 }
 
 export function findCertificateById(certs: Certificate[], id: string): Certificate | undefined {

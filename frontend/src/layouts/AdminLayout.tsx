@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Image as ImageIcon,
   LayoutDashboard,
-  Megaphone,
   ShoppingBag,
   Tags,
   Users,
@@ -16,6 +15,7 @@ import {
 import { easeOut } from '@/lib/motionPresets'
 import { t } from '@/i18n/t'
 import { brandLogoLight } from '@/config/brandAssets'
+import { useAdminUploadsActive } from '@/hooks/useAdminUploadJob'
 
 const side = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -25,13 +25,13 @@ const side = [
   { to: '/admin/media', label: 'Media', icon: ImageIcon, end: false },
   { to: '/admin/users', label: 'Users', icon: Users, end: false },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, end: false },
-  { to: '/admin/announcements', label: 'Announce', icon: Megaphone, end: false },
 ] as const
 
 export function AdminLayout() {
   const { user } = useAuth()
   const location = useLocation()
   const reduce = useReducedMotion()
+  const uploadsActive = useAdminUploadsActive()
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
@@ -89,6 +89,11 @@ export function AdminLayout() {
         </nav>
       </aside>
       <div className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-8 lg:p-12">
+        {uploadsActive ? (
+          <p className="mb-4 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-900">
+            File upload in progress — you can switch tabs; it will finish in the background.
+          </p>
+        ) : null}
         {/* No AnimatePresence mode="wait" here — avoids blank Outlet under React StrictMode */}
         <motion.div
           key={location.pathname}

@@ -50,4 +50,8 @@ export class CourseEntity {
 
   @Column({ default: false })
   published: boolean
+
+  /** Shown in homepage "Popular online courses" when true (and published). */
+  @Column({ default: false })
+  popular: boolean
 }

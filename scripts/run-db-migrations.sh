@@ -100,6 +100,17 @@ migrate_widen_order_id() {
   fi
 }
 
+migrate_courses_popular() {
+  local exists
+  exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='popular';")"
+  if [ "${exists:-0}" = "0" ]; then
+    echo "   005_add_courses_popular.sql — adding column popular"
+    mysql_scalar "ALTER TABLE courses ADD COLUMN popular TINYINT(1) NOT NULL DEFAULT 0;" >/dev/null
+  else
+    echo "   005_add_courses_popular.sql — popular column already exists (skip)"
+  fi
+}
+
 migrate_courses_slides() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='slides';")"
@@ -133,6 +144,7 @@ for f in "${files[@]}"; do
     002_add_users_stripe_customer.sql) migrate_users_stripe_customer ;;
     003_widen_enrollments_order_id.sql) migrate_widen_order_id ;;
     004_add_course_languages.sql) migrate_course_languages ;;
+    005_add_courses_popular.sql) migrate_courses_popular ;;
     *)
       echo "   $base"
       mysql_file "$f"

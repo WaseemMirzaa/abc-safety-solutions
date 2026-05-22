@@ -1,14 +1,19 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Image as ImageIcon, Plus, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
-import { adminCreateMedia, adminDeleteMedia, adminUploadMedia, fetchMediaAssets } from '@/api/localData'
+import { adminCreateMedia, adminDeleteMedia, fetchMediaAssets } from '@/api/localData'
+import {
+  clearPendingMediaUpload,
+  readPendingMediaUpload,
+  startMediaLibraryUpload,
+} from '@/lib/adminUploadJobs'
+import { useAdminUploadJob } from '@/hooks/useAdminUploadJob'
 import { qk } from '@/api/queryKeys'
 import { inferMediaKind } from '@/lib/readFileAsDataUrl'
 import type { MediaAsset } from '@/types'
 import { fieldClass } from '@/lib/adminForm'
-import { logError } from '@/lib/log'
 import { t } from '@/i18n/t'
 
 const kinds: MediaAsset['kind'][] = ['image', 'audio', 'document', 'other']
@@ -23,8 +28,39 @@ export function AdminMediaPage() {
   const [kind, setKind] = useState<MediaAsset['kind']>('image')
   const [fileName, setFileName] = useState<string | null>(null)
   const [uploadErr, setUploadErr] = useState('')
+  const [uploadJobId, setUploadJobId] = useState<string | null>(null)
+  const uploadJob = useAdminUploadJob(uploadJobId)
+  const uploading = uploadJob?.status === 'uploading' || uploadJob?.status === 'processing'
   const [formErr, setFormErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  const applyPendingMedia = () => {
+    const pending = readPendingMediaUpload()
+    if (!pending) return
+    setUrl(pending.url)
+    setKind(pending.kind)
+    setFileName(pending.fileName)
+    if (!label.trim()) setLabel(pending.labelHint)
+    clearPendingMediaUpload()
+  }
+
+  useEffect(() => {
+    if (!open) return
+    applyPendingMedia()
+  }, [open])
+
+  useEffect(() => {
+    if (!uploadJob) return
+    if (uploadJob.status === 'done') {
+      applyPendingMedia()
+      setUploadErr('')
+      setUploadJobId(null)
+    }
+    if (uploadJob.status === 'error') {
+      setUploadErr(uploadJob.error ?? 'Upload failed.')
+      setUploadJobId(null)
+    }
+  }, [uploadJob?.status])
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminMedia })
 
@@ -40,32 +76,23 @@ export function AdminMediaPage() {
   }
 
   const closeModal = () => {
+    if (uploading && !window.confirm('Upload still running — it will finish in the background. Close this dialog?')) {
+      return
+    }
     resetForm()
+    setUploadJobId(null)
     setOpen(false)
   }
 
-  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     setUploadErr('')
-    try {
-      const r = await adminUploadMedia(file)
-      setUrl(r.url)
-      const uploadKind = r.kind
-      setKind(
-        uploadKind === 'pdf' || uploadKind === 'pptx' || uploadKind === 'ppt'
-          ? 'document'
-          : uploadKind === 'video'
-            ? 'other'
-            : inferMediaKind(file.type || 'application/octet-stream'),
-      )
-      setFileName(file.name)
-      if (!label.trim()) setLabel(file.name.replace(/\.[^.]+$/, ''))
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Could not read file.'
-      setUploadErr(msg)
-      logError('admin:media-upload', err, { file: file.name, type: file.type })
-    }
+    const labelHint = file.name.replace(/\.[^.]+$/, '')
+    setUploadJobId(
+      startMediaLibraryUpload(file, inferMediaKind(file.type || 'application/octet-stream'), labelHint),
+    )
   }
 
   const add = async () => {
@@ -183,7 +210,7 @@ export function AdminMediaPage() {
       </div>
 
       {open ? (
-        <AdminModal title="Add media asset" wide onClose={closeModal}>
+        <AdminModal title="Add media asset" wide blockDismiss={uploading} onClose={closeModal}>
           <div className="space-y-6">
             <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminMediaPage_168_upload_file_cd5a443e57')}</p>
@@ -195,10 +222,21 @@ export function AdminMediaPage() {
                 onChange={onPickFile}
               />
               <p className="mt-2 text-xs text-slate-500">
-                Images, PDF, video, or PowerPoint — up to 1 GB (nginx limit), stored under /uploads/.
+                Images, PDF, video, or PowerPoint — up to 1 GB.
               </p>
+              {uploading ? (
+                <p className="mt-2 text-sm font-medium text-violet-800">
+                  Uploading… {uploadJob?.percent ?? 0}%
+                </p>
+              ) : null}
               {uploadErr ? <p className="mt-2 text-sm font-medium text-red-600">{uploadErr}</p> : null}
-              <Button type="button" variant="secondary" className="mt-3 gap-2" onClick={() => fileRef.current?.click()}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-3 gap-2"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
                 <Upload className="h-4 w-4" />
                 Choose file
               </Button>

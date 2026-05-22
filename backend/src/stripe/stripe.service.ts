@@ -194,4 +194,26 @@ export class StripeService {
     if (!userId || !courseId || session.payment_status !== 'paid') return
     await this.enrollments.enrollFromOrder(userId, courseId, session.id)
   }
+
+  /** Full refund for a Checkout session (cs_…). Idempotent if Stripe already refunded. */
+  async refundCheckoutSession(sessionId: string): Promise<{ refundId: string | null }> {
+    const session = await this.client().checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent'],
+    })
+    if (session.payment_status !== 'paid') {
+      throw new BadRequestException('This checkout was not paid; nothing to refund in Stripe.')
+    }
+    const pi = session.payment_intent
+    const paymentIntentId = typeof pi === 'string' ? pi : pi?.id
+    if (!paymentIntentId) {
+      throw new BadRequestException('No payment intent found for this checkout session.')
+    }
+
+    const existing = await this.client().refunds.list({ payment_intent: paymentIntentId, limit: 10 })
+    const done = existing.data.find((r) => r.status === 'succeeded' || r.status === 'pending')
+    if (done) return { refundId: done.id }
+
+    const refund = await this.client().refunds.create({ payment_intent: paymentIntentId })
+    return { refundId: refund.id }
+  }
 }

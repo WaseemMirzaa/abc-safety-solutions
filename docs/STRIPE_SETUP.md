@@ -56,6 +56,7 @@ Rebuild and deploy the frontend static files after changing this.
 3. Stripe Checkout opens with the course **price from the database** (`priceCents`).
 4. On payment, **webhook** enrolls the user (`orderId` = `cs_…` session id). **Continue to course** only appears after that.
 5. Free enroll (`POST /enrollments/enroll`) is allowed only when `priceCents` is 0.
+6. **Admin → Orders → Refund in Stripe** calls Stripe to refund the Checkout payment and marks the enrollment `refunded` (revokes access).
 
 ## 5. Local webhook testing
 

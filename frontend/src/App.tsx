@@ -23,7 +23,6 @@ import { AdminCoursesPage } from '@/pages/admin/AdminCoursesPage'
 import { AdminTestsPage } from '@/pages/admin/AdminTestsPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage'
-import { AdminAnnouncementsPage } from '@/pages/admin/AdminAnnouncementsPage'
 import { AdminMediaPage } from '@/pages/admin/AdminMediaPage'
 import { AdminCategoriesPage } from '@/pages/admin/AdminCategoriesPage'
 
@@ -63,7 +62,6 @@ export function AppRoutes() {
           <Route path="media" element={<AdminMediaPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="orders" element={<AdminOrdersPage />} />
-          <Route path="announcements" element={<AdminAnnouncementsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

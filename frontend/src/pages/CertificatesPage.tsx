@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { fetchCategories, fetchMyCertificates } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { certExpiryState, formatCertDate } from '@/lib/certificateDisplay'
+import { certExpiryState, certificateHasExpiry, formatCertDate } from '@/lib/certificateDisplay'
 import { listContainer, listItem } from '@/lib/motionPresets'
 import { clsx } from 'clsx'
 import { t } from '@/i18n/t'
@@ -47,6 +47,8 @@ export function CertificatesPage() {
     queryFn: fetchCategories,
     enabled: Boolean(user),
   })
+
+  const listShowsExpiry = certs.some((c) => certificateHasExpiry(c.expiresAt))
 
   if (!user) {
     return (
@@ -108,13 +110,19 @@ export function CertificatesPage() {
                   <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-5 py-3">{t('ui_cert_list_col_course')}</th>
                     <th className="px-5 py-3">{t('ui_cert_list_col_issued')}</th>
-                    <th className="px-5 py-3">{t('ui_cert_list_col_expires')}</th>
-                    <th className="px-5 py-3">{t('ui_cert_list_col_status')}</th>
+                    {listShowsExpiry ? (
+                      <>
+                        <th className="px-5 py-3">{t('ui_cert_list_col_expires')}</th>
+                        <th className="px-5 py-3">{t('ui_cert_list_col_status')}</th>
+                      </>
+                    ) : null}
                     <th className="px-5 py-3 text-right">{t('ui_cert_list_col_action')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {certs.map((c) => (
+                  {certs.map((c) => {
+                    const rowHasExpiry = certificateHasExpiry(c.expiresAt)
+                    return (
                     <motion.tr
                       key={c.id}
                       variants={listItem}
@@ -122,12 +130,16 @@ export function CertificatesPage() {
                     >
                       <td className="px-5 py-4 font-medium text-brand-900">{c.courseName}</td>
                       <td className="px-5 py-4 text-slate-600">{formatCertDate(c.issuedAt)}</td>
-                      <td className="px-5 py-4 text-slate-600">
-                        {c.expiresAt ? formatCertDate(c.expiresAt) : '—'}
-                      </td>
-                      <td className="px-5 py-4">
-                        <ExpiryBadge expiresAt={c.expiresAt} />
-                      </td>
+                      {listShowsExpiry ? (
+                        <>
+                          <td className="px-5 py-4 text-slate-600">
+                            {rowHasExpiry ? formatCertDate(c.expiresAt!) : null}
+                          </td>
+                          <td className="px-5 py-4">
+                            <ExpiryBadge expiresAt={c.expiresAt} />
+                          </td>
+                        </>
+                      ) : null}
                       <td className="px-5 py-4 text-right">
                         <Link
                           to={`/certificates/${encodeURIComponent(c.id)}`}
@@ -138,30 +150,45 @@ export function CertificatesPage() {
                         </Link>
                       </td>
                     </motion.tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
 
             <ul className="space-y-4 md:hidden">
-              {certs.map((c) => (
+              {certs.map((c) => {
+                const rowHasExpiry = certificateHasExpiry(c.expiresAt)
+                return (
                 <motion.li
                   key={c.id}
                   variants={listItem}
                   className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm"
                 >
                   <p className="font-semibold text-brand-900">{c.courseName}</p>
-                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                  <dl
+                    className={clsx(
+                      'mt-3 gap-2 text-xs text-slate-600',
+                      rowHasExpiry ? 'grid grid-cols-2' : 'grid grid-cols-1',
+                    )}
+                  >
                     <div>
                       <dt className="font-medium text-slate-500">{t('ui_cert_list_col_issued')}</dt>
                       <dd>{formatCertDate(c.issuedAt)}</dd>
                     </div>
-                    <div>
-                      <dt className="font-medium text-slate-500">{t('ui_cert_list_col_expires')}</dt>
-                      <dd>{c.expiresAt ? formatCertDate(c.expiresAt) : '—'}</dd>
-                    </div>
+                    {rowHasExpiry ? (
+                      <div>
+                        <dt className="font-medium text-slate-500">{t('ui_cert_list_col_expires')}</dt>
+                        <dd>{formatCertDate(c.expiresAt!)}</dd>
+                      </div>
+                    ) : null}
                   </dl>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div
+                    className={clsx(
+                      'mt-3 flex items-center gap-3',
+                      rowHasExpiry ? 'justify-between' : 'justify-end',
+                    )}
+                  >
                     <ExpiryBadge expiresAt={c.expiresAt} />
                     <Link
                       to={`/certificates/${encodeURIComponent(c.id)}`}
@@ -172,7 +199,8 @@ export function CertificatesPage() {
                     </Link>
                   </div>
                 </motion.li>
-              ))}
+                )
+              })}
             </ul>
           </motion.div>
         )}

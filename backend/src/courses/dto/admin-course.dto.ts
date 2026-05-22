@@ -85,6 +85,9 @@ export class AdminCourseDto {
   @IsBoolean()
   published: boolean
 
+  @IsBoolean()
+  popular: boolean
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

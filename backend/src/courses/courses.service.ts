@@ -21,6 +21,7 @@ export type CourseDto = {
   slides?: CourseSlide[]
   imageUrl: string
   published: boolean
+  popular: boolean
   certificateValidityDays?: number | null
 }
 
@@ -73,6 +74,7 @@ export class CoursesService {
       slides,
       imageUrl: c.imageUrl,
       published: c.published,
+      popular: Boolean(c.popular),
       certificateValidityDays: c.certificateValidityDays,
     }
   }
@@ -122,6 +124,7 @@ export class CoursesService {
       slideImageUrls: data.slideImageUrls ?? null,
       slides: data.slides ?? null,
       published: data.published ?? false,
+      popular: data.popular ?? false,
     })
     return this.courses.save(row)
   }

@@ -104,48 +104,30 @@ function parseUploadError(status: number, text: string): string {
   return msg
 }
 
-function adminUpload(
+/** XHR upload — not tied to React lifecycle; no timeout so background tabs can finish large files. */
+export function xhrUploadForm(
   path: string,
   file: File,
   onProgress?: (progress: UploadProgress) => void,
 ): Promise<{ url: string; fileName: string; kind?: string }> {
-  if (!onProgress) {
-    const fd = new FormData()
-    fd.append('file', file)
-    const headers = new Headers()
-    const token = getToken()
-    if (token) headers.set('Authorization', `Bearer ${token}`)
-    return fetch(`${apiBase()}${path}`, {
-      method: 'POST',
-      headers,
-      body: fd,
-      credentials: 'include',
-    }).then(async (res) => {
-      const text = await res.text()
-      if (!res.ok) {
-        const apiErr = new ApiError(res.status, parseUploadError(res.status, text))
-        logError('api:upload', apiErr, { path, status: res.status, file: file.name })
-        throw apiErr
-      }
-      return JSON.parse(text) as { url: string; fileName: string; kind?: string }
-    })
-  }
-
   return new Promise((resolve, reject) => {
     const fd = new FormData()
     fd.append('file', file)
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${apiBase()}${path}`)
     xhr.withCredentials = true
+    xhr.timeout = 0
     const token = getToken()
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
 
-    xhr.upload.addEventListener('progress', (e) => {
-      const total = e.lengthComputable ? e.total : file.size
-      const loaded = e.loaded
-      const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
-      onProgress({ loaded, total, percent })
-    })
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        const total = e.lengthComputable ? e.total : file.size
+        const loaded = e.loaded
+        const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
+        onProgress({ loaded, total, percent })
+      })
+    }
 
     xhr.addEventListener('load', () => {
       const text = xhr.responseText ?? ''
@@ -166,6 +148,14 @@ function adminUpload(
     xhr.addEventListener('abort', () => reject(new Error('Upload cancelled.')))
     xhr.send(fd)
   })
+}
+
+function adminUpload(
+  path: string,
+  file: File,
+  onProgress?: (progress: UploadProgress) => void,
+): Promise<{ url: string; fileName: string; kind?: string }> {
+  return xhrUploadForm(path, file, onProgress)
 }
 
 export async function adminUploadImage(file: File): Promise<{ url: string; fileName: string }> {

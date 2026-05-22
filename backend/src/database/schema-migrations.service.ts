@@ -11,6 +11,7 @@ export class SchemaMigrationsService implements OnModuleInit {
   async onModuleInit() {
     await this.ensureCourseLanguages()
     await this.ensureEnrollmentOrderIdWidth()
+    await this.ensureCoursePopular()
   }
 
   private async ensureCourseLanguages() {
@@ -54,5 +55,18 @@ export class SchemaMigrationsService implements OnModuleInit {
       `ALTER TABLE enrollments MODIFY COLUMN orderId VARCHAR(255) NOT NULL`,
     )
     this.log.log('enrollments.orderId widened to VARCHAR(255)')
+  }
+
+  private async ensureCoursePopular() {
+    const col = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'courses' AND COLUMN_NAME = 'popular'`,
+    )
+    if (Number(col[0]?.n ?? 0) === 0) {
+      this.log.warn('courses.popular missing; adding column')
+      await this.dataSource.query(
+        `ALTER TABLE courses ADD COLUMN popular TINYINT(1) NOT NULL DEFAULT 0`,
+      )
+    }
   }
 }

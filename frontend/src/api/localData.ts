@@ -28,6 +28,7 @@ function asCourse(row: Course): Course {
   return {
     ...row,
     languageId: row.languageId || 'lang-en',
+    popular: Boolean(row.popular),
     slideImageUrls: row.slideImageUrls?.filter(Boolean),
     slides: row.slides?.length ? row.slides : undefined,
     certificateValidityDays:
@@ -282,12 +283,14 @@ function courseToAdminPayload(c: Course): Record<string, unknown> {
     summary: c.summary,
     description: c.description,
     categoryId: c.categoryId,
+    languageId: c.languageId || 'lang-en',
     priceCents: c.priceCents,
     durationMinutes: c.durationMinutes,
     slideCount: c.slideCount,
     certificateValidityDays: c.certificateValidityDays ?? null,
     imageUrl: c.imageUrl,
     published: c.published,
+    popular: Boolean(c.popular),
     slideImageUrls: undefined,
     slides: c.slides?.length ? c.slides : undefined,
   }

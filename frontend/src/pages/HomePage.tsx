@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -34,7 +35,11 @@ export function HomePage() {
   const reduce = useReducedMotion()
   const { data: courses = [], isPending } = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
   const { data: categoryList = [] } = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
-  const featured = courses.slice(0, 3)
+  const featured = useMemo(() => {
+    const popular = courses.filter((c) => c.popular)
+    if (popular.length > 0) return popular
+    return courses.slice(0, 3)
+  }, [courses])
 
   return (
     <>

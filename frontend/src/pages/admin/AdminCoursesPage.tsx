@@ -6,14 +6,11 @@ import { AdminCourseDeckPreview } from '@/components/admin/AdminCourseDeckPrevie
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
 import { ApiError } from '@/api/client'
-import { logError } from '@/lib/log'
 import {
   adminCreateCourse,
   adminCreateCourseLanguage,
   adminDeleteCourse,
   adminUpdateCourse,
-  adminUploadFile,
-  adminUploadImage,
   fetchAllCoursesAdmin,
   fetchCategories,
   fetchCourseLanguages,
@@ -26,7 +23,13 @@ import {
   slideTypeFromFile,
   type CourseContentMode,
 } from '@/lib/courseSlides'
-import { countPptxSlides } from '@/lib/pptxDeck'
+import {
+  clearPendingCourseUpload,
+  readPendingCourseUpload,
+  startAdminFileUpload,
+  startCourseDeckUpload,
+} from '@/lib/adminUploadJobs'
+import { useAdminUploadJob } from '@/hooks/useAdminUploadJob'
 import { fieldClass } from '@/lib/adminForm'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import type { Course, CourseSlide } from '@/types'
@@ -53,6 +56,7 @@ function emptyCustomCourse(categoryId: string): Course {
     certificateValidityDays: null,
     imageUrl: 'https://abcsafetysolutions.com/wp-content/uploads/2021/10/Occupational-Health-Safety-Training-min.jpg',
     published: true,
+    popular: false,
   }
 }
 
@@ -69,9 +73,11 @@ export function AdminCoursesPage() {
   const [slugErr, setSlugErr] = useState('')
   const [slideUploadErr, setSlideUploadErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadPhase, setUploadPhase] = useState<'upload' | 'processing'>('upload')
+  const [uploadJobId, setUploadJobId] = useState<string | null>(null)
+  const uploadJob = useAdminUploadJob(uploadJobId)
+  const uploading = uploadJob?.status === 'uploading' || uploadJob?.status === 'processing'
+  const uploadProgress = uploadJob?.percent ?? 0
+  const uploadPhase = uploadJob?.phase ?? 'upload'
   const [deckBlobUrl, setDeckBlobUrl] = useState<string | null>(null)
   const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
   const pptxInputRef = useRef<HTMLInputElement>(null)
@@ -96,6 +102,46 @@ export function AdminCoursesPage() {
       if (deckBlobUrl) URL.revokeObjectURL(deckBlobUrl)
     }
   }, [deckBlobUrl])
+
+  const applyPendingUploadToDraft = () => {
+    const pending = readPendingCourseUpload()
+    if (!pending) return
+    setDraft((prev) => {
+      if (!prev || prev.id !== pending.draftId) return prev
+      return {
+        ...prev,
+        slides: pending.slides,
+        slideCount: pending.slideCount,
+        slideImageUrls: undefined,
+      }
+    })
+    setDeliveryMode(pending.deliveryMode)
+    clearPendingCourseUpload()
+  }
+
+  useEffect(() => {
+    if (modal === 'closed' || !draft) return
+    applyPendingUploadToDraft()
+  }, [modal, draft?.id])
+
+  useEffect(() => {
+    if (!uploadJob || !draft) return
+    if (uploadJob.status === 'done') {
+      const pending = readPendingCourseUpload()
+      if (pending && pending.draftId === draft.id) {
+        applyPendingUploadToDraft()
+      } else if (uploadJob.result?.url && uploadJob.result.kind === 'image') {
+        setDraft((prev) => (prev ? { ...prev, imageUrl: uploadJob.result!.url } : prev))
+      }
+      setSlideUploadErr('')
+      setUploadJobId(null)
+    }
+    if (uploadJob.status === 'error') {
+      setSlideUploadErr(uploadJob.error ?? 'Upload failed.')
+      setUploadJobId(null)
+      revokeDeckBlob()
+    }
+  }, [uploadJob?.status, draft?.id])
 
   const openCreate = () => {
     revokeDeckBlob()
@@ -134,13 +180,16 @@ export function AdminCoursesPage() {
   }
 
   const closeModal = () => {
+    if (uploading && !window.confirm('Upload still running — it will finish in the background. Close this dialog?')) {
+      return
+    }
     revokeDeckBlob()
     setModal('closed')
     setDraft(null)
     setSlugErr('')
     setSlideUploadErr('')
     setFieldErrors({})
-    setUploading(false)
+    setUploadJobId(null)
     setHeroPreviewBroken(false)
   }
 
@@ -325,7 +374,7 @@ export function AdminCoursesPage() {
     else pptxInputRef.current?.click()
   }
 
-  const onPickVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickVideo = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!draft) return
     setSlideUploadErr('')
     const file = e.target.files?.[0]
@@ -336,43 +385,11 @@ export function AdminCoursesPage() {
       setSlideUploadErr('Only video files are allowed (MP4, WebM, etc.).')
       return
     }
-    setUploading(true)
-    setUploadProgress(0)
-    setUploadPhase('upload')
-    try {
-      revokeDeckBlob()
-      const { url, fileName } = await adminUploadFile(file, (p) => {
-        setUploadPhase('upload')
-        setUploadProgress(p.percent)
-      })
-      patchDraft({
-        slides: [
-          {
-            id: `video-${Date.now()}`,
-            type: 'video',
-            url,
-            title: fileName,
-          },
-        ],
-        slideCount: 1,
-      })
-    } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Upload failed.'
-      setSlideUploadErr(msg)
-      logError('admin:video-upload', err, { file: file.name, type: file.type })
-    } finally {
-      setUploading(false)
-      setUploadProgress(0)
-      setUploadPhase('upload')
-    }
+    revokeDeckBlob()
+    setUploadJobId(startCourseDeckUpload(file, draft.id, 'video'))
   }
 
-  const onPickPptx = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickPptx = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!draft) return
     setSlideUploadErr('')
     const file = e.target.files?.[0]
@@ -383,46 +400,9 @@ export function AdminCoursesPage() {
       setSlideUploadErr('Only .pptx files are allowed. In PowerPoint: File → Save As → .pptx')
       return
     }
-    setUploading(true)
-    setUploadProgress(0)
-    setUploadPhase('upload')
-    try {
-      revokeDeckBlob()
-      setDeckBlobUrl(URL.createObjectURL(file))
-      const { url, fileName } = await adminUploadFile(file, (p) => {
-        setUploadPhase('upload')
-        setUploadProgress(p.percent)
-      })
-      setUploadPhase('processing')
-      setUploadProgress(100)
-      const deckSlideCount = await countPptxSlides(file)
-      patchDraft({
-        slides: [
-          {
-            id: `deck-${Date.now()}`,
-            type: 'pptx',
-            url,
-            title: fileName,
-            deckSlideCount,
-          },
-        ],
-        slideCount: deckSlideCount,
-      })
-    } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : 'Upload failed.'
-      setSlideUploadErr(msg)
-      logError('admin:pptx-upload', err, { file: file.name, type: file.type })
-      revokeDeckBlob()
-    } finally {
-      setUploading(false)
-      setUploadProgress(0)
-      setUploadPhase('upload')
-    }
+    revokeDeckBlob()
+    setDeckBlobUrl(URL.createObjectURL(file))
+    setUploadJobId(startCourseDeckUpload(file, draft.id, 'pptx'))
   }
 
   return (
@@ -534,6 +514,7 @@ export function AdminCoursesPage() {
         <AdminModal
           title={modal === 'create' ? t('ui_courses_modal_add') : t('ui_courses_modal_edit')}
           wide
+          blockDismiss={uploading}
           onClose={closeModal}
         >
           {seed ? (
@@ -806,8 +787,7 @@ export function AdminCoursesPage() {
                 <div className="mt-4 rounded-xl border border-violet-200 bg-white p-3 text-sm">
                   <p className="font-medium text-brand-900">{pptxDeck.title ?? 'Presentation'}</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    {pptxDeck.deckSlideCount ?? '?'} slides ·{' '}
-                    <span className="font-mono text-[10px]">{resolveMediaUrl(pptxDeck.url)}</span>
+                    {pptxDeck.deckSlideCount ?? '?'} slides
                   </p>
                   <AdminCourseDeckPreview slide={pptxDeck} blobPreviewUrl={deckBlobUrl} />
                 </div>
@@ -815,9 +795,6 @@ export function AdminCoursesPage() {
               {videoDeck && deliveryMode === 'video' ? (
                 <div className="mt-4 rounded-xl border border-sky-200 bg-white p-3 text-sm">
                   <p className="font-medium text-brand-900">{videoDeck.title ?? 'Training video'}</p>
-                  <p className="mt-1 text-xs text-slate-600">
-                    <span className="font-mono text-[10px]">{resolveMediaUrl(videoDeck.url)}</span>
-                  </p>
                   <video
                     src={resolveMediaUrl(videoDeck.url)}
                     controls
@@ -887,27 +864,41 @@ export function AdminCoursesPage() {
               />
               <p className="mt-1 text-[11px] text-slate-500">Learners see this on the course page and on issued certificates.</p>
             </div>
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_369_published_9748b31e49')}</label>
-              <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  className="accent-sky-600"
-                  checked={draft.published}
-                  onChange={(e) => setDraft({ ...draft, published: e.target.checked })}
-                />
-                Visible in catalog
-              </label>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_369_published_9748b31e49')}</label>
+                <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="accent-sky-600"
+                    checked={draft.published}
+                    onChange={(e) => setDraft({ ...draft, published: e.target.checked })}
+                  />
+                  Visible in catalog
+                </label>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('ui_courses_popular_label')}</label>
+                <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="accent-amber-600"
+                    checked={Boolean(draft.popular)}
+                    onChange={(e) => setDraft({ ...draft, popular: e.target.checked })}
+                  />
+                  {t('ui_courses_popular_hint')}
+                </label>
+              </div>
             </div>
             <div className="sm:col-span-2 rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                 Course hero image (catalog + detail page)
               </label>
-              <p className="mt-1 text-[11px] text-slate-500">Upload an image or paste a URL. Shown on the course card and detail page.</p>
+              <p className="mt-1 text-[11px] text-slate-500">Shown on the course card and detail page.</p>
               {draft.imageUrl ? (
                 heroPreviewBroken ? (
                   <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                    Could not load preview. Check the URL or upload again. Path: {draft.imageUrl}
+                    Could not load preview. Check the URL or upload again.
                   </p>
                 ) : (
                   <img
@@ -929,36 +920,40 @@ export function AdminCoursesPage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={async (e) => {
+                onChange={(e) => {
                   const file = e.target.files?.[0]
                   e.target.value = ''
                   if (!file || !draft) return
-                  setUploading(true)
                   setHeroPreviewBroken(false)
-                  try {
-                    const { url } = await adminUploadImage(file)
-                    setDraft({ ...draft, imageUrl: url })
-                  } catch (err) {
-                    setSlideUploadErr(err instanceof Error ? err.message : 'Image upload failed.')
-                  } finally {
-                    setUploading(false)
-                  }
+                  setSlideUploadErr('')
+                  setUploadJobId(startAdminFileUpload('/api/admin/upload/image', file))
                 }}
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" className="!rounded-lg !py-2 !text-xs" onClick={() => heroImageRef.current?.click()}>
-                  Upload hero image
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="!rounded-lg !py-2 !text-xs"
+                  disabled={uploading}
+                  onClick={() => heroImageRef.current?.click()}
+                >
+                  {draft.imageUrl && !heroPreviewBroken ? 'Replace hero image' : 'Upload hero image'}
                 </Button>
+                {draft.imageUrl ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="!rounded-lg !border-red-200 !py-2 !text-xs !text-red-800"
+                    disabled={uploading}
+                    onClick={() => {
+                      setHeroPreviewBroken(false)
+                      setDraft({ ...draft, imageUrl: '' })
+                    }}
+                  >
+                    Remove
+                  </Button>
+                ) : null}
               </div>
-              <input
-                className={fieldClass(Boolean(fieldErrors.imageUrl), 'input-pro mt-3 w-full font-mono text-xs')}
-                value={draft.imageUrl}
-                onChange={(e) => {
-                  setHeroPreviewBroken(false)
-                  setDraft({ ...draft, imageUrl: e.target.value })
-                }}
-                placeholder="/uploads/… or https://…"
-              />
               {fieldErrors.imageUrl ? <p className="mt-1 text-xs text-red-600">{fieldErrors.imageUrl}</p> : null}
             </div>
           </div>
