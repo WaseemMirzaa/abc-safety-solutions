@@ -1,4 +1,5 @@
 import { apiJson, ApiError, publicJson } from './client'
+import { clampDiscountPercent, salePriceFromCourse } from '@/lib/pricing'
 import type {
   AdminDirectoryUser,
   AdminTest,
@@ -41,8 +42,17 @@ function parseCourseSlides(raw: Course['slides']): CourseSlide[] | undefined {
 
 function asCourse(row: Course): Course {
   const slides = parseCourseSlides(row.slides)
+  const priceCents = Math.max(0, Math.round(Number(row.priceCents) || 0))
+  const discountPercent = clampDiscountPercent(Number(row.discountPercent) || 0)
+  const salePriceCents =
+    row.salePriceCents != null && Number.isFinite(Number(row.salePriceCents))
+      ? Math.max(0, Math.round(Number(row.salePriceCents)))
+      : salePriceFromCourse(priceCents, discountPercent)
   return {
     ...row,
+    priceCents,
+    discountPercent,
+    salePriceCents,
     languageId: row.languageId || 'lang-en',
     popular: Boolean(row.popular),
     slideImageUrls: row.slideImageUrls?.filter(Boolean),

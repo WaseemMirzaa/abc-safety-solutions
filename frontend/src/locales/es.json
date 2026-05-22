@@ -577,5 +577,13 @@
   "ui_course_detail_cta_purchase": "Certifícate hoy",
   "ui_course_detail_cta_free": "Inscripción gratuita",
   "ui_course_detail_back_link": "← Ver todos los cursos",
-  "ui_course_detail_outcome_default": "Capacitación de seguridad práctica que puedes aplicar en el trabajo la misma semana que la completes."
+  "ui_course_detail_outcome_default": "Capacitación de seguridad práctica que puedes aplicar en el trabajo la misma semana que la completes.",
+  "ui_price_save_percent": "Ahorre {{percent}}%",
+  "ui_checkout_promo_label": "Código promocional",
+  "ui_checkout_promo_apply": "Aplicar",
+  "ui_checkout_promo_applied": "Promo {{code}}: {{percent}}% extra de descuento",
+  "ui_checkout_total": "Total",
+  "ui_checkout_line_list": "Precio de lista",
+  "ui_checkout_line_sale": "Precio con descuento del curso",
+  "ui_checkout_you_save": "Ahorra {{amount}}"
 }

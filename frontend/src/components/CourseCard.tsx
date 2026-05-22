@@ -13,6 +13,7 @@ import {
   displaySlideCount,
 } from '@/lib/courseDisplay'
 import { CoursePriceDisplay } from '@/components/CoursePriceDisplay'
+import { displayDiscountPercent, hasCourseSale } from '@/lib/pricing'
 
 type Props = {
   course: Course
@@ -47,6 +48,14 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
           transition={{ duration: 0.45, ease: easeOut }}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-900/50 via-transparent to-transparent opacity-80" />
+        {hasCourseSale(course) ? (
+          <span className="absolute right-3 top-3 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
+            {t('ui_price_save_percent', {
+              percent: displayDiscountPercent(course),
+              defaultValue: 'Save {{percent}}%',
+            })}
+          </span>
+        ) : null}
         {cat ? (
           <span className="absolute left-3 top-3 max-w-[85%] rounded-full border border-white/25 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold tracking-wide text-white backdrop-blur-md">
             {shortCat}

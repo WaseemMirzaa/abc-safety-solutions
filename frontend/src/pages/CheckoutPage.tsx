@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { CoursePriceDisplay } from '@/components/CoursePriceDisplay'
+import { CheckoutPriceBreakdown } from '@/components/CheckoutPriceBreakdown'
 import { CreditCard, Tag } from 'lucide-react'
 import { t } from '@/i18n/t'
 import { useAuth } from '@/contexts/AuthContext'
@@ -18,7 +19,7 @@ import {
 } from '@/api/localData'
 import { findEnrollment, hasCourseAccess } from '@/lib/courseAccess'
 import { displayCourseTitle } from '@/lib/courseDisplay'
-import { computeCheckoutAmountCents, formatUsd } from '@/lib/pricing'
+import { computeCheckoutAmountCents } from '@/lib/pricing'
 import { ApiError } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { useEffect, useMemo, useState } from 'react'
@@ -177,19 +178,8 @@ export function CheckoutPage() {
           <div className="mt-6 space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
             <p className="font-display text-lg font-semibold text-brand-900">{displayCourseTitle(course)}</p>
             <CoursePriceDisplay course={course} size="md" />
-            {promoApplied?.valid ? (
-              <p className="text-sm font-medium text-emerald-800">
-                {t('ui_checkout_promo_applied', {
-                  code: promoApplied.code,
-                  percent: promoApplied.discountPercent,
-                  defaultValue: 'Promo {{code}}: extra {{percent}}% off',
-                })}
-              </p>
-            ) : null}
             {course.priceCents > 0 ? (
-              <p className="border-t border-slate-100 pt-3 font-display text-2xl font-bold text-brand-900">
-                {t('ui_checkout_total', { defaultValue: 'Total' })}: {formatUsd(finalCents)}
-              </p>
+              <CheckoutPriceBreakdown course={course} promoApplied={promoApplied} />
             ) : null}
           </div>
         )}

@@ -389,6 +389,10 @@ export function CourseDetailPage() {
                 <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">{description}</p>
               ) : null}
 
+              <div className="mt-4">
+                <CoursePriceDisplay course={course} size="md" />
+              </div>
+
               <div className="mt-3 flex flex-wrap gap-2">
                 {trustPills.map(({ icon: Icon, label }) => (
                   <span

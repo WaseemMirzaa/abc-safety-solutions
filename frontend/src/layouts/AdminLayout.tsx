@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Tags,
-  Ticket,
   Users,
 } from 'lucide-react'
 import { easeOut } from '@/lib/motionPresets'
@@ -24,7 +23,6 @@ const side = [
   { to: '/admin/tests', label: 'Tests', icon: ClipboardList, end: false },
   { to: '/admin/users', label: 'Users', icon: Users, end: false },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, end: false },
-  { to: '/admin/promo-codes', label: 'Promo codes', icon: Ticket, end: false },
 ] as const
 
 export function AdminLayout() {
