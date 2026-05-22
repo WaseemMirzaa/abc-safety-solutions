@@ -1,4 +1,4 @@
-import { ApiError, xhrUploadForm } from '@/api/client'
+import { ApiError, apiJson, xhrUploadForm } from '@/api/client'
 import { countPptxSlides } from '@/lib/pptxDeck'
 import { randomId } from '@/lib/randomId'
 import type { CourseSlide } from '@/types'
@@ -12,7 +12,7 @@ export type AdminUploadJob = {
   percent: number
   phase: 'upload' | 'processing'
   error?: string
-  result?: { url: string; fileName: string; kind: string; deckSlideCount?: number }
+  result?: { url: string; fileName: string; kind: string; deckSlideCount?: number; renderedSlideUrls?: string[] }
 }
 
 const jobs = new Map<string, AdminUploadJob>()
@@ -113,6 +113,24 @@ function savePendingMediaUpload(payload: PendingMediaUpload) {
   sessionStorage.setItem(PENDING_MEDIA_KEY, JSON.stringify(payload))
 }
 
+/**
+ * Calls the server-side slide render endpoint.
+ * Returns the generated image URLs, or an empty array when LibreOffice is
+ * not installed on the server (graceful fallback to client-side pptx-preview).
+ */
+async function requestSlideRender(fileUrl: string): Promise<string[]> {
+  try {
+    const res = await apiJson<{ slideImageUrls: string[] }>('/api/admin/upload/render-slides', {
+      method: 'POST',
+      body: JSON.stringify({ fileUrl }),
+    })
+    return res?.slideImageUrls ?? []
+  } catch {
+    // Non-critical: server may not have LibreOffice; fall back silently
+    return []
+  }
+}
+
 /** Runs in module scope so uploads continue when the tab is backgrounded or admin routes change. */
 export function startAdminFileUpload(
   path: '/api/admin/upload/file' | '/api/admin/upload/image',
@@ -181,15 +199,23 @@ export function startCourseDeckUpload(
         return
       }
 
+      // PPTX / PPT: enter processing phase for slide count + server-side rendering
       patchJob(id, { status: 'processing', phase: 'processing', percent: 100 })
+
       let deckSlideCount = 1
-      if (slideType === 'pptx') {
-        try {
-          deckSlideCount = await countPptxSlides(file)
-        } catch {
-          deckSlideCount = 1
-        }
-      }
+      let renderedSlideUrls: string[] = []
+
+      // Run slide count (client-side JSZip) and server-side rendering in parallel
+      const [countResult, renderResult] = await Promise.allSettled([
+        slideType === 'pptx' ? countPptxSlides(file) : Promise.resolve(1),
+        (slideType === 'pptx' || slideType === 'ppt') ? requestSlideRender(url) : Promise.resolve([]),
+      ])
+
+      if (countResult.status === 'fulfilled') deckSlideCount = countResult.value
+      if (renderResult.status === 'fulfilled') renderedSlideUrls = renderResult.value
+
+      // Prefer the server-rendered count when available (more accurate)
+      if (renderedSlideUrls.length > 0) deckSlideCount = renderedSlideUrls.length
 
       const slides: CourseSlide[] = [
         {
@@ -197,7 +223,8 @@ export function startCourseDeckUpload(
           type: slideType,
           url,
           title,
-          deckSlideCount: slideType === 'pptx' ? deckSlideCount : undefined,
+          deckSlideCount: slideType === 'pptx' || slideType === 'ppt' ? deckSlideCount : undefined,
+          renderedSlideUrls: renderedSlideUrls.length > 0 ? renderedSlideUrls : undefined,
         },
       ]
       savePendingCourseUpload({
@@ -215,6 +242,7 @@ export function startCourseDeckUpload(
           fileName: title,
           kind: resolvedKind,
           deckSlideCount,
+          renderedSlideUrls: renderedSlideUrls.length > 0 ? renderedSlideUrls : undefined,
         },
       })
     } catch (err) {

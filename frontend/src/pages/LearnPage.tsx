@@ -7,6 +7,8 @@ import { PageLoader } from '@/components/ui/PageLoader'
 import { Button } from '@/components/Button'
 import { KnowledgeCheckView } from '@/components/learn/KnowledgeCheckView'
 import { LearnSlideFooter } from '@/components/learn/LearnSlideFooter'
+import { LearnSlideDeckControls } from '@/components/learn/LearnSlideDeckControls'
+import { LearnSlideChrome } from '@/components/learn/LearnSlideChrome'
 import {
   fetchCategories,
   fetchCourseById,
@@ -126,6 +128,7 @@ export function LearnPage() {
   const [pptxSlideCount, setPptxSlideCount] = useState<number | null>(null)
   const [deckAspect, setDeckAspect] = useState(16 / 9)
   const [contentReviewRequired, setContentReviewRequired] = useState(false)
+  const [slideFullscreen, setSlideFullscreen] = useState(false)
 
   const videoCourse = course ? isVideoCourse(course) : false
   const catalogSlideCount = course ? getCourseSlideCount(course) : 1
@@ -452,14 +455,39 @@ export function LearnPage() {
   const canTakeKnowledgeCheck =
     customTestReady && contentComplete && slidesLoaded && (videoCourse || isLastSlide)
 
+  const optimisticMaxSlide = Math.max(
+    slideIndex,
+    progressRow?.maxSlideIndex ?? progressRow?.slideIndex ?? 0,
+  )
+
   const courseProgressPct = courseProgressPercent({
     totalSlides,
     slideIndex,
-    maxSlideIndex: progressRow?.maxSlideIndex ?? progressRow?.slideIndex,
+    maxSlideIndex: optimisticMaxSlide,
     completedSlides: Boolean(progressRow?.completedSlides),
     videoCourse,
     videoWatchPct,
   })
+
+  const navigateSlide = (next: number) => {
+    const clamped = Math.max(0, Math.min(totalSlides - 1, next))
+    setSlideIndex(clamped)
+    if (!courseId || videoCourse) return
+    qc.setQueryData<typeof progressRow>(qk.progress(courseId), (old) =>
+      old
+        ? {
+            ...old,
+            slideIndex: clamped,
+            maxSlideIndex: Math.max(old.maxSlideIndex ?? 0, clamped),
+          }
+        : old,
+    )
+    saveProgress.mutate({
+      slideIndex: clamped,
+      audioTimeSec: 0,
+      completedSlides: Boolean(progressRow?.completedSlides) || clamped >= totalSlides - 1,
+    })
+  }
 
   const passCert =
     freshCert && freshCert.courseId === course.id
@@ -544,7 +572,7 @@ export function LearnPage() {
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: reduce ? 0 : 0.18, ease: easeOut }}
-              className={`learn-slide-frame overflow-hidden rounded-xl shadow-lg ring-1 ring-slate-200/80 ${
+              className={`relative learn-slide-frame overflow-hidden rounded-xl shadow-lg ring-1 ring-slate-200/80 ${
                 pptxDeck
                   ? 'learn-slide-frame--deck bg-white'
                   : videoCourse
@@ -573,6 +601,16 @@ export function LearnPage() {
                 onPptxSlideAspect={pptxDeck ? setDeckAspect : undefined}
                 className="h-full w-full min-h-0"
               />
+              {pptxDeck ? (
+                <LearnSlideDeckControls
+                  canPrev={slideIndex > 0}
+                  canNext={slideIndex < totalSlides - 1}
+                  disabled={pptxNavLocked}
+                  onPrev={() => navigateSlide(slideIndex - 1)}
+                  onNext={() => navigateSlide(slideIndex + 1)}
+                  onFullscreen={() => setSlideFullscreen(true)}
+                />
+              ) : null}
             </motion.div>
           </div>
           <div
@@ -636,14 +674,75 @@ export function LearnPage() {
                 canTakeKnowledgeCheck={canTakeKnowledgeCheck}
                 contentComplete={contentComplete}
                 showRetakeHint={contentReviewRequired}
-                onPrev={() => setSlideIndex((i) => Math.max(0, i - 1))}
-                onNext={() => setSlideIndex((i) => Math.min(totalSlides - 1, i + 1))}
+                onPrev={() => navigateSlide(slideIndex - 1)}
+                onNext={() => navigateSlide(slideIndex + 1)}
                 onOpenTest={openTest}
               />
             )}
           </div>
         </div>
       </Container>
+
+      {slideFullscreen && pptxDeck ? (
+        <div
+          className="fixed inset-0 z-[200] flex flex-col bg-slate-950/95 p-3 sm:p-5"
+          role="dialog"
+          aria-modal
+          aria-label={t('ui_learn_fullscreen', { defaultValue: 'Fullscreen slide preview' })}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-3">
+            <LearnSlideChrome slideNum={slideNum} totalSlides={totalSlides} loading={pptxNavLocked} />
+            <Button
+              type="button"
+              variant="secondary"
+              className="!rounded-xl shrink-0"
+              onClick={() => setSlideFullscreen(false)}
+            >
+              {t('ui_learn_exit_fullscreen', { defaultValue: 'Exit fullscreen' })}
+            </Button>
+          </div>
+          <div className="learn-slide-stage learn-slide-stage--deck relative mt-3 flex min-h-0 flex-1 items-center justify-center">
+            <div
+              className="relative learn-slide-frame learn-slide-frame--deck h-full w-full max-h-full max-w-full overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-white/10"
+              style={{ '--slide-ar': deckAspect } as React.CSSProperties}
+            >
+              <CourseSlideViewer
+                slide={currentSlide}
+                slideNum={slideNum}
+                totalSlides={totalSlides}
+                pptxSlideIndex={slideIndex}
+                learnDeck
+                learnMode
+                pptxLoading={pptxNavLocked}
+                onPptxReadyChange={setPptxReady}
+                onPptxSlideCount={setPptxSlideCount}
+                onPptxSlideAspect={setDeckAspect}
+                className="h-full w-full min-h-0"
+              />
+              <LearnSlideDeckControls
+                canPrev={slideIndex > 0}
+                canNext={slideIndex < totalSlides - 1}
+                disabled={pptxNavLocked}
+                onPrev={() => navigateSlide(slideIndex - 1)}
+                onNext={() => navigateSlide(slideIndex + 1)}
+                onFullscreen={() => setSlideFullscreen(false)}
+              />
+            </div>
+          </div>
+          <p className="mt-3 shrink-0 text-center text-sm font-medium text-sky-100">
+            {t('ui_learn_slide_counter', {
+              current: slideNum,
+              total: totalSlides,
+              defaultValue: 'Slide {{current}} of {{total}}',
+            })}
+            <span className="text-sky-300/80"> · </span>
+            {t('ui_learn_course_progress_pct', {
+              pct: courseProgressPct,
+              defaultValue: '{{pct}}% complete',
+            })}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

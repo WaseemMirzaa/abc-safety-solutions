@@ -153,6 +153,8 @@
   align-items: center !important;
   justify-content: center !important;
   overflow: hidden !important;
+  /* Isolate paint so the library's DOM doesn't escape the clipping rect */
+  contain: layout paint !important;
 }
 .pptx-deck-viewer > *:not(.pptx-preview-wrapper) {
   display: none !important;
@@ -179,14 +181,47 @@
   background: #fff !important;
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
 }
+/* Hide all built-in library navigation chrome */
 .pptx-deck-viewer .pptx-preview-pagination,
 .pptx-deck-viewer .pptx-preview-wrapper + div,
 .pptx-deck-viewer button,
-.pptx-deck-viewer [class*="pagination"] {
+.pptx-deck-viewer [class*="pagination"],
+.pptx-deck-viewer [class*="Pagination"],
+.pptx-deck-viewer .pptx-preview-wrapper button,
+.pptx-deck-viewer .pptx-preview-wrapper [class*="pagination"],
+.pptx-deck-viewer .pptx-preview-wrapper [class*="Pagination"] {
   display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 .pptx-deck-viewer--compact .pptx-preview-wrapper {
   max-height: 100%;
+}
+
+/*
+ * CSS isolation for pptx-preview HTML render mode.
+ * The library injects arbitrary HTML for text/shape layers; reset Tailwind's
+ * base styles so they don't bleed in and corrupt the slide layout.
+ */
+.pptx-deck-viewer .pptx-preview-wrapper *:not(canvas):not(img) {
+  box-sizing: content-box !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+  font-family: inherit !important;
+  line-height: normal !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+.pptx-deck-viewer img {
+  /* Override Tailwind's img {height:auto} which can distort slide images */
+  height: 100% !important;
+  width: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: fill !important;
+  display: block !important;
 }
 
 @media print {

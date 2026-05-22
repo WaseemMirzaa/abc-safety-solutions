@@ -590,5 +590,7 @@
   "ui_order_course_discount": "Course sale: {{percent}}% off",
   "ui_order_promo_applied": "Promo {{code}}: {{percent}}% off",
   "ui_order_you_paid": "Paid",
-  "ui_order_saved": "saved {{amount}}"
+  "ui_order_saved": "saved {{amount}}",
+  "ui_learn_fullscreen": "Fullscreen slide preview",
+  "ui_learn_exit_fullscreen": "Exit fullscreen"
 }

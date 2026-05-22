@@ -33,6 +33,11 @@ class CourseSlideDto {
   @IsInt()
   @Min(1)
   deckSlideCount?: number
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  renderedSlideUrls?: string[]
 }
 
 export class AdminCourseDto {

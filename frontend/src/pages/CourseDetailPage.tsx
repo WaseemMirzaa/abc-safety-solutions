@@ -354,74 +354,83 @@ export function CourseDetailPage() {
             <span className="text-slate-700">{displayCourseTitle(course)}</span>
           </nav>
 
-          <div className="mt-8 grid gap-10 lg:grid-cols-12 lg:items-start lg:gap-12">
-            <div className="lg:col-span-7">
-              <div className="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_24px_60px_-32px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5">
-                {course.popular ? (
-                  <span className="absolute left-4 top-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-950 shadow-md">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {t('ui_course_detail_popular')}
-                  </span>
-                ) : null}
-                <img
-                  src={displayCourseImageUrl(course) || course.imageUrl}
-                  alt={displayCourseTitle(course)}
-                  className="aspect-[16/10] w-full object-cover"
-                />
-              </div>
+          <div className="mt-6 flex flex-wrap items-start gap-4 sm:gap-5">
+            <div className="relative shrink-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-md ring-1 ring-slate-900/5 w-[min(25vw,9rem)] max-w-[25vw] sm:w-[min(25vw,11rem)]">
+              {course.popular ? (
+                <span className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-950 shadow">
+                  <Sparkles className="h-3 w-3" />
+                  {t('ui_course_detail_popular')}
+                </span>
+              ) : null}
+              <img
+                src={displayCourseImageUrl(course) || course.imageUrl}
+                alt={displayCourseTitle(course)}
+                className="h-auto max-h-[25vh] w-full object-cover"
+              />
+            </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
+            <div className="min-w-0 flex-1 basis-[min(100%,16rem)]">
+              {cat ? (
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
+                  {displayCategoryName(cat)}
+                </p>
+              ) : null}
+              <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">
+                {displayCourseTitle(course)}
+              </h1>
+              {summary ? (
+                <p className="mt-2 text-base font-medium leading-relaxed text-slate-800 sm:text-lg">{summary}</p>
+              ) : showDefaultOutcome ? (
+                <p className="mt-2 text-base font-medium leading-relaxed text-slate-700 sm:text-lg">
+                  {t('ui_course_detail_outcome_default')}
+                </p>
+              ) : null}
+              {description ? (
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 sm:text-base">{description}</p>
+              ) : null}
+
+              <div className="mt-3 flex flex-wrap gap-2">
                 {trustPills.map(({ icon: Icon, label }) => (
                   <span
                     key={label}
-                    className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-200/80 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 shadow-sm"
                   >
-                    <Icon className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+                    <Icon className="h-3 w-3 shrink-0 text-sky-600" />
                     {label}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="lg:col-span-5">
-              {cat ? (
-                <p className="font-display text-xs font-semibold uppercase tracking-[0.2em] text-sky-600">
-                  {displayCategoryName(cat)}
-                </p>
-              ) : null}
-              <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-brand-900 sm:text-4xl">
-                {displayCourseTitle(course)}
-              </h1>
-              {summary ? (
-                <p className="mt-4 text-lg font-medium leading-relaxed text-slate-800">{summary}</p>
-              ) : showDefaultOutcome ? (
-                <p className="mt-4 text-lg font-medium leading-relaxed text-slate-700">
-                  {t('ui_course_detail_outcome_default')}
-                </p>
-              ) : null}
-              {description ? (
-                <p className="mt-3 text-base leading-relaxed text-slate-600">{description}</p>
-              ) : null}
-
-              <div className="mt-8 lg:hidden">
-                <PurchasePanel
-                  course={course}
-                  hasAccess={hasAccess}
-                  user={user}
-                  enrollBusy={enrollBusy}
-                  enrollErr={enrollErr}
-                  loginHref={loginHref}
-                  onPurchase={startEnroll}
-                />
-              </div>
+            <div className="hidden w-full max-w-md shrink-0 sm:max-w-[min(25vw,20rem)] md:block">
+              <PurchasePanel
+                course={course}
+                hasAccess={hasAccess}
+                user={user}
+                enrollBusy={enrollBusy}
+                enrollErr={enrollErr}
+                loginHref={loginHref}
+                onPurchase={startEnroll}
+              />
             </div>
+          </div>
+
+          <div className="mt-4 max-w-md md:hidden">
+            <PurchasePanel
+              course={course}
+              hasAccess={hasAccess}
+              user={user}
+              enrollBusy={enrollBusy}
+              enrollErr={enrollErr}
+              loginHref={loginHref}
+              onPurchase={startEnroll}
+            />
           </div>
         </Container>
       </div>
 
-      <Container className="mt-12 lg:mt-14">
-        <div className="grid gap-12 lg:grid-cols-12 lg:gap-14">
-          <div className="space-y-12 lg:col-span-7">
+      <Container className="mt-4 pt-4 sm:mt-5 sm:pt-5">
+        <div className="space-y-10 sm:space-y-12">
             <section>
               <h2 className="font-display text-xl font-bold text-brand-900 sm:text-2xl">
                 {t('ui_course_detail_whats_included')}
@@ -491,21 +500,6 @@ export function CourseDetailPage() {
                 ))}
               </dl>
             </section>
-          </div>
-
-          <aside className="hidden lg:col-span-5 lg:block">
-            <div className="sticky top-28">
-              <PurchasePanel
-                course={course}
-                hasAccess={hasAccess}
-                user={user}
-                enrollBusy={enrollBusy}
-                enrollErr={enrollErr}
-                loginHref={loginHref}
-                onPurchase={startEnroll}
-              />
-            </div>
-          </aside>
         </div>
       </Container>
 

@@ -35,7 +35,12 @@ function measureHost(host: HTMLElement | null, compact: boolean, aspect = SLIDE_
   return fitPresentationBox(fallbackW, compact ? 200 : 540, aspect)
 }
 
-/** Renders one slide from a .pptx deck (prev/next controlled by parent). Auto-loads on mount. */
+/**
+ * Fallback PPTX viewer used when server-side rendered images are not available.
+ * Uses pptx-preview's load() API to parse the deck once, then renderSingleSlide()
+ * on demand — avoids the extra render that preview() does before jumping to the
+ * target slide.
+ */
 export function PptxSlideViewer({
   url,
   slideIndex,
@@ -67,10 +72,22 @@ export function PptxSlideViewer({
     onSlideAspect?.(aspect)
   }, [onSlideAspect])
 
+  const hideBuiltInNav = useCallback(() => {
+    const root = containerRef.current
+    if (!root) return
+    root.querySelectorAll('button, [class*="pagination"], [class*="Pagination"]').forEach((el) => {
+      const node = el as HTMLElement
+      node.style.display = 'none'
+      node.style.pointerEvents = 'none'
+      node.setAttribute('aria-hidden', 'true')
+    })
+  }, [])
+
   const applyCanvasFit = useCallback(() => {
     scalePptxCanvasToFit(containerRef.current)
     reportCanvasAspect()
-  }, [reportCanvasAspect])
+    hideBuiltInNav()
+  }, [reportCanvasAspect, hideBuiltInNav])
 
   useEffect(() => {
     prefetchPptxBuffer(url)
@@ -136,12 +153,15 @@ export function PptxSlideViewer({
         previewer = init(el, { width: w2 || width, height: h2 || height, mode: 'slide' })
         previewerRef.current = previewer
 
-        await previewer.preview(buf)
+        // Use load() instead of preview() — load() parses the deck without rendering
+        // slide 0 first, so we jump directly to the requested slide index.
+        await previewer.load(buf)
         if (cancelled) return
 
         const max = Math.max(0, previewer.slideCount - 1)
         const idx = Math.min(slideIndexRef.current, max)
         previewer.renderSingleSlide(idx)
+
         if (!cancelled) {
           if (previewer.slideCount > 0) onSlideCount?.(previewer.slideCount)
           setPhase('ready')

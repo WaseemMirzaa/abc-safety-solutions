@@ -10,7 +10,7 @@ type Props = {
 /** Top overlay for learn slide / deck player. */
 export function LearnSlideChrome({ slideNum, totalSlides, loading = false }: Props) {
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-3 pt-3">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center px-3 pt-3">
       <div
         className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm ring-1 backdrop-blur-sm ${
           loading
