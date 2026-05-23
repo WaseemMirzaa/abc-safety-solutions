@@ -9,12 +9,16 @@ import { t } from '@/i18n/t'
 import { brandLogoCustomer } from '@/config/brandAssets'
 
 const navPublic = [
-  { to: '/courses', labelKey: 'ui_nav_courses' },
-  { to: '/my-courses', labelKey: 'ui_nav_my_learning' },
+  { to: '/courses', labelKey: 'ui_nav_courses', defaultLabel: 'Courses' },
+  { to: '/my-courses', labelKey: 'ui_nav_my_learning', defaultLabel: 'My learning' },
   { to: '/notifications', labelKey: 'ui_nav_notifications', defaultLabel: 'Notifications' },
-  { to: '/certificates', labelKey: 'ui_nav_certificates' },
-  { to: '/verify-certificate', labelKey: 'ui_nav_verify_certificate' },
+  { to: '/certificates', labelKey: 'ui_nav_certificates', defaultLabel: 'Certificates' },
+  { to: '/verify-certificate', labelKey: 'ui_nav_verify_certificate', defaultLabel: 'Verify certificate' },
 ] as const
+
+function navLabel(item: (typeof navPublic)[number]) {
+  return t(item.labelKey, { defaultValue: item.defaultLabel })
+}
 
 const navAuthed = [{ to: '/account', labelKey: 'AccountPage_17_account_feb4b6fba4' }] as const
 
@@ -53,7 +57,7 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-1 md:flex">
           {navPublic.map((n) => (
             <NavLink key={n.to} to={n.to} className={linkClass}>
-              {t(n.labelKey)}
+              {navLabel(n)}
             </NavLink>
           ))}
           {user
@@ -117,7 +121,7 @@ export function SiteHeader() {
                 className="rounded-xl px-4 py-3.5 text-slate-800"
                 onClick={() => setOpen(false)}
               >
-                {t(n.labelKey)}
+                {navLabel(n)}
               </NavLink>
             ))}
             {user

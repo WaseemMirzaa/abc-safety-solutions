@@ -1,6 +1,7 @@
-import { NestFactory } from '@nestjs/core'
+import { HttpAdapterHost, NestFactory } from '@nestjs/core'
 import { IoAdapter } from '@nestjs/platform-socket.io'
 import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common'
+import { AbortRequestFilter, isClientAbortError } from './common/abort-request.filter'
 import { AppModule } from './app.module'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
@@ -23,6 +24,10 @@ async function bootstrap() {
       res: express.Response,
       next: express.NextFunction,
     ) => {
+      if (isClientAbortError(err)) {
+        if (!res.headersSent) res.status(499).end()
+        return
+      }
       if (err?.message && !err.status && !res.headersSent) {
         const msg = err.message
         if (
@@ -38,6 +43,7 @@ async function bootstrap() {
     },
   )
   app.setGlobalPrefix('api')
+  app.useGlobalFilters(new AbortRequestFilter(app.get(HttpAdapterHost)))
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

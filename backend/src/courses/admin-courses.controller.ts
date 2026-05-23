@@ -41,7 +41,7 @@ export class AdminCoursesController {
   @Post()
   async create(@Body() dto: AdminCourseDto) {
     const content = await this.resolveContentFields(dto)
-    return this.courses.create({
+    const created = await this.courses.create({
       id: dto.id,
       slug: dto.slug,
       title: dto.title,
@@ -60,6 +60,8 @@ export class AdminCoursesController {
       slideImageUrls: dto.slideImageUrls?.length ? dto.slideImageUrls : null,
       slides: content.slides?.length ? content.slides : null,
     })
+    this.courseContent.schedulePdfRender(created.id, content.slides ?? [])
+    return created
   }
 
   @Put(':id')
@@ -87,7 +89,11 @@ export class AdminCoursesController {
     if (dto.slideImageUrls !== undefined) {
       patch.slideImageUrls = dto.slideImageUrls.length ? dto.slideImageUrls : null
     }
-    return this.courses.update(id, patch)
+    const updated = await this.courses.update(id, patch)
+    if (dto.slides !== undefined) {
+      this.courseContent.schedulePdfRender(id, content.slides ?? [])
+    }
+    return updated
   }
 
   @Delete(':id')

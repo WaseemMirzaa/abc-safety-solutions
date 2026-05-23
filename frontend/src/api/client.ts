@@ -167,8 +167,12 @@ function xhrUploadFormOnce(
       reject(apiErr)
     })
 
-    xhr.addEventListener('error', () => reject(new Error('Network error during upload.')))
-    xhr.addEventListener('abort', () => reject(new Error('Upload cancelled.')))
+    xhr.addEventListener('error', () =>
+      reject(new Error('Network error during upload. If the site reloaded, wait for the API to finish restarting and try again.')),
+    )
+    xhr.addEventListener('abort', () =>
+      reject(new Error('Upload interrupted. Keep this tab open until the progress bar reaches 100%.')),
+    )
     xhr.send(fd)
   })
 }

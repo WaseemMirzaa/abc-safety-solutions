@@ -76,7 +76,8 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error }
             previewDataUrl,
           })
         } else {
-          const previewDataUrl = (await pdfFirstPagePreview(file)) ?? undefined
+          const previewDataUrl =
+            file.size <= 20 * 1024 * 1024 ? ((await pdfFirstPagePreview(file)) ?? undefined) : undefined
           next.push({
             id: randomId(),
             type: 'pdf',

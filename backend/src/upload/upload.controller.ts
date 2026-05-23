@@ -43,6 +43,7 @@ export class UploadController {
     }),
   )
   uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file received — upload may have been interrupted.')
     const kind = assertAllowedUpload(file)
     return { url: uploadUrlForFile(file.filename), fileName: file.originalname, kind }
   }
@@ -56,6 +57,7 @@ export class UploadController {
     }),
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file received — upload may have been interrupted.')
     const kind = assertAllowedUpload(file)
     return {
       url: uploadUrlForFile(file.filename),
