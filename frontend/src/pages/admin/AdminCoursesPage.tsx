@@ -33,6 +33,22 @@ function formatPrice(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100)
 }
 
+const MODAL_DRAFT_KEY = 'abc_admin_course_modal_draft'
+
+type SavedModalDraft = { modal: 'create' | 'edit'; draft: Course }
+
+function readSavedModalDraft(): SavedModalDraft | null {
+  try {
+    const raw = sessionStorage.getItem(MODAL_DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as SavedModalDraft
+    if (parsed?.modal && parsed?.draft?.id) return parsed
+  } catch {
+    sessionStorage.removeItem(MODAL_DRAFT_KEY)
+  }
+  return null
+}
+
 function emptyCustomCourse(categoryId: string): Course {
   return {
     id: `custom-${Date.now()}`,
@@ -63,13 +79,16 @@ export function AdminCoursesPage() {
   })
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<Course | null>(null)
+  const [playlistUploading, setPlaylistUploading] = useState(false)
+  const restoredModalRef = useRef(false)
   const [slugErr, setSlugErr] = useState('')
   const [slideUploadErr, setSlideUploadErr] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [heroUploadJobId, setHeroUploadJobId] = useState<string | null>(null)
   const heroUploadJob = useAdminUploadJob(heroUploadJobId)
-  const heroUploading = heroUploadJob?.status === 'uploading'
-  const uploading = heroUploading
+  const heroUploading =
+    heroUploadJob?.status === 'uploading' || heroUploadJob?.status === 'processing'
+  const uploading = heroUploading || playlistUploading
   const [heroPreviewBroken, setHeroPreviewBroken] = useState(false)
   const heroImageRef = useRef<HTMLInputElement>(null)
   const [showAddLanguage, setShowAddLanguage] = useState(false)
@@ -77,6 +96,24 @@ export function AdminCoursesPage() {
   const [newLangCode, setNewLangCode] = useState('')
   const [langBusy, setLangBusy] = useState(false)
   const [langErr, setLangErr] = useState('')
+
+  useEffect(() => {
+    if (restoredModalRef.current || isLoading) return
+    const saved = readSavedModalDraft()
+    if (!saved) return
+    restoredModalRef.current = true
+    setDraft(saved.draft)
+    setModal(saved.modal)
+  }, [isLoading])
+
+  useEffect(() => {
+    if (modal === 'closed' || !draft) {
+      sessionStorage.removeItem(MODAL_DRAFT_KEY)
+      return
+    }
+    const payload: SavedModalDraft = { modal, draft }
+    sessionStorage.setItem(MODAL_DRAFT_KEY, JSON.stringify(payload))
+  }, [modal, draft])
 
   useEffect(() => {
     if (!heroUploadJob || !draft) return
@@ -134,6 +171,7 @@ export function AdminCoursesPage() {
     if (uploading && !window.confirm('Upload still running — it will finish in the background. Close this dialog?')) {
       return
     }
+    sessionStorage.removeItem(MODAL_DRAFT_KEY)
     setModal('closed')
     setDraft(null)
     setSlugErr('')
@@ -242,6 +280,7 @@ export function AdminCoursesPage() {
       } else {
         await adminUpdateCourse(next)
       }
+      sessionStorage.removeItem(MODAL_DRAFT_KEY)
       invalidate()
       closeModal()
     } catch (e) {
@@ -516,6 +555,7 @@ export function AdminCoursesPage() {
               <AdminCourseContentPlaylist
                 slides={playlistSlides}
                 onChange={setPlaylistSlides}
+                onUploadingChange={setPlaylistUploading}
                 disabled={uploading}
                 error={fieldErrors.slides}
               />

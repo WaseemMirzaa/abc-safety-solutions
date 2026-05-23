@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FileText, Film, GripVertical, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/ui/Spinner'
@@ -19,6 +19,7 @@ type Props = {
   onChange: (slides: CourseSlide[]) => void
   disabled?: boolean
   error?: string
+  onUploadingChange?: (uploading: boolean) => void
 }
 
 function displayName(slide: CourseSlide): string {
@@ -33,14 +34,28 @@ function moveItem<T>(list: T[], from: number, to: number): T[] {
   return next
 }
 
-export function AdminCourseContentPlaylist({ slides, onChange, disabled, error }: Props) {
+const MAX_INLINE_PDF_PREVIEW_BYTES = 8 * 1024 * 1024
+
+export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, onUploadingChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const slidesRef = useRef(slides)
+  slidesRef.current = slides
   const [uploading, setUploading] = useState(false)
   const [uploadPct, setUploadPct] = useState(0)
   const [uploadErr, setUploadErr] = useState('')
   const [dragIdx, setDragIdx] = useState<number | null>(null)
 
+  useEffect(() => {
+    onUploadingChange?.(uploading)
+  }, [uploading, onUploadingChange])
+
   const metrics = computeCourseContentMetrics(slides)
+
+  const patchSlidePreview = (slideId: string, previewDataUrl: string) => {
+    onChange(
+      slidesRef.current.map((s) => (s.id === slideId ? { ...s, previewDataUrl } : s)),
+    )
+  }
 
   const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = [...(e.target.files ?? [])]
@@ -63,33 +78,41 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error }
           const base = (i / files.length) * 100
           setUploadPct(Math.round(base + p.percent / files.length))
         })
+        const slideId = randomId()
+        const title = fileName || file.name
         if (type === 'video') {
           const durationSec = await probeVideoDurationSec(file)
-          const previewDataUrl = (await videoPosterPreview(file)) ?? undefined
           next.push({
-            id: randomId(),
+            id: slideId,
             type: 'video',
             url,
-            fileName: fileName || file.name,
-            title: fileName || file.name,
+            fileName: title,
+            title,
             durationSec,
-            previewDataUrl,
+          })
+          onChange([...next])
+          void videoPosterPreview(file).then((preview) => {
+            if (preview) patchSlidePreview(slideId, preview)
           })
         } else {
-          const previewDataUrl =
-            file.size <= 20 * 1024 * 1024 ? ((await pdfFirstPagePreview(file)) ?? undefined) : undefined
           next.push({
-            id: randomId(),
+            id: slideId,
             type: 'pdf',
             url,
-            fileName: fileName || file.name,
-            title: fileName || file.name,
+            fileName: title,
+            title,
             renderStatus: 'pending',
-            previewDataUrl,
           })
+          onChange([...next])
+          if (file.size <= MAX_INLINE_PDF_PREVIEW_BYTES) {
+            void pdfFirstPagePreview(file)
+              .then((preview) => {
+                if (preview) patchSlidePreview(slideId, preview)
+              })
+              .catch(() => {})
+          }
         }
       }
-      onChange(next)
     } catch (err) {
       setUploadErr(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Upload failed.')
     } finally {

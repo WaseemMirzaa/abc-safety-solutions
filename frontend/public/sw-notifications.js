@@ -1,6 +1,6 @@
 /* Keeps scope for future Web Push; showNotification is invoked from the page when permitted. */
-self.addEventListener('install', (event) => {
-  event.waitUntil(self.skipWaiting())
+self.addEventListener('install', () => {
+  /* Do not skipWaiting — avoids reloading open admin tabs when the SW updates. */
 })
 
 self.addEventListener('activate', (event) => {

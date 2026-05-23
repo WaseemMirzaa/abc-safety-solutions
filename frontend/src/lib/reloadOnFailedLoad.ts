@@ -33,8 +33,16 @@ function messageFromReason(reason: unknown): string {
 const CHUNK_RE =
   /Failed to fetch dynamically imported module|Loading chunk [\w-]+ failed|Importing a module script failed|ChunkLoadError/i
 
-const BOOT_RE =
-  /Failed to fetch|NetworkError|Load failed|net::ERR_|dynamically imported module/i
+/** Only stale bundle / chunk failures — not API uploads or XHR network blips. */
+const CHUNK_ONLY_RE =
+  /Failed to fetch dynamically imported module|Loading chunk [\w-]+ failed|Importing a module script failed|ChunkLoadError|Loading module/i
+
+function isBenignNetworkRejection(msg: string): boolean {
+  return (
+    /upload|network error during upload|upload interrupted|aborted|api\//i.test(msg) ||
+    /xhr|multipart|multer/i.test(msg)
+  )
+}
 
 /**
  * Recover from stale caches / failed chunks after deploy by reloading (capped per session).
@@ -56,7 +64,8 @@ export function installReloadOnFailedLoad() {
 
   window.addEventListener('unhandledrejection', (ev) => {
     const msg = messageFromReason(ev.reason)
-    if (CHUNK_RE.test(msg) || BOOT_RE.test(msg)) {
+    if (isBenignNetworkRejection(msg)) return
+    if (CHUNK_RE.test(msg) || CHUNK_ONLY_RE.test(msg)) {
       ev.preventDefault()
       scheduleReload('unhandledrejection')
     }
