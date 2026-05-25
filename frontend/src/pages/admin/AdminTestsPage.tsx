@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X } from 'lucide-react'
+import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X, Download } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
 import {
@@ -78,6 +78,7 @@ export function AdminTestsPage() {
   const [err, setErr] = useState('')
   const [bulkFormat, setBulkFormat] = useState<'csv' | 'json'>('csv')
   const [bulkContent, setBulkContent] = useState('')
+  const [copiedSample, setCopiedSample] = useState(false)
   const [bulkPreview, setBulkPreview] = useState<{
     questions: TestQuestion[]
     errors: { row: number; message: string }[]
@@ -243,34 +244,77 @@ export function AdminTestsPage() {
           >
             JSON
           </button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="!text-xs"
-            onClick={() => {
-              const sample =
-                bulkFormat === 'json'
-                  ? JSON.stringify(
+          {bulkFormat === 'csv' ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="!text-xs gap-1.5"
+              onClick={() => {
+                const csv = [
+                  'question,optionA,optionB,optionC,optionD,correctOption',
+                  'What does PPE stand for?,Personal Protective Equipment,Protective Procedure Equipment,Personal Prevention Equipment,Public Protection Equipment,A',
+                  'What should you do immediately after discovering a chemical spill?,Ignore it and continue working,Report it and follow the spill response procedure,Clean it up yourself without PPE,Wait for someone else to handle it,B',
+                  'Which fire extinguisher class is designed for electrical fires?,Class A,Class B,Class C,Class D,C',
+                  'When must a near-miss incident be reported?,Only if someone was injured,Within 24 hours at your convenience,Immediately after it occurs,At the end of the week,C',
+                  'What is the correct technique for lifting a heavy object?,Bend at the waist and use arm strength,Keep your back straight and lift with your legs,Twist at the waist while lifting,Lift as fast as possible to minimize strain,B',
+                ].join('\n')
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = 'sample-test-questions.csv'
+                document.body.appendChild(a)
+                a.click()
+                document.body.removeChild(a)
+                URL.revokeObjectURL(url)
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download sample CSV
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              className="!text-xs"
+              onClick={() => {
+                const json = JSON.stringify(
+                  {
+                    questions: [
                       {
-                        questions: [
-                          {
-                            prompt: 'Sample question?',
-                            options: [
-                              { text: 'Wrong', isCorrect: false },
-                              { text: 'Correct', isCorrect: true },
-                            ],
-                          },
+                        prompt: 'What does PPE stand for?',
+                        options: [
+                          { text: 'Personal Protective Equipment', isCorrect: true },
+                          { text: 'Protective Procedure Equipment', isCorrect: false },
+                          { text: 'Personal Prevention Equipment', isCorrect: false },
+                          { text: 'Public Protection Equipment', isCorrect: false },
                         ],
                       },
-                      null,
-                      2,
-                    )
-                  : 'question,optionA,optionB,optionC,optionD,correctOption\nWhat is PPE?,Gloves,Hard hat,Both A and B,None,C'
-              void navigator.clipboard.writeText(sample)
-            }}
-          >
-            Copy sample
-          </Button>
+                      {
+                        prompt: 'When must a near-miss incident be reported?',
+                        options: [
+                          { text: 'Only if someone was injured', isCorrect: false },
+                          { text: 'Within 24 hours at your convenience', isCorrect: false },
+                          { text: 'Immediately after it occurs', isCorrect: true },
+                          { text: 'At the end of the week', isCorrect: false },
+                        ],
+                      },
+                    ],
+                  },
+                  null,
+                  2,
+                )
+                navigator.clipboard.writeText(json).then(() => {
+                  setCopiedSample(true)
+                  setTimeout(() => setCopiedSample(false), 2000)
+                }).catch(() => {
+                  setBulkContent(json)
+                })
+              }}
+            >
+              {copiedSample ? 'Copied!' : 'Copy sample JSON'}
+            </Button>
+          )}
         </div>
         <textarea
           className="input-pro mt-3 min-h-[100px] w-full font-mono text-xs"

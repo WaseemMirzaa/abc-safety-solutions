@@ -37,6 +37,15 @@ const MODAL_DRAFT_KEY = 'abc_admin_course_modal_draft'
 
 type SavedModalDraft = { modal: 'create' | 'edit'; draft: Course }
 
+/** sessionStorage quota — never persist inline preview blobs. */
+function draftForStorage(draft: Course): Course {
+  if (!draft.slides?.length) return draft
+  return {
+    ...draft,
+    slides: draft.slides.map(({ previewDataUrl: _preview, ...slide }) => slide),
+  }
+}
+
 function readSavedModalDraft(): SavedModalDraft | null {
   try {
     const raw = sessionStorage.getItem(MODAL_DRAFT_KEY)
@@ -111,8 +120,12 @@ export function AdminCoursesPage() {
       sessionStorage.removeItem(MODAL_DRAFT_KEY)
       return
     }
-    const payload: SavedModalDraft = { modal, draft }
-    sessionStorage.setItem(MODAL_DRAFT_KEY, JSON.stringify(payload))
+    try {
+      const payload: SavedModalDraft = { modal, draft: draftForStorage(draft) }
+      sessionStorage.setItem(MODAL_DRAFT_KEY, JSON.stringify(payload))
+    } catch {
+      /* Quota — modal still open in memory */
+    }
   }, [modal, draft])
 
   useEffect(() => {

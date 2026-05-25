@@ -102,6 +102,7 @@ export class AdminUserInsightsService {
         id: a.id,
         courseId: a.courseId,
         courseTitle: byCourse.get(a.courseId) ?? a.courseId,
+        enrollmentId: a.enrollmentId,
         attemptNumber: a.attemptNumber,
         scorePercent: a.scorePercent,
         passPercent: a.passPercent,
@@ -113,6 +114,7 @@ export class AdminUserInsightsService {
       certificates: certificates.map((c) => ({
         id: c.id,
         certificateNumber: c.certificateNumber,
+        courseId: c.courseId ?? null,
         courseName: c.courseName,
         source: c.source ?? 'platform',
         issuedAt: c.issuedAt instanceof Date ? c.issuedAt.toISOString() : String(c.issuedAt),

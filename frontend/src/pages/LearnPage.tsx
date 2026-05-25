@@ -132,6 +132,7 @@ export function LearnPage() {
   const [slideFullscreen, setSlideFullscreen] = useState(false)
   const [unitEnteredAt, setUnitEnteredAt] = useState(() => Date.now())
   const [dwellReady, setDwellReady] = useState(false)
+  const [dwellElapsedSec, setDwellElapsedSec] = useState(0)
   const [completedVideoUnits, setCompletedVideoUnits] = useState<Set<string>>(() => new Set())
   const videoSecRef = useRef(0)
 
@@ -161,6 +162,7 @@ export function LearnPage() {
   useEffect(() => {
     setUnitEnteredAt(Date.now())
     setDwellReady(false)
+    setDwellElapsedSec(0)
     if (currentUnit && completedVideoUnits.has(currentUnit.unitId)) {
       setVideoDoneLocal(true)
     } else {
@@ -171,11 +173,13 @@ export function LearnPage() {
   useEffect(() => {
     if (!isImageUnit) {
       setDwellReady(true)
+      setDwellElapsedSec(LEARNER_SLIDE_DWELL_SEC)
       return
     }
     setDwellReady(false)
     const tick = () => {
       const elapsed = (Date.now() - unitEnteredAt) / 1000
+      setDwellElapsedSec(Math.min(elapsed, LEARNER_SLIDE_DWELL_SEC))
       if (elapsed >= LEARNER_SLIDE_DWELL_SEC) setDwellReady(true)
     }
     tick()
@@ -581,6 +585,10 @@ export function LearnPage() {
           })
         : undefined
 
+  const dwellPct = isImageUnit && !dwellReady
+    ? Math.round((dwellElapsedSec / LEARNER_SLIDE_DWELL_SEC) * 100)
+    : undefined
+
   const optimisticMaxSlide = Math.max(
     slideIndex,
     progressRow?.maxSlideIndex ?? progressRow?.slideIndex ?? 0,
@@ -825,6 +833,7 @@ export function LearnPage() {
                 isLastSlide={isLastSlide}
                 canGoNext={canGoNext}
                 dwellHint={dwellHint}
+                dwellPct={dwellPct}
                 customTestReady={customTestReady}
                 canTakeKnowledgeCheck={canTakeKnowledgeCheck}
                 contentComplete={contentComplete}
@@ -895,6 +904,27 @@ export function LearnPage() {
               defaultValue: '{{pct}}% complete',
             })}
           </p>
+          {dwellPct !== undefined ? (
+            <div className="mt-2 shrink-0">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-amber-900/40">
+                <div
+                  className="h-full rounded-full bg-amber-400 transition-all duration-500"
+                  style={{ width: `${dwellPct}%` }}
+                  role="progressbar"
+                  aria-valuenow={dwellPct}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
+                />
+              </div>
+              <p className="mt-1 text-center text-xs text-amber-300/80">
+                {t('ui_learn_dwell_wait', {
+                  seconds: Math.max(0, Math.ceil(LEARNER_SLIDE_DWELL_SEC - dwellElapsedSec)),
+                  defaultValue: 'Stay on this slide for {{seconds}} seconds to continue.',
+                })}
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

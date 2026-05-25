@@ -204,6 +204,7 @@ export type AdminUserDetail = {
     id: string
     courseId: string
     courseTitle: string
+    enrollmentId: string
     attemptNumber: number
     scorePercent: number
     passPercent: number
@@ -215,6 +216,7 @@ export type AdminUserDetail = {
   certificates: {
     id: string
     certificateNumber: number
+    courseId: string | null
     courseName: string
     source: string
     issuedAt: string

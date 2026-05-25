@@ -35,6 +35,7 @@ function moveItem<T>(list: T[], from: number, to: number): T[] {
 }
 
 const MAX_INLINE_PDF_PREVIEW_BYTES = 8 * 1024 * 1024
+const MAX_VIDEO_PROBE_BYTES = 80 * 1024 * 1024
 
 export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, onUploadingChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -81,19 +82,31 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
         const slideId = randomId()
         const title = fileName || file.name
         if (type === 'video') {
-          const durationSec = await probeVideoDurationSec(file)
           next.push({
             id: slideId,
             type: 'video',
             url,
             fileName: title,
             title,
-            durationSec,
+            durationSec: 60,
           })
           onChange([...next])
-          void videoPosterPreview(file).then((preview) => {
-            if (preview) patchSlidePreview(slideId, preview)
-          })
+          if (file.size <= MAX_VIDEO_PROBE_BYTES) {
+            void probeVideoDurationSec(file)
+              .then((durationSec) => {
+                onChange(
+                  slidesRef.current.map((s) =>
+                    s.id === slideId ? { ...s, durationSec: durationSec > 0 ? durationSec : 60 } : s,
+                  ),
+                )
+              })
+              .catch(() => {})
+          }
+          void videoPosterPreview(file)
+            .then((preview) => {
+              if (preview) patchSlidePreview(slideId, preview)
+            })
+            .catch(() => {})
         } else {
           next.push({
             id: slideId,

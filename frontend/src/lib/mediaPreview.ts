@@ -21,7 +21,11 @@ export async function pdfFirstPagePreview(file: File): Promise<string | null> {
   }
 }
 
+const MAX_VIDEO_POSTER_BYTES = 40 * 1024 * 1024
+const MAX_POSTER_WIDTH = 320
+
 export function videoPosterPreview(file: File): Promise<string | null> {
+  if (file.size > MAX_VIDEO_POSTER_BYTES) return Promise.resolve(null)
   return new Promise((resolve) => {
     const blob = URL.createObjectURL(file)
     const video = document.createElement('video')
@@ -42,17 +46,18 @@ export function videoPosterPreview(file: File): Promise<string | null> {
       try {
         const w = video.videoWidth || 320
         const h = video.videoHeight || 180
+        const scale = Math.min(1, MAX_POSTER_WIDTH / Math.max(w, 1))
         const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
+        canvas.width = Math.max(1, Math.round(w * scale))
+        canvas.height = Math.max(1, Math.round(h * scale))
         const ctx = canvas.getContext('2d')
         if (!ctx) {
           cleanup()
           resolve(null)
           return
         }
-        ctx.drawImage(video, 0, 0, w, h)
-        resolve(canvas.toDataURL('image/jpeg', 0.82))
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.72))
       } catch {
         resolve(null)
       } finally {

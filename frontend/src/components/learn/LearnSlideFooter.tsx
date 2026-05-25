@@ -10,6 +10,7 @@ type Props = {
   isLastSlide: boolean
   canGoNext: boolean
   dwellHint?: string
+  dwellPct?: number
   customTestReady: boolean
   canTakeKnowledgeCheck: boolean
   contentComplete: boolean
@@ -27,6 +28,7 @@ export function LearnSlideFooter({
   isLastSlide,
   canGoNext,
   dwellHint,
+  dwellPct,
   customTestReady,
   canTakeKnowledgeCheck,
   contentComplete,
@@ -104,6 +106,19 @@ export function LearnSlideFooter({
               })}
             />
           </div>
+          {dwellPct !== undefined ? (
+            <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-amber-100">
+              <div
+                className="h-full rounded-full bg-amber-400 transition-all duration-500"
+                style={{ width: `${dwellPct}%` }}
+                role="progressbar"
+                aria-valuenow={dwellPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
+              />
+            </div>
+          ) : null}
         </div>
 
         <Button

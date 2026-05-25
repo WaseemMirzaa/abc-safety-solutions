@@ -17,8 +17,15 @@ function mayReload(): boolean {
   return true
 }
 
+function shouldAutoReload(): boolean {
+  const path = window.location.pathname
+  // Never reload admin while uploads / modals are in use
+  if (path.startsWith('/admin')) return false
+  return true
+}
+
 function scheduleReload(_reason: string) {
-  if (!mayReload()) return
+  if (!shouldAutoReload() || !mayReload()) return
   window.setTimeout(() => window.location.reload(), 400)
 }
 
@@ -39,8 +46,9 @@ const CHUNK_ONLY_RE =
 
 function isBenignNetworkRejection(msg: string): boolean {
   return (
-    /upload|network error during upload|upload interrupted|aborted|api\//i.test(msg) ||
-    /xhr|multipart|multer/i.test(msg)
+    /upload|network error|upload interrupted|aborted|client closed|failed to fetch|load failed|err_/i.test(
+      msg,
+    ) || /xhr|multipart|multer|socket/i.test(msg)
   )
 }
 
@@ -53,7 +61,15 @@ export function installReloadOnFailedLoad() {
     sessionStorage.removeItem(RELOAD_TS_KEY)
   })
 
-  window.addEventListener('vite:preloadError', () => scheduleReload('vite:preloadError'))
+  window.addEventListener('vite:preloadError', (ev) => {
+    if (!shouldAutoReload()) {
+      // On admin pages suppress the error entirely so Vite doesn't rethrow it
+      // and trigger unhandled-rejection handlers.
+      ;(ev as Event & { preventDefault?: () => void }).preventDefault?.()
+      return
+    }
+    scheduleReload('vite:preloadError')
+  })
 
   window.addEventListener('error', (ev) => {
     const msg = ev.message ?? ''
