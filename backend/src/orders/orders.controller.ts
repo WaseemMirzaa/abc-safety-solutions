@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { AdminGuard } from '../common/admin.guard'
 import { OrdersService } from './orders.service'
@@ -9,8 +9,12 @@ export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
   @Get()
-  list() {
-    return this.orders.list()
+  list(
+    @Query('search') search?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+  ) {
+    return this.orders.list({ search, fromDate, toDate })
   }
 
   @Post(':orderId/toggle-refund')

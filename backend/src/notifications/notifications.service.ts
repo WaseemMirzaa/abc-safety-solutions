@@ -54,6 +54,10 @@ export class NotificationsService {
     return this.deviceTokens.save(row)
   }
 
+  async findByType(userId: string, type: string) {
+    return this.notifications.findOne({ where: { userId, type } })
+  }
+
   async notifyUser(userId: string, title: string, body: string, type = 'announcement') {
     const row = this.notifications.create({
       id: randomUUID(),
@@ -78,10 +82,10 @@ export class NotificationsService {
   }
 
   async broadcast(title: string, body: string, type = 'announcement') {
-    const learners = await this.users.find({ where: { role: 'learner' } })
-    for (const u of learners) {
+    const allUsers = await this.users.find()
+    for (const u of allUsers) {
       await this.notifyUser(u.id, title, body, type)
     }
-    return { sent: learners.length }
+    return { sent: allUsers.length }
   }
 }

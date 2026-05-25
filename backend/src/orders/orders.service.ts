@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { EnrollmentEntity } from '../entities/enrollment.entity'
 import { CourseEntity } from '../entities/course.entity'
+import { UserEntity } from '../entities/user.entity'
 import { isStripePaidOrderId } from '../enrollments/enrollments.service'
 import { StripeService } from '../stripe/stripe.service'
 
@@ -11,12 +12,21 @@ export type OrderRow = {
   purchasedAt: string
   courseId: string
   courseTitle: string
+  userId: string
+  userEmail: string
+  userName: string
   amountCents: number
   listPriceCents: number
   courseDiscountPercent: number
   promoCode: string | null
   promoDiscountPercent: number
   refunded: boolean
+}
+
+export type OrdersFilter = {
+  search?: string
+  fromDate?: string
+  toDate?: string
 }
 
 export type RefundOrderResult = {
@@ -32,13 +42,17 @@ export class OrdersService {
     private readonly enrollments: Repository<EnrollmentEntity>,
     @InjectRepository(CourseEntity)
     private readonly courses: Repository<CourseEntity>,
+    @InjectRepository(UserEntity)
+    private readonly users: Repository<UserEntity>,
     private readonly stripe: StripeService,
   ) {}
 
   private async toOrderRows(list: EnrollmentEntity[]): Promise<OrderRow[]> {
     const byCourse = new Map((await this.courses.find()).map((c) => [c.id, c]))
+    const byUser = new Map((await this.users.find()).map((u) => [u.id, u]))
     return list.map((e) => {
       const course = byCourse.get(e.courseId)
+      const user = byUser.get(e.userId)
       const listPrice = e.listPriceCents ?? course?.priceCents ?? 0
       const paid = e.amountPaidCents ?? (isStripePaidOrderId(e.orderId) ? listPrice : 0)
       return {
@@ -46,6 +60,9 @@ export class OrdersService {
         purchasedAt: e.purchasedAt.toISOString(),
         courseId: e.courseId,
         courseTitle: course?.title ?? e.courseId,
+        userId: e.userId,
+        userEmail: user?.email ?? '',
+        userName: user?.name ?? '',
         amountCents: paid,
         listPriceCents: listPrice,
         courseDiscountPercent: e.courseDiscountPercent ?? 0,
@@ -56,9 +73,30 @@ export class OrdersService {
     })
   }
 
-  async list(): Promise<OrderRow[]> {
+  async list(filter?: OrdersFilter): Promise<OrderRow[]> {
     const list = await this.enrollments.find({ order: { purchasedAt: 'DESC' } })
-    return this.toOrderRows(list)
+    let rows = await this.toOrderRows(list)
+
+    if (filter?.search) {
+      const q = filter.search.toLowerCase()
+      rows = rows.filter(
+        (r) =>
+          r.userEmail.toLowerCase().includes(q) ||
+          r.userName.toLowerCase().includes(q) ||
+          r.courseTitle.toLowerCase().includes(q),
+      )
+    }
+    if (filter?.fromDate) {
+      const from = new Date(filter.fromDate)
+      rows = rows.filter((r) => new Date(r.purchasedAt) >= from)
+    }
+    if (filter?.toDate) {
+      const to = new Date(filter.toDate)
+      to.setHours(23, 59, 59, 999)
+      rows = rows.filter((r) => new Date(r.purchasedAt) <= to)
+    }
+
+    return rows
   }
 
   async listForUser(userId: string): Promise<OrderRow[]> {

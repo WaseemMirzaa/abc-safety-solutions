@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ShoppingBag } from 'lucide-react'
+import { Search, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { ApiError } from '@/api/client'
 import { OrderDiscountSummary } from '@/components/OrderDiscountSummary'
@@ -12,7 +12,19 @@ import { t } from '@/i18n/t'
 
 export function AdminOrdersPage() {
   const qc = useQueryClient()
-  const { data: rows = [], isLoading } = useQuery({ queryKey: qk.adminOrders, queryFn: fetchAdminOrders })
+  const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+
+  const filterParams = {
+    search: search.trim() || undefined,
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined,
+  }
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: [qk.adminOrders, filterParams],
+    queryFn: () => fetchAdminOrders(filterParams),
+  })
   const [selected, setSelected] = useState<AdminOrderRow | null>(null)
   const [refundBusy, setRefundBusy] = useState(false)
   const [refundErr, setRefundErr] = useState<string | null>(null)
@@ -22,7 +34,7 @@ export function AdminOrdersPage() {
     setRefundBusy(true)
     try {
       await adminToggleOrderRefund(order.orderId)
-      await qc.invalidateQueries({ queryKey: qk.adminOrders })
+      await qc.invalidateQueries({ queryKey: [qk.adminOrders] })
       await qc.invalidateQueries({ queryKey: qk.adminStats })
       await qc.invalidateQueries({ queryKey: qk.enrollments })
       setSelected(null)
@@ -49,12 +61,47 @@ export function AdminOrdersPage() {
         </div>
       </div>
 
-      <div className="mt-10 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+      <div className="mt-8 flex flex-wrap items-end gap-3">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            className="input-pro w-full pl-9"
+            placeholder="Search customer or course…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            className="input-pro"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            title="From date"
+          />
+          <span className="text-slate-400 text-sm">–</span>
+          <input
+            type="date"
+            className="input-pro"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            title="To date"
+          />
+        </div>
+        {(search || fromDate || toDate) ? (
+          <Button variant="secondary" className="!py-2 !text-xs" onClick={() => { setSearch(''); setFromDate(''); setToDate('') }}>
+            Clear
+          </Button>
+        ) : null}
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               <th className="px-4 py-3">{t('AdminOrdersPage_44_order_id_89623dd0a9')}</th>
               <th className="px-4 py-3">{t('AdminOrdersPage_45_date_a4dc3d7517')}</th>
+              <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">{t('AdminOrdersPage_46_course_6f94e4bfbe')}</th>
               <th className="px-4 py-3">{t('AdminOrdersPage_47_amount_d6ae69df48')}</th>
               <th className="px-4 py-3">{t('AdminOrdersPage_48_status_fe354faa98')}</th>
@@ -64,14 +111,14 @@ export function AdminOrdersPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
                   Loading…
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
-                  No orders yet.
+                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                  No orders found.
                 </td>
               </tr>
             ) : (
@@ -83,6 +130,10 @@ export function AdminOrdersPage() {
                 >
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{r.orderId}</td>
                   <td className="px-4 py-3 text-slate-600">{new Date(r.purchasedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-brand-900">{r.userName || '—'}</p>
+                    <p className="text-xs text-slate-500">{r.userEmail}</p>
+                  </td>
                   <td className="px-4 py-3 font-medium text-brand-900">{r.courseTitle}</td>
                   <td className="px-4 py-3">
                     {formatUsd(r.amountCents)}
@@ -119,6 +170,11 @@ export function AdminOrdersPage() {
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_103_purchased_1bed5d0c8a')}</dt>
                   <dd className="mt-1 text-slate-800">{new Date(selected.purchasedAt).toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">Customer</dt>
+                  <dd className="mt-1 text-slate-800">{selected.userName || '—'}</dd>
+                  <dd className="text-xs text-slate-500">{selected.userEmail}</dd>
                 </div>
                 <div>
                   <dt className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminOrdersPage_107_course_cfaadefe5b')}</dt>

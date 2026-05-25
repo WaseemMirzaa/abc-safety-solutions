@@ -573,12 +573,10 @@ export function LearnPage() {
   const pptxNavLocked = Boolean(isImageUnit && !pptxReady)
   const canTakeKnowledgeCheck =
     customTestReady && contentComplete && slidesLoaded && (videoOnlyCourse || (isLastSlide && canGoNext))
+  const dwellSecsRemaining = Math.max(0, Math.ceil(LEARNER_SLIDE_DWELL_SEC - dwellElapsedSec))
   const dwellHint =
     isImageUnit && !dwellReady
-      ? t('ui_learn_dwell_wait', {
-          seconds: LEARNER_SLIDE_DWELL_SEC,
-          defaultValue: 'Stay on this slide for {{seconds}} seconds to continue.',
-        })
+      ? `${dwellSecsRemaining} second${dwellSecsRemaining !== 1 ? 's' : ''} remaining — hold on this slide to continue`
       : isVideoUnit && !canGoNext
         ? t('ui_learn_video_watch_full', {
             defaultValue: 'Watch the full video to continue.',
@@ -675,7 +673,7 @@ export function LearnPage() {
                       current: slideNum,
                       total: totalSlides,
                       pct: courseProgressPct,
-                      defaultValue: 'Step {{current}} of {{total}} · {{pct}}% complete',
+                      defaultValue: 'Slide {{current}} of {{total}} · {{pct}}% complete',
                     })
                   : t('ui_learn_course_progress_pct', {
                       pct: courseProgressPct,
@@ -685,10 +683,10 @@ export function LearnPage() {
                   <span className="text-slate-600">
                     {' '}
                     ·{' '}
-                    {t('ui_learn_test_attempts_left', {
-                      n: enrollment.testAttemptsRemaining ?? 3,
-                      defaultValue: '{{n}} knowledge-check attempt(s) left (per purchase)',
-                    })}
+                    {(() => {
+                      const n = enrollment.testAttemptsRemaining ?? 3
+                      return `${n} quiz attempt${n !== 1 ? 's' : ''} remaining`
+                    })()}
                   </span>
                 ) : null}
               </p>
@@ -918,10 +916,7 @@ export function LearnPage() {
                 />
               </div>
               <p className="mt-1 text-center text-xs text-amber-300/80">
-                {t('ui_learn_dwell_wait', {
-                  seconds: Math.max(0, Math.ceil(LEARNER_SLIDE_DWELL_SEC - dwellElapsedSec)),
-                  defaultValue: 'Stay on this slide for {{seconds}} seconds to continue.',
-                })}
+                {`${dwellSecsRemaining} second${dwellSecsRemaining !== 1 ? 's' : ''} remaining — hold on this slide to continue`}
               </p>
             </div>
           ) : null}

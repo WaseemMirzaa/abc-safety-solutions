@@ -94,8 +94,30 @@ export function CertificateViewPage() {
         </div>
 
         <div className="certificate-print-surface mx-auto mt-8 max-w-4xl rounded-lg bg-white p-2 shadow-sm sm:p-4 print:mt-0 print:max-w-none print:rounded-none print:p-0 print:shadow-none">
-          <CertificateVisual cert={cert} categories={categoryList} />
+          {cert.fileUrl ? (
+            cert.fileUrl.toLowerCase().endsWith('.pdf') ? (
+              <iframe
+                src={cert.fileUrl}
+                title="Certificate"
+                className="w-full rounded-lg"
+                style={{ minHeight: '70vh' }}
+              />
+            ) : (
+              <img
+                src={cert.fileUrl}
+                alt="Certificate"
+                className="mx-auto max-w-full rounded-lg shadow-sm"
+              />
+            )
+          ) : (
+            <CertificateVisual cert={cert} categories={categoryList} />
+          )}
         </div>
+        {cert.fileUrl ? (
+          <div className="mx-auto mt-4 max-w-4xl rounded-lg border border-slate-200 bg-slate-50/60 p-4 print:hidden">
+            <CertificateVisual cert={cert} categories={categoryList} variant="compact" />
+          </div>
+        ) : null}
       </Container>
     </div>
   )

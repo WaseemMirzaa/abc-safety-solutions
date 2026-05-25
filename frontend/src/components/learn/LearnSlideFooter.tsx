@@ -122,8 +122,8 @@ export function LearnSlideFooter({
         </div>
 
         <Button
-          variant="secondary"
-          className="!rounded-xl !px-3"
+          variant={canGoNext && !isLastSlide ? 'primary' : 'secondary'}
+          className={`!rounded-xl !px-3 transition-all duration-300 ${canGoNext && !isLastSlide ? '!bg-emerald-500 !text-white !border-emerald-500 !shadow-emerald-500/30 !shadow-md' : ''}`}
           disabled={isLastSlide || pptxNavLocked || !canGoNext}
           onClick={onNext}
           aria-label={t('ui_learn_next')}

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { EnrollmentEntity } from '../entities/enrollment.entity'
 import { CourseEntity } from '../entities/course.entity'
 import { CertificateEntity } from '../entities/certificate.entity'
+import { UserEntity } from '../entities/user.entity'
 import { OrdersService } from './orders.service'
 import { OrdersController } from './orders.controller'
 import { AdminStatsController } from './admin-stats.controller'
@@ -11,7 +12,7 @@ import { StripeModule } from '../stripe/stripe.module'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([EnrollmentEntity, CourseEntity, CertificateEntity]),
+    TypeOrmModule.forFeature([EnrollmentEntity, CourseEntity, CertificateEntity, UserEntity]),
     StripeModule,
   ],
   controllers: [OrdersController, AdminStatsController, MeOrdersController],

@@ -1,0 +1,1 @@
+-- Handled by migrate_certificate_file_url() in scripts/run-db-migrations.sh

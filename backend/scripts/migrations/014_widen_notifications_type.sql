@@ -1,0 +1,2 @@
+-- Handled by migrate_widen_notifications_type() in scripts/run-db-migrations.sh
+-- Widens notifications.type from VARCHAR(32) to VARCHAR(100) to support cert_expiry_{uuid}_{days} keys

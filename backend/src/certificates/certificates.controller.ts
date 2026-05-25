@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { IsOptional, IsString, MinLength } from 'class-validator'
 import { CurrentUser } from '../common/current-user.decorator'
@@ -28,9 +28,18 @@ export class CertificatesController {
   @Post('manual')
   createManual(
     @CurrentUser() u: { id: string; name: string },
-    @Body() body: { courseName: string; issuedAt?: string; expiresAt?: string | null; notes?: string },
+    @Body() body: { courseName: string; issuedAt?: string; expiresAt?: string | null; notes?: string; fileUrl?: string | null },
   ) {
     return this.certs.createManual(u.id, u.name, body)
+  }
+
+  @Put('manual/:id')
+  updateManual(
+    @CurrentUser() u: { id: string },
+    @Param('id') id: string,
+    @Body() body: { courseName?: string; issuedAt?: string; expiresAt?: string | null; notes?: string; fileUrl?: string | null },
+  ) {
+    return this.certs.updateManual(u.id, id, body)
   }
 
   @Delete('manual/:id')

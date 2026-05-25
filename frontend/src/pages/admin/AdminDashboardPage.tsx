@@ -15,7 +15,7 @@ export function AdminDashboardPage() {
   const qPub = useQuery({ queryKey: qk.courses, queryFn: fetchPublishedCourses })
   const qCat = useQuery({ queryKey: qk.categories, queryFn: fetchCategories })
   const qTests = useQuery({ queryKey: qk.adminTests, queryFn: fetchAdminTests })
-  const qOrders = useQuery({ queryKey: qk.adminOrders, queryFn: fetchAdminOrders })
+  const qOrders = useQuery({ queryKey: qk.adminOrders, queryFn: () => fetchAdminOrders() })
   const qStats = useQuery({ queryKey: qk.adminStats, queryFn: fetchAdminStats })
 
   const purchases = qStats.data?.enrollments ?? qOrders.data?.length ?? 0

@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { Bell, Menu, X } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { useAuth } from '@/contexts/AuthContext'
+import { useNotificationSocket } from '@/contexts/NotificationSocketContext'
 import { t } from '@/i18n/t'
 import { brandLogoCustomer } from '@/config/brandAssets'
 
 const navPublic = [
   { to: '/courses', labelKey: 'ui_nav_courses', defaultLabel: 'Courses' },
   { to: '/my-courses', labelKey: 'ui_nav_my_learning', defaultLabel: 'My learning' },
-  { to: '/notifications', labelKey: 'ui_nav_notifications', defaultLabel: 'Notifications' },
   { to: '/certificates', labelKey: 'ui_nav_certificates', defaultLabel: 'Certificates' },
   { to: '/verify-certificate', labelKey: 'ui_nav_verify_certificate', defaultLabel: 'Verify certificate' },
 ] as const
@@ -33,6 +33,7 @@ function linkClass({ isActive }: { isActive: boolean }) {
 
 export function SiteHeader() {
   const { user, logout } = useAuth()
+  const { unreadCount } = useNotificationSocket()
   const [open, setOpen] = useState(false)
 
   return (
@@ -60,6 +61,16 @@ export function SiteHeader() {
               {navLabel(n)}
             </NavLink>
           ))}
+          <NavLink to="/notifications" className={linkClass} aria-label={t('ui_nav_notifications', { defaultValue: 'Notifications' })}>
+            <div className="relative flex items-center justify-center">
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </div>
+          </NavLink>
           {user
             ? navAuthed.map((n) => (
                 <NavLink key={n.to} to={n.to} className={linkClass}>
@@ -124,6 +135,21 @@ export function SiteHeader() {
                 {navLabel(n)}
               </NavLink>
             ))}
+            <NavLink
+              to="/notifications"
+              className="flex items-center gap-2 rounded-xl px-4 py-3.5 text-slate-800"
+              onClick={() => setOpen(false)}
+            >
+              <div className="relative flex items-center justify-center">
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
+              {t('ui_nav_notifications', { defaultValue: 'Notifications' })}
+            </NavLink>
             {user
               ? navAuthed.map((n) => (
                   <NavLink

@@ -7,6 +7,7 @@ import { easeOut, transition } from '@/lib/motionPresets'
 import { t } from '@/i18n/t'
 import {
   displayCategoryName,
+  displayContentBreakdown,
   displayCourseImageUrl,
   displayCourseSummary,
   displayCourseTitle,
@@ -28,6 +29,7 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
   const cat = findCategory(categories, course.categoryId)
   const catDisplay = cat ? displayCategoryName(cat) : ''
   const slideCount = displaySlideCount(course)
+  const contentBreakdown = displayContentBreakdown(course)
   const shortCat = cat
     ? `${catDisplay.split('(')[0].trim().slice(0, 26)}${catDisplay.length > 26 ? '…' : ''}`
     : ''
@@ -82,9 +84,11 @@ export function CourseCard({ course, categories = [], entrance = true }: Props) 
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2 py-0.5 text-slate-600">
             <Layers className="h-3 w-3 text-sky-600" />
-            {slideCount != null
-              ? t('ui_course_card_slide_count', { count: slideCount })
-              : t('ui_course_card_self_paced', { defaultValue: 'Self-paced' })}
+            {contentBreakdown != null
+              ? contentBreakdown
+              : slideCount != null
+                ? t('ui_course_card_slide_count', { count: slideCount })
+                : t('ui_course_card_self_paced', { defaultValue: 'Self-paced' })}
           </span>
         </div>
         <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-slate-100/90 pt-2.5">

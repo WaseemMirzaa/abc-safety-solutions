@@ -38,4 +38,8 @@ export class CertificateEntity {
   /** Public numeric ID shown as #100001; unique across all certificates. */
   @Column({ type: 'int', unique: true })
   certificateNumber: number
+
+  /** URL of an uploaded certificate file (image or PDF) for manual certs. */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  fileUrl: string | null
 }

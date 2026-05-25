@@ -9,6 +9,7 @@ import {
   isPptxDeckCourse,
   isVideoCourse,
 } from '@/lib/courseSlides'
+import { computeCourseContentMetrics, getContentPlaylist } from '@/lib/courseContent'
 import { resolveMediaUrl } from '@/lib/mediaUrl'
 import {
   localizedCategoryName,
@@ -72,6 +73,19 @@ export function displaySlideCount(course: Course): number | null {
   if (deck?.deckSlideCount && deck.deckSlideCount > 0) return deck.deckSlideCount
   if (isPptxDeckCourse(course) || isPdfDeckCourse(course)) return getCourseSlideCount(course)
   return slides.length
+}
+
+/** Returns "2 PDFs · 1 video" style string, or null if no content uploaded. */
+export function displayContentBreakdown(course: Course): string | null {
+  const slides = getCourseSlides(course)
+  if (!slides.length) return null
+  const playlist = getContentPlaylist(slides)
+  if (!playlist.length) return null
+  const { pdfFileCount, videoCount } = computeCourseContentMetrics(slides)
+  const parts: string[] = []
+  if (pdfFileCount > 0) parts.push(`${pdfFileCount} PDF${pdfFileCount !== 1 ? 's' : ''}`)
+  if (videoCount > 0) parts.push(`${videoCount} video${videoCount !== 1 ? 's' : ''}`)
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 export function displaySlidesLabel(course: Course): string {

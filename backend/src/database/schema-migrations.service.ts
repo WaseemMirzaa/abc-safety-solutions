@@ -18,6 +18,8 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.ensureTestAttempts()
     await this.ensureNotificationsAndManualCerts()
     await this.ensureAdminUserInsights()
+    await this.ensureCertificateFileUrl()
+    await this.ensureNotificationsTypeWide()
   }
 
   private async ensureCourseLanguages() {
@@ -280,6 +282,35 @@ export class SchemaMigrationsService implements OnModuleInit {
       this.log.warn('certificates.courseId still NOT NULL; correcting')
       await this.dataSource.query(
         `ALTER TABLE certificates MODIFY COLUMN courseId VARCHAR(36) NULL`,
+      )
+    }
+  }
+
+  /** 014 — widen notifications.type from VARCHAR(32) to VARCHAR(100) for cert_expiry keys. */
+  private async ensureNotificationsTypeWide() {
+    const rows = await this.dataSource.query<{ len: number | string }[]>(
+      `SELECT CHARACTER_MAXIMUM_LENGTH AS len FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'notifications' AND COLUMN_NAME = 'type'`,
+    )
+    const len = Number(rows[0]?.len ?? 0)
+    if (len > 0 && len < 100) {
+      this.log.warn(`notifications.type is VARCHAR(${len}); widening to VARCHAR(100)`)
+      await this.dataSource.query(
+        `ALTER TABLE notifications MODIFY COLUMN type VARCHAR(100) NOT NULL DEFAULT 'announcement'`,
+      )
+    }
+  }
+
+  /** 013 — certificates.fileUrl for manual certificate image/PDF uploads. */
+  private async ensureCertificateFileUrl() {
+    const col = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'certificates' AND COLUMN_NAME = 'fileUrl'`,
+    )
+    if (Number(col[0]?.n ?? 0) === 0) {
+      this.log.log('Adding certificates.fileUrl')
+      await this.dataSource.query(
+        `ALTER TABLE certificates ADD COLUMN fileUrl VARCHAR(500) NULL`,
       )
     }
   }

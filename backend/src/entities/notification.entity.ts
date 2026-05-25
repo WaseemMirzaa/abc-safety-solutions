@@ -14,7 +14,7 @@ export class NotificationEntity {
   @Column({ type: 'text' })
   body: string
 
-  @Column({ type: 'varchar', length: 32, default: 'announcement' })
+  @Column({ type: 'varchar', length: 100, default: 'announcement' })
   type: string
 
   @Column({ default: false })

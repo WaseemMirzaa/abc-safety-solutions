@@ -331,6 +331,28 @@ migrate_notifications_and_manual_certs() {
   fi
 }
 
+migrate_certificate_file_url() {
+  local col
+  col="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='certificates' AND COLUMN_NAME='fileUrl';")"
+  if [ "${col:-0}" = "0" ]; then
+    echo "   013 — adding certificates.fileUrl"
+    mysql_scalar "ALTER TABLE certificates ADD COLUMN fileUrl VARCHAR(500) NULL;" >/dev/null
+  else
+    echo "   013 — certificates.fileUrl already exists (skip)"
+  fi
+}
+
+migrate_widen_notifications_type() {
+  local len
+  len="$(mysql_scalar "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='notifications' AND COLUMN_NAME='type';")"
+  if [ -n "${len}" ] && [ "${len:-100}" -lt 100 ]; then
+    echo "   014 — widening notifications.type from VARCHAR(${len}) to VARCHAR(100)"
+    mysql_scalar "ALTER TABLE notifications MODIFY COLUMN type VARCHAR(100) NOT NULL DEFAULT 'announcement';" >/dev/null
+  else
+    echo "   014 — notifications.type already wide enough (skip)"
+  fi
+}
+
 migrate_courses_slides() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='slides';")"
@@ -372,6 +394,8 @@ for f in "${files[@]}"; do
     010_test_attempts_and_enrollment_limits.sql) migrate_test_attempts ;;
     011_notifications_and_manual_certs.sql) migrate_notifications_and_manual_certs ;;
     012_admin_user_insights.sql) migrate_admin_user_insights ;;
+    013_certificate_file_url.sql) migrate_certificate_file_url ;;
+    014_widen_notifications_type.sql) migrate_widen_notifications_type ;;
     *)
       echo "   $base"
       mysql_file "$f"

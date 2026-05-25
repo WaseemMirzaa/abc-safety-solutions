@@ -9,12 +9,12 @@ import {
   type ReactNode,
 } from 'react'
 import { io, type Socket } from 'socket.io-client'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getToken } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { useAuth } from '@/contexts/AuthContext'
+import { fetchNotifications } from '@/api/localData'
 import {
-  ensureNotificationPermission,
   registerNotificationServiceWorker,
   showBackgroundNotification,
 } from '@/lib/notificationBackground'
@@ -23,12 +23,16 @@ import type { AppNotification } from '@/types'
 type Ctx = {
   connected: boolean
   unreadCount: number
+  notificationPermission: NotificationPermission | 'unsupported'
+  requestNotificationPermission: () => Promise<void>
   playSound: () => void
 }
 
 const NotificationSocketContext = createContext<Ctx>({
   connected: false,
   unreadCount: 0,
+  notificationPermission: 'default',
+  requestNotificationPermission: async () => {},
   playSound: () => {},
 })
 
@@ -52,27 +56,46 @@ function playNotificationSound() {
   }
 }
 
+function getInitialPermission(): NotificationPermission | 'unsupported' {
+  if (typeof Notification === 'undefined') return 'unsupported'
+  return Notification.permission
+}
+
 export function NotificationSocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const qc = useQueryClient()
   const socketRef = useRef<Socket | null>(null)
   const [connected, setConnected] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
+    getInitialPermission,
+  )
+
+  const { data: notificationsList = [] } = useQuery({
+    queryKey: qk.notifications,
+    queryFn: fetchNotifications,
+    enabled: Boolean(user),
+  })
+  const unreadCount = notificationsList.filter((n) => !n.read).length
+
+  const requestNotificationPermission = useCallback(async () => {
+    if (typeof Notification === 'undefined') return
+    if (Notification.permission === 'granted') {
+      setNotificationPermission('granted')
+      return
+    }
+    try {
+      const result = await Notification.requestPermission()
+      setNotificationPermission(result)
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   const playSound = useCallback(() => playNotificationSound(), [])
 
   useEffect(() => {
     void registerNotificationServiceWorker()
   }, [])
-
-  useEffect(() => {
-    const list = qc.getQueryData<AppNotification[]>(qk.notifications)
-    if (list) setUnreadCount(list.filter((n) => !n.read).length)
-  }, [qc])
-
-  useEffect(() => {
-    if (user) void ensureNotificationPermission()
-  }, [user?.email])
 
   useEffect(() => {
     if (!user) {
@@ -104,7 +127,6 @@ export function NotificationSocketProvider({ children }: { children: ReactNode }
         if (old.some((n) => n.id === payload.id)) return old
         return [payload, ...old]
       })
-      setUnreadCount((c) => c + 1)
     })
     socket.on('pong', () => {})
 
@@ -127,8 +149,8 @@ export function NotificationSocketProvider({ children }: { children: ReactNode }
   }, [user?.email, qc])
 
   const value = useMemo(
-    () => ({ connected, unreadCount, playSound }),
-    [connected, unreadCount, playSound],
+    () => ({ connected, unreadCount, notificationPermission, requestNotificationPermission, playSound }),
+    [connected, unreadCount, notificationPermission, requestNotificationPermission, playSound],
   )
 
   return (

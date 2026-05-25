@@ -19,6 +19,8 @@ export function AdminAnnouncementsPage() {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+  const [sendingId, setSendingId] = useState<string | null>(null)
+  const [sentResult, setSentResult] = useState<{ id: string; count: number } | null>(null)
 
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.adminAnnouncements })
 
@@ -40,8 +42,16 @@ export function AdminAnnouncementsPage() {
   }
 
   const markSent = async (a: Announcement) => {
-    await adminDispatchAnnouncement(a.id)
-    invalidate()
+    setSendingId(a.id)
+    setSentResult(null)
+    try {
+      const result = await adminDispatchAnnouncement(a.id)
+      setSentResult({ id: a.id, count: result.sent ?? 0 })
+      setTimeout(() => setSentResult(null), 4000)
+    } finally {
+      setSendingId(null)
+      invalidate()
+    }
   }
 
   const remove = async (id: string) => {
@@ -61,7 +71,7 @@ export function AdminAnnouncementsPage() {
           <div>
             <h1 className="font-display text-3xl font-bold text-brand-900">{t('AdminAnnouncementsPage_61_announcements_598d48da3e')}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Draft messages locally; email/push dispatch will use a queue when NestJS is connected.
+              Draft announcements then send them as real-time notifications to all users. Recipients see the notification instantly in their bell and on the Notifications page.
             </p>
           </div>
         </div>
@@ -105,10 +115,20 @@ export function AdminAnnouncementsPage() {
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
                   {a.status === 'draft' ? (
-                    <Button type="button" className="gap-1.5 !text-sm" onClick={() => void markSent(a)}>
+                    <Button
+                      type="button"
+                      className="gap-1.5 !text-sm"
+                      disabled={sendingId === a.id}
+                      onClick={() => void markSent(a)}
+                    >
                       <Send className="h-4 w-4" />
-                      Mark sent
+                      {sendingId === a.id ? 'Sending…' : 'Send to all users'}
                     </Button>
+                  ) : null}
+                  {sentResult?.id === a.id ? (
+                    <p className="text-xs font-medium text-emerald-700">
+                      ✓ Sent to {sentResult.count} user{sentResult.count !== 1 ? 's' : ''} in real-time
+                    </p>
                   ) : null}
                   <Button
                     type="button"

@@ -179,7 +179,13 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
         </Button>
         {slides.length > 0 ? (
           <span className="text-xs font-medium text-violet-900">
-            Duration (auto): {formatCourseDuration(metrics.durationMinutes)} · {metrics.slideCount} learner steps
+            Duration (auto): {formatCourseDuration(metrics.durationMinutes)}
+            {metrics.pdfFileCount > 0 || metrics.videoCount > 0 ? (
+              <> · {[
+                metrics.pdfFileCount > 0 ? `${metrics.pdfFileCount} PDF${metrics.pdfFileCount !== 1 ? 's' : ''}` : null,
+                metrics.videoCount > 0 ? `${metrics.videoCount} video${metrics.videoCount !== 1 ? 's' : ''}` : null,
+              ].filter(Boolean).join(' · ')} (= {metrics.slideCount} learner steps)</>
+            ) : null}
           </span>
         ) : null}
       </div>

@@ -150,6 +150,9 @@ export type AdminOrderRow = {
   purchasedAt: string
   courseId: string
   courseTitle: string
+  userId: string
+  userEmail: string
+  userName: string
   amountCents: number
   listPriceCents: number
   courseDiscountPercent: number
@@ -158,8 +161,19 @@ export type AdminOrderRow = {
   refunded: boolean
 }
 
-export async function fetchAdminOrders(): Promise<AdminOrderRow[]> {
-  return apiJson<AdminOrderRow[]>('/api/admin/orders')
+export type OrdersFilter = {
+  search?: string
+  fromDate?: string
+  toDate?: string
+}
+
+export async function fetchAdminOrders(filter?: OrdersFilter): Promise<AdminOrderRow[]> {
+  const params = new URLSearchParams()
+  if (filter?.search) params.set('search', filter.search)
+  if (filter?.fromDate) params.set('fromDate', filter.fromDate)
+  if (filter?.toDate) params.set('toDate', filter.toDate)
+  const qs = params.toString()
+  return apiJson<AdminOrderRow[]>(`/api/admin/orders${qs ? `?${qs}` : ''}`)
 }
 
 export async function fetchAdminStats(): Promise<{ enrollments: number; certificatesIssued: number }> {
@@ -603,14 +617,24 @@ export async function previewBulkTest(format: 'csv' | 'json', content: string) {
   )
 }
 
-export async function createManualCertificate(body: {
+type ManualCertBody = {
   courseName: string
   issuedAt?: string
   expiresAt?: string | null
   notes?: string
-}) {
+  fileUrl?: string | null
+}
+
+export async function createManualCertificate(body: ManualCertBody) {
   return apiJson<Certificate>('/api/certificates/manual', {
     method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function updateManualCertificate(id: string, body: Partial<ManualCertBody>) {
+  return apiJson<Certificate>(`/api/certificates/manual/${encodeURIComponent(id)}`, {
+    method: 'PUT',
     body: JSON.stringify(body),
   })
 }

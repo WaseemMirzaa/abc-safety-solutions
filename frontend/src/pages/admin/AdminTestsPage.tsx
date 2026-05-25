@@ -78,7 +78,7 @@ export function AdminTestsPage() {
   const [err, setErr] = useState('')
   const [bulkFormat, setBulkFormat] = useState<'csv' | 'json'>('csv')
   const [bulkContent, setBulkContent] = useState('')
-  const [copiedSample, setCopiedSample] = useState(false)
+  const [copiedSample, setCopiedSample] = useState<false | 'copied' | 'pasted'>(false)
   const [bulkPreview, setBulkPreview] = useState<{
     questions: TestQuestion[]
     errors: { row: number; message: string }[]
@@ -253,10 +253,10 @@ export function AdminTestsPage() {
                 const csv = [
                   'question,optionA,optionB,optionC,optionD,correctOption',
                   'What does PPE stand for?,Personal Protective Equipment,Protective Procedure Equipment,Personal Prevention Equipment,Public Protection Equipment,A',
-                  'What should you do immediately after discovering a chemical spill?,Ignore it and continue working,Report it and follow the spill response procedure,Clean it up yourself without PPE,Wait for someone else to handle it,B',
-                  'Which fire extinguisher class is designed for electrical fires?,Class A,Class B,Class C,Class D,C',
-                  'When must a near-miss incident be reported?,Only if someone was injured,Within 24 hours at your convenience,Immediately after it occurs,At the end of the week,C',
-                  'What is the correct technique for lifting a heavy object?,Bend at the waist and use arm strength,Keep your back straight and lift with your legs,Twist at the waist while lifting,Lift as fast as possible to minimize strain,B',
+                  'What should you do after a chemical spill?,Report it and follow spill response,Ignore it and continue working,B',
+                  'Which extinguisher class is for electrical fires?,Class A,Class B,Class C,C',
+                  'When must a near-miss be reported?,Only if injured,Within 24 hours,Immediately after it occurs,At week end,C',
+                  'Correct lifting technique?,Bend at waist,Keep back straight and lift with legs,B',
                 ].join('\n')
                 const blob = new Blob([csv], { type: 'text/csv' })
                 const url = URL.createObjectURL(blob)
@@ -305,14 +305,16 @@ export function AdminTestsPage() {
                   2,
                 )
                 navigator.clipboard.writeText(json).then(() => {
-                  setCopiedSample(true)
+                  setCopiedSample('copied')
                   setTimeout(() => setCopiedSample(false), 2000)
                 }).catch(() => {
                   setBulkContent(json)
+                  setCopiedSample('pasted')
+                  setTimeout(() => setCopiedSample(false), 2500)
                 })
               }}
             >
-              {copiedSample ? 'Copied!' : 'Copy sample JSON'}
+              {copiedSample === 'copied' ? 'Copied!' : copiedSample === 'pasted' ? 'Pasted to textarea ↓' : 'Copy sample JSON'}
             </Button>
           )}
         </div>

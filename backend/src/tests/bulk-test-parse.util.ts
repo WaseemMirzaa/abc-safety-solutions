@@ -70,24 +70,28 @@ export function parseBulkTestCsv(raw: string): BulkParseResult {
   dataLines.forEach((line, i) => {
     const row = hasHeader ? i + 2 : i + 1
     const cols = line.split(',').map((c) => c.trim().replace(/^"|"$/g, ''))
-    if (cols.length < 6) {
-      errors.push({ row, message: 'Need question, optionA-D, correctOption columns' })
+    // Need at least: question + 2 options + correctOption = 4 columns
+    if (cols.length < 4) {
+      errors.push({ row, message: 'Need question, at least 2 options, and correctOption columns' })
       return
     }
-    const [question, a, b, c, d, correct] = cols
+    const question = cols[0]
+    const correctKey = cols[cols.length - 1].toUpperCase()
+    const optionCols = cols.slice(1, cols.length - 1)
     if (!question) {
       errors.push({ row, message: 'Missing question' })
       return
     }
-    const correctKey = correct.toUpperCase()
-    const opts = [
-      { label: a, key: 'A' },
-      { label: b, key: 'B' },
-      { label: c, key: 'C' },
-      { label: d, key: 'D' },
-    ].filter((o) => o.label)
+    const keyNames = ['A', 'B', 'C', 'D']
+    const opts = optionCols
+      .map((label, idx) => ({ label, key: keyNames[idx] ?? String(idx + 1) }))
+      .filter((o) => o.label)
     if (opts.length < 2) {
       errors.push({ row, message: 'Need at least 2 options' })
+      return
+    }
+    if (!opts.some((o) => o.key === correctKey)) {
+      errors.push({ row, message: `correctOption "${correctKey}" does not match any option key (A-D)` })
       return
     }
     questions.push(

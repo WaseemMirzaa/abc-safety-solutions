@@ -118,6 +118,8 @@ export type Certificate = {
   /** ISO date when the credential expires, if configured on the course. */
   expiresAt?: string | null
   userId?: string
+  /** URL of an uploaded certificate image or PDF (manual certs only). */
+  fileUrl?: string | null
 }
 
 export type MediaAsset = {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
+import { ScheduleModule } from '@nestjs/schedule'
 import { join } from 'path'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { UserEntity } from './entities/user.entity'
@@ -41,6 +42,7 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
       isGlobal: true,
       envFilePath: [join(process.cwd(), '.env'), join(process.cwd(), '../.env')],
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

@@ -5,6 +5,8 @@ export const LEARNER_SLIDE_DWELL_SEC = 30
 
 export type CourseContentMetrics = {
   slideCount: number
+  pdfFileCount: number
+  videoCount: number
   durationMinutes: number
   durationSeconds: number
 }
@@ -39,21 +41,27 @@ export function getContentPlaylist(slides: CourseSlide[]): CourseSlide[] {
 export function computeCourseContentMetrics(slides: CourseSlide[]): CourseContentMetrics {
   const playlist = getContentPlaylist(slides)
   let slideCount = 0
+  let pdfFileCount = 0
+  let videoCount = 0
   let durationSeconds = 0
 
   for (const slide of playlist) {
     if (slide.type === 'pdf') {
       const pages = pdfPages(slide)
       slideCount += pages
+      pdfFileCount += 1
       durationSeconds += pages * LEARNER_SLIDE_DWELL_SEC
     } else if (slide.type === 'video') {
       slideCount += 1
+      videoCount += 1
       durationSeconds += videoSeconds(slide)
     }
   }
 
   return {
     slideCount: Math.max(slideCount, playlist.length > 0 ? 1 : 0),
+    pdfFileCount,
+    videoCount,
     durationSeconds,
     durationMinutes: Math.max(1, Math.ceil(durationSeconds / 60)),
   }

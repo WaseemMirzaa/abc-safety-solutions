@@ -127,7 +127,7 @@ export class CertificatesService {
   async createManual(
     userId: string,
     userName: string,
-    body: { courseName: string; issuedAt?: string; expiresAt?: string | null; notes?: string },
+    body: { courseName: string; issuedAt?: string; expiresAt?: string | null; notes?: string; fileUrl?: string | null },
   ) {
     const name = body.courseName?.trim()
     if (!name) throw new BadRequestException('Course name is required')
@@ -148,7 +148,28 @@ export class CertificatesService {
       expiresAt,
       source: 'manual',
       notes: body.notes?.trim() || null,
+      fileUrl: body.fileUrl?.trim() || null,
     })
+    return this.certs.save(row)
+  }
+
+  async updateManual(
+    userId: string,
+    certId: string,
+    body: { courseName?: string; issuedAt?: string; expiresAt?: string | null; notes?: string; fileUrl?: string | null },
+  ) {
+    const row = await this.certs.findOne({ where: { id: certId, userId } })
+    if (!row) throw new NotFoundException('Certificate not found')
+    if (row.source !== 'manual') throw new BadRequestException('Only manually added certificates can be edited')
+    if (body.courseName !== undefined) {
+      const name = body.courseName.trim()
+      if (!name) throw new BadRequestException('Course name is required')
+      row.courseName = name
+    }
+    if (body.issuedAt !== undefined) row.issuedAt = new Date(body.issuedAt)
+    if (body.expiresAt !== undefined) row.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null
+    if (body.notes !== undefined) row.notes = body.notes.trim() || null
+    if (body.fileUrl !== undefined) row.fileUrl = body.fileUrl?.trim() || null
     return this.certs.save(row)
   }
 
