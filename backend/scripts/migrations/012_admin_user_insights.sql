@@ -1,0 +1,1 @@
+-- Handled by migrate_admin_user_insights() in scripts/run-db-migrations.sh

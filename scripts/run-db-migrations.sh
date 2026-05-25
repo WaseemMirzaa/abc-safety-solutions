@@ -245,6 +245,47 @@ migrate_test_attempts() {
   fi
 }
 
+migrate_admin_user_insights() {
+  # 1. test_attempts.enrollmentId — may be absent on older deployments
+  local col
+  col="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='test_attempts' AND COLUMN_NAME='enrollmentId';")"
+  if [ "${col:-0}" = "0" ]; then
+    echo "   012 — adding test_attempts.enrollmentId"
+    mysql_scalar "ALTER TABLE test_attempts ADD COLUMN enrollmentId VARCHAR(36) NOT NULL DEFAULT '';" >/dev/null
+  else
+    echo "   012 — test_attempts.enrollmentId already exists (skip)"
+  fi
+
+  # 2. Index on test_attempts(enrollmentId)
+  local idx
+  idx="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='test_attempts' AND INDEX_NAME='IDX_test_attempts_enrollment';")"
+  if [ "${idx:-0}" = "0" ]; then
+    echo "   012 — adding IDX_test_attempts_enrollment index"
+    mysql_scalar "ALTER TABLE test_attempts ADD KEY IDX_test_attempts_enrollment (enrollmentId);" >/dev/null
+  else
+    echo "   012 — IDX_test_attempts_enrollment already exists (skip)"
+  fi
+
+  # 3. Index on certificates(userId, courseId)
+  idx="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='certificates' AND INDEX_NAME='IDX_certificates_user_course';")"
+  if [ "${idx:-0}" = "0" ]; then
+    echo "   012 — adding IDX_certificates_user_course index"
+    mysql_scalar "ALTER TABLE certificates ADD KEY IDX_certificates_user_course (userId, courseId);" >/dev/null
+  else
+    echo "   012 — IDX_certificates_user_course already exists (skip)"
+  fi
+
+  # 4. Ensure certificates.courseId is nullable (defensive)
+  local nullable
+  nullable="$(mysql_scalar "SELECT IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='certificates' AND COLUMN_NAME='courseId';")"
+  if [ "${nullable}" = "NO" ]; then
+    echo "   012 — making certificates.courseId nullable"
+    mysql_scalar "ALTER TABLE certificates MODIFY COLUMN courseId VARCHAR(36) NULL;" >/dev/null
+  else
+    echo "   012 — certificates.courseId already nullable (skip)"
+  fi
+}
+
 migrate_notifications_and_manual_certs() {
   local tbl
   tbl="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='notifications';")"
@@ -330,6 +371,7 @@ for f in "${files[@]}"; do
     009_discounts_and_promo_codes.sql) migrate_discounts_and_promo_codes ;;
     010_test_attempts_and_enrollment_limits.sql) migrate_test_attempts ;;
     011_notifications_and_manual_certs.sql) migrate_notifications_and_manual_certs ;;
+    012_admin_user_insights.sql) migrate_admin_user_insights ;;
     *)
       echo "   $base"
       mysql_file "$f"

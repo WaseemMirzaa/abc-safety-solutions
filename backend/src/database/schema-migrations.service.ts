@@ -17,6 +17,7 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.ensureEnrollmentPricingColumns()
     await this.ensureTestAttempts()
     await this.ensureNotificationsAndManualCerts()
+    await this.ensureAdminUserInsights()
   }
 
   private async ensureCourseLanguages() {
@@ -217,6 +218,69 @@ export class SchemaMigrationsService implements OnModuleInit {
     if (courseIdCol[0]?.nullable === 'NO') {
       this.log.warn('certificates.courseId is NOT NULL; allowing NULL for manual certificates')
       await this.dataSource.query(`ALTER TABLE certificates MODIFY COLUMN courseId VARCHAR(36) NULL`)
+    }
+  }
+
+  /**
+   * 012 — Admin user-insights improvements.
+   *
+   * Ensures:
+   *   1. test_attempts.enrollmentId column exists (may be absent on deployments
+   *      where the table was created before migration 010 was written).
+   *   2. Index on test_attempts(enrollmentId) for the course-grouped admin panel.
+   *   3. Index on certificates(userId, courseId) for fast per-user cert lookup.
+   *   4. certificates.courseId is nullable (defensive — 011 already handles this,
+   *      but a second guard is harmless).
+   */
+  private async ensureAdminUserInsights() {
+    // 1. test_attempts.enrollmentId
+    const enrollCol = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'test_attempts' AND COLUMN_NAME = 'enrollmentId'`,
+    )
+    if (Number(enrollCol[0]?.n ?? 0) === 0) {
+      this.log.warn('test_attempts.enrollmentId missing; adding column')
+      await this.dataSource.query(
+        `ALTER TABLE test_attempts ADD COLUMN enrollmentId VARCHAR(36) NOT NULL DEFAULT ''`,
+      )
+    }
+
+    // 2. Index on test_attempts(enrollmentId)
+    const enrollIdx = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'test_attempts'
+         AND INDEX_NAME = 'IDX_test_attempts_enrollment'`,
+    )
+    if (Number(enrollIdx[0]?.n ?? 0) === 0) {
+      this.log.log('Adding IDX_test_attempts_enrollment index')
+      await this.dataSource.query(
+        `ALTER TABLE test_attempts ADD KEY IDX_test_attempts_enrollment (enrollmentId)`,
+      )
+    }
+
+    // 3. Index on certificates(userId, courseId)
+    const certIdx = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'certificates'
+         AND INDEX_NAME = 'IDX_certificates_user_course'`,
+    )
+    if (Number(certIdx[0]?.n ?? 0) === 0) {
+      this.log.log('Adding IDX_certificates_user_course index')
+      await this.dataSource.query(
+        `ALTER TABLE certificates ADD KEY IDX_certificates_user_course (userId, courseId)`,
+      )
+    }
+
+    // 4. Defensive: ensure certificates.courseId is nullable
+    const certCourseId = await this.dataSource.query<{ nullable: string }[]>(
+      `SELECT IS_NULLABLE AS nullable FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'certificates' AND COLUMN_NAME = 'courseId'`,
+    )
+    if (certCourseId[0]?.nullable === 'NO') {
+      this.log.warn('certificates.courseId still NOT NULL; correcting')
+      await this.dataSource.query(
+        `ALTER TABLE certificates MODIFY COLUMN courseId VARCHAR(36) NULL`,
+      )
     }
   }
 }
