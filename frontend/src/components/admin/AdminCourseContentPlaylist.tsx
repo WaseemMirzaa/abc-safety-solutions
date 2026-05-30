@@ -150,6 +150,10 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
 
   const onDragEnd = () => setDragIdx(null)
 
+  const legacyWmvSlides = slides.filter(
+    (s) => s.type === 'video' && /\.(wmv|avi|mkv|flv)(\?|$)/i.test(s.url),
+  )
+
   return (
     <div className="rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
       <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
@@ -158,6 +162,13 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
       <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
         Add multiple PDFs and videos (MP4, MOV, WMV). Drag to reorder. PDF pages are converted when you save.
       </p>
+      {legacyWmvSlides.length > 0 && (
+        <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <strong>Action required:</strong> {legacyWmvSlides.length} video{legacyWmvSlides.length !== 1 ? 's' : ''} (
+          {legacyWmvSlides.map((s) => s.fileName ?? s.title ?? 'video').join(', ')}) need to be re-uploaded to convert
+          them for browser playback. Delete each one below, then re-add the original file using "Add PDFs or videos".
+        </div>
+      )}
 
       <input
         ref={inputRef}

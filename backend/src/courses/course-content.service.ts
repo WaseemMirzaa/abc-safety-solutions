@@ -47,14 +47,21 @@ export class CourseContentService {
         let durationSec = slide.durationSec ?? 0
         let filePath = this.filePathFromUploadUrl(slide.url)
 
-        // If the original file no longer exists (e.g. WMV was already transcoded
-        // and deleted on a prior load), check for an already-created MP4 version.
-        if (!filePath && needsBrowserTranscode(url)) {
+        if (needsBrowserTranscode(url)) {
+          // Check if an MP4 already exists from a prior transcode run.
           const mp4Url = url.replace(/\.[^/.?]+(\?|$)/, '.mp4$1')
           const mp4Path = this.filePathFromUploadUrl(mp4Url)
           if (mp4Path) {
             url = mp4Url
             filePath = mp4Path
+          } else if (!filePath) {
+            // WMV/AVI/etc. in DB but neither the source nor a converted MP4
+            // exist on disk — the file must be re-uploaded.
+            const name = url.split('/').pop()?.split('?')[0] ?? url
+            throw new Error(
+              `"${name}" needs to be converted but the source file is missing on the server. ` +
+              `Please delete this slide and re-upload the original video file.`,
+            )
           }
         }
 
