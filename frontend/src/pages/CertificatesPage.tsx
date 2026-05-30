@@ -406,6 +406,19 @@ export function CertificatesPage() {
             accept="image/*,.pdf,application/pdf"
             onChange={(e) => void onPickFile(e)}
           />
+          {/* Preview of current file when editing */}
+          {form.fileUrl && !uploading ? (
+            <div className="mt-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2">
+              {form.fileUrl.toLowerCase().endsWith('.pdf') ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-xs font-medium text-emerald-700">PDF attached ✓</span>
+                  <a href={form.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-sky-600 underline shrink-0">Open</a>
+                </div>
+              ) : (
+                <img src={form.fileUrl} alt="Current certificate" className="mx-auto max-h-32 rounded object-contain" />
+              )}
+            </div>
+          ) : null}
           <div className="mt-1.5 flex items-center gap-2">
             <Button
               type="button"
@@ -416,8 +429,14 @@ export function CertificatesPage() {
             >
               {uploading ? 'Uploading…' : form.fileUrl ? 'Replace file' : 'Choose file'}
             </Button>
-            {form.fileUrl ? (
-              <span className="truncate text-xs text-emerald-700 font-medium">File uploaded ✓</span>
+            {form.fileUrl && !uploading ? (
+              <button
+                type="button"
+                className="text-xs text-red-500 hover:text-red-700"
+                onClick={() => setForm((f) => ({ ...f, fileUrl: '' }))}
+              >
+                Remove file
+              </button>
             ) : null}
           </div>
           {uploading ? (
