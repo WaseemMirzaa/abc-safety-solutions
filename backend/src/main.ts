@@ -56,7 +56,11 @@ async function bootstrap() {
     credentials: true,
   })
   const port = Number(process.env.PORT) || 3000
-  await app.listen(port)
+  const server = await app.listen(port)
+  // Disable Node.js socket timeout so large WMV/video uploads are never killed
+  // mid-transfer. Nginx (or whatever reverse proxy you use) controls the real limit.
+  server.setTimeout(0)
+  server.keepAliveTimeout = 0
   console.log(`API http://localhost:${port}/api`)
 }
 

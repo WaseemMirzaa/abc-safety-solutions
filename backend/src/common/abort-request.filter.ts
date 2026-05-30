@@ -1,4 +1,4 @@
-import { ArgumentsHost, Catch, ExceptionFilter, Logger } from '@nestjs/common'
+import { ArgumentsHost, Catch, ExceptionFilter, Logger, LoggerService } from '@nestjs/common'
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core'
 
 function isClientAbort(err: unknown): boolean {
@@ -17,10 +17,26 @@ export function isClientAbortError(err: unknown): boolean {
   return isClientAbort(err)
 }
 
+/**
+ * Wraps the default NestJS logger and downgrades client-abort errors from
+ * ERROR to DEBUG so they don't appear as crashes in pm2 error.log.
+ */
+class AbortSilentLogger extends Logger implements LoggerService {
+  error(message: unknown, ...rest: unknown[]) {
+    const msg = typeof message === 'string' ? message : String(message ?? '')
+    const stack = rest.find((r) => typeof r === 'string' && r.includes('\n')) ?? ''
+    if (isClientAbort({ message: msg }) || (typeof stack === 'string' && stack.includes('make-middleware'))) {
+      this.debug(`[suppressed abort] ${msg}`)
+      return
+    }
+    super.error(message, ...rest)
+  }
+}
+
 /** Client disconnected — avoid ERROR logs and treating it as an API crash. */
 @Catch()
 export class AbortRequestFilter extends BaseExceptionFilter implements ExceptionFilter {
-  private readonly log = new Logger(AbortRequestFilter.name)
+  private readonly log = new AbortSilentLogger(AbortRequestFilter.name)
 
   constructor(adapterHost: HttpAdapterHost) {
     super(adapterHost.httpAdapter)
