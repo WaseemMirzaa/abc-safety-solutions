@@ -153,23 +153,25 @@ export function VideoSlidePlayer({
   if (frameOnly) {
     if (mediaError) return errorOverlay
     return (
-      <video
-        ref={videoRef}
-        key={src}
-        src={src}
-        title={title}
-        controls
-        playsInline
-        controlsList="nodownload"
-        onTimeUpdate={handleTimeUpdate}
-        onSeeking={handleSeeking}
-        onLoadedMetadata={handleLoadedMetadata}
-        onEnded={handleEnded}
-        onError={() => setMediaError(true)}
-        className="h-full w-full min-h-0 object-contain bg-black"
-      >
-        <track kind="captions" />
-      </video>
+      <div className="flex h-full w-full items-center justify-center bg-black">
+        <video
+          ref={videoRef}
+          key={src}
+          src={src}
+          title={title}
+          controls
+          playsInline
+          controlsList="nodownload"
+          onTimeUpdate={handleTimeUpdate}
+          onSeeking={handleSeeking}
+          onLoadedMetadata={handleLoadedMetadata}
+          onEnded={handleEnded}
+          onError={() => setMediaError(true)}
+          className="max-h-full max-w-full"
+        >
+          <track kind="captions" />
+        </video>
+      </div>
     )
   }
 

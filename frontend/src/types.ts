@@ -44,6 +44,7 @@ export type CourseSlide = {
   pageReplace?: {
     pdfSlideId: string
     pageNumber: number // 1-based
+    mode?: 'replace' | 'after' // 'replace' swaps the page; 'after' inserts after it
   }
   /** Admin-only client preview (stripped before save). */
   previewDataUrl?: string

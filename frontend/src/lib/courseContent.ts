@@ -41,10 +41,11 @@ export function getContentPlaylist(slides: CourseSlide[]): CourseSlide[] {
 export function computeCourseContentMetrics(slides: CourseSlide[]): CourseContentMetrics {
   const playlist = getContentPlaylist(slides)
 
-  // Count how many pages each PDF has replaced so we can subtract them
+  // 'replace' mode swaps a PDF page → net slide count unchanged
+  // 'after' mode inserts after a page → net slide count +0 for PDF, video counted normally
   const replacedCountByPdf = new Map<string, number>()
   for (const s of playlist) {
-    if (s.type === 'video' && s.pageReplace) {
+    if (s.type === 'video' && s.pageReplace && (s.pageReplace.mode ?? 'replace') === 'replace') {
       const id = s.pageReplace.pdfSlideId
       replacedCountByPdf.set(id, (replacedCountByPdf.get(id) ?? 0) + 1)
     }
@@ -67,7 +68,6 @@ export function computeCourseContentMetrics(slides: CourseSlide[]): CourseConten
       slideCount += 1
       videoCount += 1
       durationSeconds += videoSeconds(slide)
-      // replacement videos are already counted above (they take the place of a PDF page)
     }
   }
 
@@ -86,40 +86,49 @@ export function computeCourseContentMetrics(slides: CourseSlide[]): CourseConten
 export function buildLearnerUnits(slides: CourseSlide[]): LearnerUnit[] {
   const playlist = getContentPlaylist(slides)
 
-  // pdfSlideId → Map<pageNumber(1-based), video slide>
-  const replacements = new Map<string, Map<number, CourseSlide>>()
+  // Build two maps per PDF:
+  //   replaceMap: pageNumber → video that replaces that page
+  //   afterMap:   pageNumber → video inserted after that page
+  const replaceMap = new Map<string, Map<number, CourseSlide>>()
+  const afterMap = new Map<string, Map<number, CourseSlide>>()
   for (const s of playlist) {
     if (s.type === 'video' && s.pageReplace) {
-      const { pdfSlideId, pageNumber } = s.pageReplace
-      if (!replacements.has(pdfSlideId)) replacements.set(pdfSlideId, new Map())
-      replacements.get(pdfSlideId)!.set(pageNumber, s)
+      const { pdfSlideId, pageNumber, mode } = s.pageReplace
+      const map = mode === 'after' ? afterMap : replaceMap
+      if (!map.has(pdfSlideId)) map.set(pdfSlideId, new Map())
+      map.get(pdfSlideId)!.set(pageNumber, s)
     }
   }
 
-  const emittedAsReplacement = new Set<string>()
+  const emittedInline = new Set<string>()
   const units: LearnerUnit[] = []
+
+  const makeVideoUnit = (s: CourseSlide): LearnerUnit => ({
+    unitId: `${s.id}-v`,
+    sourceSlideId: s.id,
+    kind: 'video',
+    url: s.url,
+    title: s.title ?? s.fileName,
+    minDwellSec: 0,
+    durationSec: videoSeconds(s),
+  })
 
   for (const slide of playlist) {
     if (slide.type === 'pdf') {
       const urls = slide.renderedSlideUrls?.filter(Boolean) ?? []
       const n = urls.length > 0 ? urls.length : pdfPages(slide)
-      const pdfReps = replacements.get(slide.id)
+      const pdfReplace = replaceMap.get(slide.id)
+      const pdfAfter = afterMap.get(slide.id)
 
       for (let i = 0; i < n; i++) {
         const pageNumber = i + 1
-        const repVideo = pdfReps?.get(pageNumber)
+        const repVideo = pdfReplace?.get(pageNumber)
         if (repVideo) {
-          emittedAsReplacement.add(repVideo.id)
-          units.push({
-            unitId: `${repVideo.id}-v`,
-            sourceSlideId: repVideo.id,
-            kind: 'video',
-            url: repVideo.url,
-            title: repVideo.title ?? repVideo.fileName,
-            minDwellSec: 0,
-            durationSec: videoSeconds(repVideo),
-          })
+          // Swap page with video
+          emittedInline.add(repVideo.id)
+          units.push(makeVideoUnit(repVideo))
         } else {
+          // Normal page
           units.push({
             unitId: `${slide.id}-p${i}`,
             sourceSlideId: slide.id,
@@ -128,18 +137,16 @@ export function buildLearnerUnits(slides: CourseSlide[]): LearnerUnit[] {
             title: slide.title ?? slide.fileName,
             minDwellSec: LEARNER_SLIDE_DWELL_SEC,
           })
+          // Insert-after video immediately following this page
+          const afterVideo = pdfAfter?.get(pageNumber)
+          if (afterVideo) {
+            emittedInline.add(afterVideo.id)
+            units.push(makeVideoUnit(afterVideo))
+          }
         }
       }
-    } else if (slide.type === 'video' && !emittedAsReplacement.has(slide.id)) {
-      units.push({
-        unitId: `${slide.id}-v`,
-        sourceSlideId: slide.id,
-        kind: 'video',
-        url: slide.url,
-        title: slide.title ?? slide.fileName,
-        minDwellSec: 0,
-        durationSec: videoSeconds(slide),
-      })
+    } else if (slide.type === 'video' && !emittedInline.has(slide.id)) {
+      units.push(makeVideoUnit(slide))
     }
   }
   return units

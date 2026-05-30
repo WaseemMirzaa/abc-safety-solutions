@@ -27,5 +27,6 @@ export type CourseSlide = {
   pageReplace?: {
     pdfSlideId: string
     pageNumber: number
+    mode?: 'replace' | 'after'
   }
 }
