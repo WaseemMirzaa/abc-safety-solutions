@@ -17,12 +17,14 @@ export class CoursesController {
   @Get('slug/:slug')
   async bySlug(@Param('slug') slug: string) {
     const dto = await this.courses.findBySlug(slug)
+    this.courseContent.scheduleVideoTranscode(dto.id, dto.slides ?? [])
     return { ...dto, slides: this.courseContent.fixVideoUrls(dto.slides) }
   }
 
   @Get(':id')
   async byId(@Param('id') id: string) {
     const dto = await this.courses.findPublishedById(id)
+    this.courseContent.scheduleVideoTranscode(dto.id, dto.slides ?? [])
     return { ...dto, slides: this.courseContent.fixVideoUrls(dto.slides) }
   }
 }

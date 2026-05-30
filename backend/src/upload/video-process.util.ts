@@ -3,10 +3,14 @@ import { existsSync } from 'node:fs'
 import { unlink } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { promisify } from 'node:util'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// ffmpeg-static and @ffprobe-installer ship pre-built binaries — no system ffmpeg needed.
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const ffmpegPath: string = require('ffmpeg-static') as string
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
 const ffprobePath: string = (require('@ffprobe-installer/ffprobe') as { path: string }).path
+
+if (!ffmpegPath) throw new Error('ffmpeg-static: binary path not resolved')
+if (!ffprobePath) throw new Error('@ffprobe-installer/ffprobe: binary path not resolved')
 
 const execFileAsync = promisify(execFile)
 

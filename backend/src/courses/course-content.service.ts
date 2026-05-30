@@ -60,16 +60,12 @@ export class CourseContentService {
 
         if (filePath) {
           if (needsBrowserTranscode(filePath)) {
-            try {
-              const { filename, durationSec: probed } = await prepareBrowserVideo(
-                uploadDir(),
-                basename(filePath),
-              )
-              url = uploadUrlForFile(filename)
-              if (probed > 0) durationSec = Math.round(probed)
-            } catch (err) {
-              this.log.warn(`Video transcode failed for ${slide.url}: ${String(err)}`)
-            }
+            const { filename, durationSec: probed } = await prepareBrowserVideo(
+              uploadDir(),
+              basename(filePath),
+            )
+            url = uploadUrlForFile(filename)
+            if (probed > 0) durationSec = Math.round(probed)
           } else {
             const probed = await probeVideoDurationSec(filePath)
             if (probed > 0) durationSec = Math.round(probed)
@@ -120,9 +116,8 @@ export class CourseContentService {
   }
 
   /**
-   * Lightweight sync URL fix for learner-facing responses: swaps any stored
-   * .wmv (or other non-browser format) URL for the already-transcoded .mp4
-   * if it exists on disk. Does NOT run ffmpeg — transcoding is the admin path.
+   * Lightweight sync URL fix: swaps any stored .wmv URL for the
+   * already-transcoded .mp4 if it exists on disk.
    */
   fixVideoUrls(slides: CourseSlide[] | undefined): CourseSlide[] | undefined {
     if (!slides?.length) return slides
@@ -131,6 +126,60 @@ export class CourseContentService {
       const mp4Url = slide.url.replace(/\.[^/.?]+(\?|$)/, '.mp4$1')
       return this.filePathFromUploadUrl(mp4Url) ? { ...slide, url: mp4Url } : slide
     })
+  }
+
+  /** Returns true if any slide has a URL that needs browser transcoding. */
+  needsVideoTranscode(slides: CourseSlide[] | undefined): boolean {
+    return Boolean(slides?.some((s) => s.type === 'video' && needsBrowserTranscode(s.url)))
+  }
+
+  /**
+   * Runs after the HTTP response: transcodes any WMV/AVI/etc. slides to MP4
+   * and persists the updated URLs + duration back to the DB so subsequent
+   * requests serve the correct MP4 URL immediately.
+   */
+  scheduleVideoTranscode(courseId: string, slides: CourseSlide[]) {
+    if (!this.needsVideoTranscode(slides)) return
+    setImmediate(() => {
+      void this.transcodeVideosAndUpdateCourse(courseId, slides)
+    })
+  }
+
+  private async transcodeVideosAndUpdateCourse(courseId: string, slides: CourseSlide[]) {
+    try {
+      const prepared: CourseSlide[] = []
+      let changed = false
+      for (const slide of slides) {
+        if (slide.type !== 'video' || !needsBrowserTranscode(slide.url)) {
+          prepared.push(slide)
+          continue
+        }
+        const filePath = this.filePathFromUploadUrl(slide.url)
+        if (!filePath) {
+          prepared.push(slide)
+          continue
+        }
+        try {
+          const { filename, durationSec } = await prepareBrowserVideo(uploadDir(), basename(filePath))
+          const newUrl = uploadUrlForFile(filename)
+          prepared.push({ ...slide, url: newUrl, ...(durationSec > 0 ? { durationSec: Math.round(durationSec) } : {}) })
+          changed = true
+        } catch (err) {
+          this.log.warn(`Background video transcode failed for ${slide.url}: ${String(err)}`)
+          prepared.push(slide)
+        }
+      }
+      if (!changed) return
+      const metrics = computeCourseContentMetrics(prepared)
+      await this.courses.update(courseId, {
+        slides: prepared,
+        durationMinutes: metrics.durationMinutes,
+        slideCount: metrics.slideCount,
+      })
+      this.log.log(`Video transcode finished for course ${courseId}`)
+    } catch (err) {
+      this.log.error(`Video transcode task failed for course ${courseId}: ${String(err)}`)
+    }
   }
 
   needsPdfRender(slides: CourseSlide[] | undefined): boolean {

@@ -135,10 +135,17 @@ export function VideoSlidePlayer({
     <div className="flex h-full w-full items-center justify-center bg-slate-900 p-6 text-center">
       <div>
         <Film className="mx-auto mb-3 h-10 w-10 text-slate-500" aria-hidden />
-        <p className="text-sm font-semibold text-slate-200">This video cannot be played</p>
+        <p className="text-sm font-semibold text-slate-200">Video is being processed</p>
         <p className="mt-1 text-xs text-slate-400">
-          The video format is not supported by your browser. Please contact your administrator.
+          This video is being converted for browser playback. Please refresh the page in a moment.
         </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-3 rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-500"
+        >
+          Refresh now
+        </button>
       </div>
     </div>
   )

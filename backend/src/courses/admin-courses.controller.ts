@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common'
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { AdminGuard } from '../common/admin.guard'
 import type { CourseSlide } from '../common/course-slide.types'
@@ -20,10 +20,17 @@ export class AdminCoursesController {
     let durationMinutes = dto.durationMinutes
     let slideCount = dto.slideCount
     if (slides?.length) {
-      const prepared = await this.courseContent.prepareSlides(slides)
-      slides = prepared.slides
-      durationMinutes = prepared.metrics.durationMinutes
-      slideCount = prepared.metrics.slideCount
+      try {
+        const prepared = await this.courseContent.prepareSlides(slides)
+        slides = prepared.slides
+        durationMinutes = prepared.metrics.durationMinutes
+        slideCount = prepared.metrics.slideCount
+      } catch (err) {
+        throw new BadRequestException(
+          `Video conversion failed: ${err instanceof Error ? err.message : String(err)}. ` +
+          'Ensure ffmpeg is installed on the server (run: apt install ffmpeg) or re-upload the video.',
+        )
+      }
     }
     return { slides, durationMinutes, slideCount }
   }
@@ -34,8 +41,10 @@ export class AdminCoursesController {
   }
 
   @Get(':id')
-  getOne(@Param('id') id: string) {
-    return this.courses.findByIdAdmin(id)
+  async getOne(@Param('id') id: string) {
+    const dto = await this.courses.findByIdAdmin(id)
+    this.courseContent.scheduleVideoTranscode(id, dto.slides ?? [])
+    return dto
   }
 
   @Post()
