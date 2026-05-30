@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { CertificateEntity } from '../entities/certificate.entity'
+import { UserEntity } from '../entities/user.entity'
 import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
 import { ProgressEntity } from '../entities/progress.entity'
@@ -14,7 +15,14 @@ import { CertificateExpiryNotifierService } from './certificate-expiry-notifier.
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CertificateEntity, CourseEntity, CategoryEntity, ProgressEntity, CourseTestEntity]),
+    TypeOrmModule.forFeature([
+      CertificateEntity,
+      UserEntity,
+      CourseEntity,
+      CategoryEntity,
+      ProgressEntity,
+      CourseTestEntity,
+    ]),
     EnrollmentsModule,
     NotificationsModule,
   ],

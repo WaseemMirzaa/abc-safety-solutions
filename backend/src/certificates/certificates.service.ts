@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { randomInt, randomUUID } from 'node:crypto'
 import { Repository } from 'typeorm'
 import { CertificateEntity } from '../entities/certificate.entity'
+import { UserEntity } from '../entities/user.entity'
 import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
 import { ProgressEntity } from '../entities/progress.entity'
@@ -17,6 +18,8 @@ export class CertificatesService {
   constructor(
     @InjectRepository(CertificateEntity)
     private readonly certs: Repository<CertificateEntity>,
+    @InjectRepository(UserEntity)
+    private readonly users: Repository<UserEntity>,
     @InjectRepository(CourseEntity)
     private readonly courses: Repository<CourseEntity>,
     @InjectRepository(CategoryEntity)
@@ -29,7 +32,28 @@ export class CertificatesService {
   ) {}
 
   async mine(userId: string) {
-    return this.certs.find({ where: { userId }, order: { issuedAt: 'DESC' } })
+    const rows = await this.certs.find({ where: { userId }, order: { issuedAt: 'DESC' } })
+    return Promise.all(rows.map((row) => this.enrichForDisplay(row)))
+  }
+
+  /** Resolve live user, course, and category fields for certificate display. */
+  private async enrichForDisplay(cert: CertificateEntity): Promise<CertificateEntity> {
+    const user = await this.users.findOne({ where: { id: cert.userId } })
+    if (user?.name?.trim()) cert.userName = user.name.trim()
+
+    if (cert.source === 'platform' && cert.courseId) {
+      const course = await this.courses.findOne({ where: { id: cert.courseId } })
+      if (course) {
+        cert.courseName = course.title
+        cert.categoryId = course.categoryId
+        const cat = await this.categories.findOne({ where: { id: course.categoryId } })
+        if (cat?.certificationText?.trim()) {
+          cert.certificationText = cat.certificationText.trim()
+        }
+      }
+    }
+
+    return cert
   }
 
   private async findByPublicId(idOrNumber: string): Promise<CertificateEntity | null> {
@@ -65,8 +89,9 @@ export class CertificatesService {
 
   /** Public lookup by certificate number (#100001) or legacy UUID. */
   async verifyPublic(id: string) {
-    const cert = await this.findByPublicId(id)
-    if (!cert) throw new NotFoundException('Certificate not found')
+    const found = await this.findByPublicId(id)
+    if (!found) throw new NotFoundException('Certificate not found')
+    const cert = await this.enrichForDisplay(found)
     return {
       valid: true,
       certificateId: String(cert.certificateNumber),

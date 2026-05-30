@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { brandLogoCustomer, certificateBrandName } from '@/config/brandAssets'
 import { companyContact } from '@/config/companyContact'
 import { certificateDisplayId, formatCertDate, resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
-import { localizedCategoryCertLine } from '@/lib/catalogLocale'
+import { localizedCategoryCertLine, localizedCourseTitle } from '@/lib/catalogLocale'
 import type { Category, Certificate } from '@/types'
 
 const FRAME_SRC = '/certificate-frame.png'
@@ -15,24 +15,29 @@ const OPERATIONS_DIRECTOR = companyContact.operationsDirector
 type Props = {
   cert: Certificate
   categories?: Category[]
+  /** When set, localizes the course title on the certificate. */
+  courseSlug?: string
   variant?: 'full' | 'compact'
   sampleWatermark?: boolean
   className?: string
 }
 
-export function CertificateVisual({ cert, categories = [], variant = 'full', sampleWatermark, className }: Props) {
+export function CertificateVisual({ cert, categories = [], courseSlug, variant = 'full', sampleWatermark, className }: Props) {
   const { t } = useTranslation()
   const compact = variant === 'compact'
   const rawLine = resolveCertificateCategoryLine(cert, categories)
-  // Only apply i18n localisation when the category ID is known; never fall
-  // back to 'cat-ohs' or the wrong category's text will show on every cert.
-  const regulationLine = rawLine
-    ? (cert.categoryId ? localizedCategoryCertLine(cert.categoryId, rawLine) : rawLine)
-    : undefined
-  const displayCourseName =
-    cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_course') : (cert.courseName || '—')
-  const displayUserName =
-    cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_user') : (cert.userName || '—')
+  const isSample = cert.id === 'SAMPLE-CERT-PREVIEW'
+  // Use stored/API text as-is; i18n catalog lines override custom category text on real certs.
+  const regulationLine =
+    isSample && rawLine && cert.categoryId
+      ? localizedCategoryCertLine(cert.categoryId, rawLine)
+      : rawLine
+  const displayCourseName = isSample
+    ? t('ui_cert_sample_course')
+    : courseSlug
+      ? localizedCourseTitle(courseSlug, cert.courseName || '—')
+      : (cert.courseName || '—')
+  const displayUserName = isSample ? t('ui_cert_sample_user') : (cert.userName || '—')
   const courseDate = formatCertDate(cert.issuedAt)
   const expirationDate = cert.expiresAt ? formatCertDate(cert.expiresAt) : null
   const dateIssued = courseDate

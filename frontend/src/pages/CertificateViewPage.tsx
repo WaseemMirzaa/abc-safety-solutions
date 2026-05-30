@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { AdminModal } from '@/components/admin/AdminModal'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchCategories, fetchMyCertificates, updateManualCertificate } from '@/api/localData'
+import { fetchCategories, fetchCourseById, fetchMyCertificates, updateManualCertificate } from '@/api/localData'
 import { xhrUploadForm } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { certificateCopyText, certificateDisplayId, findCertificateById, formatCertDate } from '@/lib/certificateDisplay'
@@ -56,15 +56,21 @@ export function CertificateViewPage() {
     enabled: Boolean(user),
   })
 
+  const cert = findCertificateById(certs, certificateId)
+  const isManual = cert?.source === 'manual'
+
+  const { data: linkedCourse } = useQuery({
+    queryKey: qk.courseById(cert?.courseId ?? ''),
+    queryFn: () => fetchCourseById(cert!.courseId!),
+    enabled: Boolean(user && cert?.courseId && !isManual),
+  })
+
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState({ title: '', issuedAt: TODAY, expiresAt: '', notes: '', fileUrl: '' })
   const [uploading, setUploading] = useState(false)
   const [uploadPct, setUploadPct] = useState(0)
   const [saving, setSaving] = useState(false)
   const [formErr, setFormErr] = useState('')
-
-  const cert = findCertificateById(certs, certificateId)
-  const isManual = cert?.source === 'manual'
 
   const openEdit = () => {
     if (!cert) return
@@ -217,14 +223,14 @@ export function CertificateViewPage() {
             )
           ) : (
             /* Platform-generated certificate — show our full template */
-            <CertificateVisual cert={cert} categories={categoryList} />
+            <CertificateVisual cert={cert} categories={categoryList} courseSlug={linkedCourse?.slug} />
           )}
         </div>
 
         {/* Compact details strip — only for platform certs */}
         {!isManual && (
           <div className="mx-auto mt-4 max-w-4xl rounded-lg border border-slate-200 bg-slate-50/60 p-4 print:hidden">
-            <CertificateVisual cert={cert} categories={categoryList} variant="compact" />
+            <CertificateVisual cert={cert} categories={categoryList} courseSlug={linkedCourse?.slug} variant="compact" />
           </div>
         )}
       </Container>
