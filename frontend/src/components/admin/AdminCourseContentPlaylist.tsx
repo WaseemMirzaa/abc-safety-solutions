@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import { FileText, Film, GripVertical, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { FileText, Film, GripVertical, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/ui/Spinner'
-import { ApiError, xhrUploadForm } from '@/api/client'
+import { ApiError, getToken, xhrUploadForm } from '@/api/client'
 import {
   computeCourseContentMetrics,
   formatCourseDuration,
@@ -20,6 +20,17 @@ type Props = {
   disabled?: boolean
   error?: string
   onUploadingChange?: (uploading: boolean) => void
+}
+
+type ConvJob = {
+  slideId: string
+  progress: number
+  status: 'converting' | 'done' | 'error'
+  error?: string
+}
+
+function apiBase(): string {
+  return (import.meta.env.VITE_API_URL as string | undefined) ?? ''
 }
 
 function displayName(slide: CourseSlide): string {
@@ -45,18 +56,66 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
   const [uploadPct, setUploadPct] = useState(0)
   const [uploadErr, setUploadErr] = useState('')
   const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [convJobs, setConvJobs] = useState<Map<string, ConvJob>>(new Map())
+
+  const anyConverting = [...convJobs.values()].some((j) => j.status === 'converting')
+  const busy = uploading || anyConverting
 
   useEffect(() => {
-    onUploadingChange?.(uploading)
-  }, [uploading, onUploadingChange])
+    onUploadingChange?.(busy)
+  }, [busy, onUploadingChange])
+
+  // Poll active conversion jobs every 1.5 s
+  useEffect(() => {
+    if (!anyConverting) return
+    const timer = window.setTimeout(async () => {
+      const token = getToken()
+      const updates = new Map(convJobs)
+      let slidesChanged = false
+      const nextSlides = [...slidesRef.current]
+
+      for (const [jobId, job] of updates) {
+        if (job.status !== 'converting') continue
+        try {
+          const res = await fetch(`${apiBase()}/api/admin/upload/convert-status/${jobId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+          if (!res.ok) continue
+          const data = (await res.json()) as {
+            status: 'converting' | 'done' | 'error'
+            progress: number
+            url?: string
+            durationSec?: number
+            error?: string
+          }
+          updates.set(jobId, { ...job, status: data.status, progress: data.progress, error: data.error })
+          if (data.status === 'done' && data.url) {
+            const idx = nextSlides.findIndex((s) => s.id === job.slideId)
+            if (idx !== -1) {
+              nextSlides[idx] = {
+                ...nextSlides[idx],
+                url: data.url,
+                ...(data.durationSec ? { durationSec: data.durationSec } : {}),
+              }
+              slidesChanged = true
+            }
+          }
+        } catch {
+          // network error — retry next tick
+        }
+      }
+
+      setConvJobs(updates)
+      if (slidesChanged) onChange(nextSlides)
+    }, 1500)
+    return () => window.clearTimeout(timer)
+  }, [anyConverting, convJobs, onChange])
 
   const metrics = computeCourseContentMetrics(slides)
 
-  const patchSlidePreview = (slideId: string, previewDataUrl: string) => {
-    onChange(
-      slidesRef.current.map((s) => (s.id === slideId ? { ...s, previewDataUrl } : s)),
-    )
-  }
+  const patchSlidePreview = useCallback((slideId: string, previewDataUrl: string) => {
+    onChange(slidesRef.current.map((s) => (s.id === slideId ? { ...s, previewDataUrl } : s)))
+  }, [onChange])
 
   const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = [...(e.target.files ?? [])]
@@ -75,54 +134,47 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
           setUploadErr('Only PDF and video files (MP4, MOV, WMV) are allowed.')
           continue
         }
-        const { url, fileName, durationSec: serverDurationSec } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
-          const base = (i / files.length) * 100
-          setUploadPct(Math.round(base + p.percent / files.length))
-        })
+        const { url, fileName, durationSec: serverDurationSec, jobId } = await xhrUploadForm(
+          '/api/admin/upload/file',
+          file,
+          (p) => {
+            const base = (i / files.length) * 100
+            setUploadPct(Math.round(base + p.percent / files.length))
+          },
+        )
         const slideId = randomId()
         const title = fileName || file.name
         if (type === 'video') {
           const initialDuration = serverDurationSec && serverDurationSec > 0 ? serverDurationSec : 60
-          next.push({
-            id: slideId,
-            type: 'video',
-            url,
-            fileName: title,
-            title,
-            durationSec: initialDuration,
-          })
+          next.push({ id: slideId, type: 'video', url, fileName: title, title, durationSec: initialDuration })
           onChange([...next])
-          if (!serverDurationSec && file.size <= MAX_VIDEO_PROBE_BYTES) {
-            void probeVideoDurationSec(file)
-              .then((durationSec) => {
-                onChange(
-                  slidesRef.current.map((s) =>
-                    s.id === slideId ? { ...s, durationSec: durationSec > 0 ? durationSec : 60 } : s,
-                  ),
-                )
-              })
+
+          if (jobId) {
+            // WMV/AVI — conversion running in background; track it
+            setConvJobs((prev) => {
+              const m = new Map(prev)
+              m.set(jobId, { slideId, progress: 0, status: 'converting' })
+              return m
+            })
+          } else {
+            // MP4/MOV — probe duration client-side if server didn't return it
+            if (!serverDurationSec && file.size <= MAX_VIDEO_PROBE_BYTES) {
+              void probeVideoDurationSec(file)
+                .then((durationSec) => {
+                  onChange(slidesRef.current.map((s) => (s.id === slideId ? { ...s, durationSec: durationSec > 0 ? durationSec : 60 } : s)))
+                })
+                .catch(() => {})
+            }
+            void videoPosterPreview(file)
+              .then((preview) => { if (preview) patchSlidePreview(slideId, preview) })
               .catch(() => {})
           }
-          void videoPosterPreview(file)
-            .then((preview) => {
-              if (preview) patchSlidePreview(slideId, preview)
-            })
-            .catch(() => {})
         } else {
-          next.push({
-            id: slideId,
-            type: 'pdf',
-            url,
-            fileName: title,
-            title,
-            renderStatus: 'pending',
-          })
+          next.push({ id: slideId, type: 'pdf', url, fileName: title, title, renderStatus: 'pending' })
           onChange([...next])
           if (file.size <= MAX_INLINE_PDF_PREVIEW_BYTES) {
             void pdfFirstPagePreview(file)
-              .then((preview) => {
-                if (preview) patchSlidePreview(slideId, preview)
-              })
+              .then((preview) => { if (preview) patchSlidePreview(slideId, preview) })
               .catch(() => {})
           }
         }
@@ -140,19 +192,19 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
   }
 
   const onDragStart = (idx: number) => setDragIdx(idx)
-
   const onDragOver = (e: React.DragEvent, idx: number) => {
     e.preventDefault()
     if (dragIdx == null || dragIdx === idx) return
     onChange(moveItem(slides, dragIdx, idx))
     setDragIdx(idx)
   }
-
   const onDragEnd = () => setDragIdx(null)
 
-  const legacyWmvSlides = slides.filter(
-    (s) => s.type === 'video' && /\.(wmv|avi|mkv|flv)(\?|$)/i.test(s.url),
-  )
+  // Find conversion job for a given slide id
+  const convJobForSlide = (slideId: string): ConvJob | undefined => {
+    for (const job of convJobs.values()) if (job.slideId === slideId) return job
+    return undefined
+  }
 
   return (
     <div className="rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
@@ -162,13 +214,6 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
       <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
         Add multiple PDFs and videos (MP4, MOV, WMV). Drag to reorder. PDF pages are converted when you save.
       </p>
-      {legacyWmvSlides.length > 0 && (
-        <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          <strong>Action required:</strong> {legacyWmvSlides.length} video{legacyWmvSlides.length !== 1 ? 's' : ''} (
-          {legacyWmvSlides.map((s) => s.fileName ?? s.title ?? 'video').join(', ')}) need to be re-uploaded to convert
-          them for browser playback. Delete each one below, then re-add the original file using "Add PDFs or videos".
-        </div>
-      )}
 
       <input
         ref={inputRef}
@@ -184,7 +229,7 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
           type="button"
           variant="secondary"
           className="!rounded-lg !border-violet-300 !py-2 !text-xs"
-          disabled={disabled || uploading}
+          disabled={disabled || busy}
           onClick={() => inputRef.current?.click()}
         >
           {uploading ? 'Uploading…' : 'Add PDFs or videos'}
@@ -217,22 +262,27 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
       {uploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{uploadErr}</p> : null}
       {error ? <p className="mt-2 text-xs font-medium text-red-600">{error}</p> : null}
 
+      {anyConverting ? (
+        <p className="mt-2 text-xs font-medium text-amber-700">
+          Converting video{[...convJobs.values()].filter(j => j.status === 'converting').length > 1 ? 's' : ''}… Save will be available when done.
+        </p>
+      ) : null}
+
       {slides.length > 0 ? (
         <ul className="mt-4 space-y-2">
           {slides.map((slide, idx) => {
-            const thumbUrl =
-              slide.previewDataUrl ??
-              (slide.type === 'pdf' ? slide.renderedSlideUrls?.[0] : null)
-            const pages =
-              slide.type === 'pdf'
-                ? slide.renderedSlideUrls?.filter(Boolean).length ??
-                  slide.pdfPageCount ??
-                  slide.deckSlideCount
-                : null
+            const thumbUrl = slide.previewDataUrl ?? (slide.type === 'pdf' ? slide.renderedSlideUrls?.[0] : null)
+            const pages = slide.type === 'pdf'
+              ? slide.renderedSlideUrls?.filter(Boolean).length ?? slide.pdfPageCount ?? slide.deckSlideCount
+              : null
+            const convJob = convJobForSlide(slide.id)
+            const isConverting = convJob?.status === 'converting'
+            const convError = convJob?.status === 'error'
+
             return (
               <li
                 key={slide.id}
-                draggable={!disabled && !uploading}
+                draggable={!disabled && !busy}
                 onDragStart={() => onDragStart(idx)}
                 onDragOver={(e) => onDragOver(e, idx)}
                 onDragEnd={onDragEnd}
@@ -244,39 +294,54 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
                   <GripVertical className="h-4 w-4" />
                 </span>
                 {thumbUrl ? (
-                  <img
-                    src={resolveMediaUrl(thumbUrl)}
-                    alt=""
-                    className="h-12 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200"
-                  />
+                  <img src={resolveMediaUrl(thumbUrl)} alt="" className="h-12 w-10 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
                 ) : (
-                  <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                      slide.type === 'video' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {slide.type === 'video' ? <Film className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    slide.type === 'video' ? 'bg-sky-100 text-sky-700' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {isConverting
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : slide.type === 'video'
+                        ? <Film className="h-4 w-4" />
+                        : <FileText className="h-4 w-4" />}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-brand-900">{displayName(slide)}</p>
-                  <p className="text-[11px] text-slate-500">
-                    {slide.type === 'video'
-                      ? slide.durationSec
-                        ? `${Math.floor(slide.durationSec / 60)}:${String(slide.durationSec % 60).padStart(2, '0')}`
-                        : 'Video'
-                      : pages
-                        ? `${pages} page${pages === 1 ? '' : 's'}`
-                        : slide.renderStatus === 'pending'
-                          ? 'PDF — converts on save'
-                          : 'PDF'}
-                  </p>
+                  {isConverting ? (
+                    <div className="mt-1">
+                      <div className="flex items-center justify-between text-[11px] text-amber-700">
+                        <span>Converting to MP4…</span>
+                        <span className="tabular-nums">{convJob.progress}%</span>
+                      </div>
+                      <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-amber-100">
+                        <div
+                          className="h-full rounded-full bg-amber-500 transition-all duration-500"
+                          style={{ width: `${convJob.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : convError ? (
+                    <p className="text-[11px] text-red-600">Conversion failed — re-upload this file</p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">
+                      {slide.type === 'video'
+                        ? slide.durationSec
+                          ? `${Math.floor(slide.durationSec / 60)}:${String(slide.durationSec % 60).padStart(2, '0')}`
+                          : 'Video'
+                        : pages
+                          ? `${pages} page${pages === 1 ? '' : 's'}`
+                          : slide.renderStatus === 'pending'
+                            ? 'PDF — converts on save'
+                            : 'PDF'}
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"
                   variant="secondary"
                   className="!rounded-lg !border-red-200 !px-2 !py-1.5 !text-xs !text-red-800"
-                  disabled={disabled || uploading}
+                  disabled={disabled || busy || isConverting}
                   onClick={() => removeAt(idx)}
                   aria-label="Remove"
                 >
@@ -287,7 +352,7 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
           })}
         </ul>
       ) : (
-        <p className="mt-3 text-xs text-amber-800">Add at least one PDF or video before saving.</p>
+        <p className="mt-4 text-center text-xs text-slate-400">No content yet — add a PDF or video above.</p>
       )}
     </div>
   )

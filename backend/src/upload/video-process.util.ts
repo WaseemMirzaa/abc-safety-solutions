@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { unlink } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
@@ -43,31 +43,64 @@ export async function probeVideoDurationSec(filePath: string): Promise<number> {
   }
 }
 
-export async function transcodeVideoToMp4(inputPath: string, outputPath: string): Promise<void> {
-  await execFileAsync(
-    ffmpegPath,
-    [
-      '-y',
-      '-i',
-      inputPath,
-      '-c:v',
-      'libx264',
-      '-preset',
-      'fast',
-      '-crf',
-      '23',
-      '-c:a',
-      'aac',
-      '-movflags',
-      '+faststart',
+export function transcodeVideoToMp4(
+  inputPath: string,
+  outputPath: string,
+  onProgress?: (pct: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-y', '-i', inputPath,
+      '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+      '-c:a', 'aac', '-movflags', '+faststart',
+      '-progress', 'pipe:1',
       outputPath,
-    ],
-    { timeout: 1_800_000 },
-  )
+    ]
+    const proc = spawn(ffmpegPath, args)
+    let totalSec = 0
+    let stderrTail = ''
+
+    proc.stderr.on('data', (chunk: Buffer) => {
+      const text = chunk.toString()
+      stderrTail = (stderrTail + text).slice(-300)
+      // Parse duration from stderr: "Duration: HH:MM:SS.xx"
+      if (totalSec === 0) {
+        const m = text.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/)
+        if (m) {
+          totalSec = parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3])
+        }
+      }
+    })
+
+    proc.stdout.on('data', (chunk: Buffer) => {
+      const text = chunk.toString()
+      // Parse out_time_us from -progress pipe:1 output
+      const m = text.match(/out_time_us=(\d+)/)
+      if (m && totalSec > 0) {
+        const currentSec = parseInt(m[1], 10) / 1_000_000
+        onProgress?.(Math.min(99, Math.round((currentSec / totalSec) * 100)))
+      }
+    })
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        onProgress?.(100)
+        resolve()
+      } else {
+        reject(new Error(`ffmpeg exited with code ${code ?? 'null'}. stderr: ${stderrTail}`))
+      }
+    })
+
+    proc.on('error', (err) => reject(err))
+  })
 }
 
 /** Convert WMV/AVI/etc. to MP4 for browser playback; returns final filename on disk. */
-export async function prepareBrowserVideo(uploadDir: string, filename: string): Promise<{
+export async function prepareBrowserVideo(
+  uploadDir: string,
+  filename: string,
+  onProgress?: (pct: number) => void,
+): Promise<{
   filename: string
   durationSec: number
 }> {
@@ -84,7 +117,7 @@ export async function prepareBrowserVideo(uploadDir: string, filename: string): 
       currentName = mp4Name
       currentPath = mp4Path
     } else {
-      await transcodeVideoToMp4(currentPath, mp4Path)
+      await transcodeVideoToMp4(currentPath, mp4Path, onProgress)
       await unlink(currentPath).catch(() => {})
       currentName = mp4Name
       currentPath = mp4Path

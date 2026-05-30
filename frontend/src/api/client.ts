@@ -133,7 +133,7 @@ function xhrUploadFormOnce(
   path: string,
   file: File,
   onProgress?: (progress: UploadProgress) => void,
-): Promise<{ url: string; fileName: string; kind?: string; durationSec?: number }> {
+): Promise<{ url: string; fileName: string; kind?: string; durationSec?: number; jobId?: string }> {
   return new Promise((resolve, reject) => {
     const fd = new FormData()
     fd.append('file', file)
@@ -156,7 +156,7 @@ function xhrUploadFormOnce(
       const text = xhr.responseText ?? ''
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(JSON.parse(text) as { url: string; fileName: string; kind?: string; durationSec?: number })
+          resolve(JSON.parse(text) as { url: string; fileName: string; kind?: string; durationSec?: number; jobId?: string })
         } catch {
           reject(new Error('Invalid upload response from server.'))
         }
@@ -182,7 +182,7 @@ export function xhrUploadForm(
   path: string,
   file: File,
   onProgress?: (progress: UploadProgress) => void,
-): Promise<{ url: string; fileName: string; kind?: string; durationSec?: number }> {
+): Promise<{ url: string; fileName: string; kind?: string; durationSec?: number; jobId?: string }> {
   return withRetries(() => xhrUploadFormOnce(path, file, onProgress), {
     attempts: 4,
     delayMs: 2000,

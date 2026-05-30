@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   NotFoundException,
+  Param,
   Post,
   UploadedFile,
   UseGuards,
@@ -22,7 +24,8 @@ import { SlideRenderService } from '../slide-render/slide-render.service'
 import { IsString, MinLength } from 'class-validator'
 import { existsSync } from 'fs'
 import { extname, join } from 'path'
-import { prepareBrowserVideo } from './video-process.util'
+import { needsBrowserTranscode, prepareBrowserVideo } from './video-process.util'
+import { ConversionJobService } from './conversion-job.service'
 
 class RenderSlidesDto {
   @IsString()
@@ -33,7 +36,10 @@ class RenderSlidesDto {
 @Controller('admin/upload')
 @UseGuards(AuthGuard('jwt'), AdminGuard)
 export class UploadController {
-  constructor(private readonly slideRender: SlideRenderService) {}
+  constructor(
+    private readonly slideRender: SlideRenderService,
+    private readonly conversionJobs: ConversionJobService,
+  ) {}
 
   /** Images (legacy path). Accepts same types as /file so older admin builds still work. */
   @Post('image')
@@ -69,6 +75,29 @@ export class UploadController {
       }
     }
 
+    // WMV/AVI/MKV/FLV — start background conversion and return a jobId immediately
+    if (needsBrowserTranscode(file.filename)) {
+      const job = this.conversionJobs.create()
+      setImmediate(() => {
+        void prepareBrowserVideo(uploadDir(), file.filename, (pct) => {
+          this.conversionJobs.update(job.id, { progress: pct })
+        }).then(({ filename, durationSec }) => {
+          this.conversionJobs.update(job.id, {
+            status: 'done',
+            progress: 100,
+            url: uploadUrlForFile(filename),
+            durationSec: durationSec > 0 ? Math.round(durationSec) : undefined,
+          })
+        }).catch((err: unknown) => {
+          this.conversionJobs.update(job.id, {
+            status: 'error',
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
+      })
+      return { url: uploadUrlForFile(file.filename), fileName: file.originalname, kind: 'video', jobId: job.id }
+    }
+
     try {
       const { filename, durationSec } = await prepareBrowserVideo(uploadDir(), file.filename)
       return {
@@ -81,6 +110,19 @@ export class UploadController {
       throw new BadRequestException(
         'Video upload failed during processing. WMV and similar formats are converted to MP4 — ensure ffmpeg is installed on the server.',
       )
+    }
+  }
+
+  @Get('convert-status/:jobId')
+  getConvertStatus(@Param('jobId') jobId: string) {
+    const job = this.conversionJobs.get(jobId)
+    if (!job) throw new NotFoundException('Conversion job not found')
+    return {
+      status: job.status,
+      progress: job.progress,
+      url: job.url,
+      durationSec: job.durationSec,
+      error: job.error,
     }
   }
 
