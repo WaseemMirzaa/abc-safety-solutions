@@ -1,3 +1,4 @@
+import { certificateBrandName } from '@/config/brandAssets'
 import type { Category, Certificate } from '@/types'
 
 export function formatCertDate(iso: string): string {
@@ -8,6 +9,17 @@ export function formatCertDate(iso: string): string {
     day: '2-digit',
     year: 'numeric',
   }).format(d)
+}
+
+export function formatCertExpiration(expiresAt: string | null | undefined): string {
+  if (!certificateHasExpiry(expiresAt)) return 'Lifetime'
+  return formatCertDate(expiresAt!)
+}
+
+function isInvalidCertificationLine(text: string): boolean {
+  const normalized = text.trim().toLowerCase()
+  const brand = certificateBrandName.toLowerCase()
+  return normalized === brand || normalized === `${brand}, inc.` || normalized.length < 15
 }
 
 export type CertExpiryState = 'none' | 'active' | 'expired'
@@ -51,11 +63,18 @@ export function findCertificateById(certs: Certificate[], param: string): Certif
   )
 }
 
-/** Line shown on the certificate; prefers snapshot at issue, else category list lookup. */
+/** Line shown on the certificate (category regulation text or category name). */
 export function resolveCertificateCategoryLine(cert: Certificate, categories: Category[]): string | undefined {
-  const snap = cert.certificationText?.trim()
-  if (snap) return snap
-  const cid = cert.categoryId
-  if (!cid) return undefined
-  return categories.find((c) => c.id === cid)?.certificationText?.trim() || undefined
+  const category = cert.categoryId ? categories.find((c) => c.id === cert.categoryId) : undefined
+  const candidates = [
+    cert.certificationText?.trim(),
+    category?.certificationText?.trim(),
+    category?.name?.trim(),
+  ].filter(Boolean) as string[]
+
+  for (const line of candidates) {
+    if (!isInvalidCertificationLine(line)) return line
+  }
+
+  return category?.name?.trim() || undefined
 }

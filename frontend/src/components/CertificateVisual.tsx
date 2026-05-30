@@ -2,8 +2,13 @@ import { clsx } from 'clsx'
 import { useTranslation } from 'react-i18next'
 import { brandLogoCustomer, certificateBrandName } from '@/config/brandAssets'
 import { companyContact } from '@/config/companyContact'
-import { certificateDisplayId, formatCertDate, resolveCertificateCategoryLine } from '@/lib/certificateDisplay'
-import { localizedCategoryCertLine, localizedCourseTitle } from '@/lib/catalogLocale'
+import {
+  certificateDisplayId,
+  formatCertDate,
+  formatCertExpiration,
+  resolveCertificateCategoryLine,
+} from '@/lib/certificateDisplay'
+import { localizedCategoryCertLine } from '@/lib/catalogLocale'
 import type { Category, Certificate } from '@/types'
 
 const FRAME_SRC = '/certificate-frame.png'
@@ -15,14 +20,12 @@ const OPERATIONS_DIRECTOR = companyContact.operationsDirector
 type Props = {
   cert: Certificate
   categories?: Category[]
-  /** When set, localizes the course title on the certificate. */
-  courseSlug?: string
   variant?: 'full' | 'compact'
   sampleWatermark?: boolean
   className?: string
 }
 
-export function CertificateVisual({ cert, categories = [], courseSlug, variant = 'full', sampleWatermark, className }: Props) {
+export function CertificateVisual({ cert, categories = [], variant = 'full', sampleWatermark, className }: Props) {
   const { t } = useTranslation()
   const compact = variant === 'compact'
   const rawLine = resolveCertificateCategoryLine(cert, categories)
@@ -32,14 +35,10 @@ export function CertificateVisual({ cert, categories = [], courseSlug, variant =
     isSample && rawLine && cert.categoryId
       ? localizedCategoryCertLine(cert.categoryId, rawLine)
       : rawLine
-  const displayCourseName = isSample
-    ? t('ui_cert_sample_course')
-    : courseSlug
-      ? localizedCourseTitle(courseSlug, cert.courseName || '—')
-      : (cert.courseName || '—')
-  const displayUserName = isSample ? t('ui_cert_sample_user') : (cert.userName || '—')
+  const displayCourseName = isSample ? t('ui_cert_sample_course') : (cert.courseName?.trim() || '—')
+  const displayUserName = isSample ? t('ui_cert_sample_user') : (cert.userName?.trim() || '—')
   const courseDate = formatCertDate(cert.issuedAt)
-  const expirationDate = cert.expiresAt ? formatCertDate(cert.expiresAt) : null
+  const expirationDate = formatCertExpiration(cert.expiresAt)
   const dateIssued = courseDate
 
   return (
@@ -168,14 +167,12 @@ export function CertificateVisual({ cert, categories = [], courseSlug, variant =
             <span className="font-semibold">{t('ui_cert_course_date', { defaultValue: 'Course date' })}:</span>{' '}
             {courseDate}
           </p>
-          {expirationDate ? (
-            <p>
-              <span className="font-semibold">
-                {t('ui_cert_expiration_date', { defaultValue: 'Expiration date' })}:
-              </span>{' '}
-              {expirationDate}
-            </p>
-          ) : null}
+          <p>
+            <span className="font-semibold">
+              {t('ui_cert_expiration_date', { defaultValue: 'Expiration date' })}:
+            </span>{' '}
+            {expirationDate}
+          </p>
         </div>
 
         <div

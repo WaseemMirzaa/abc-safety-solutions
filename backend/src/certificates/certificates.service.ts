@@ -36,6 +36,15 @@ export class CertificatesService {
     return Promise.all(rows.map((row) => this.enrichForDisplay(row)))
   }
 
+  private isInvalidCertificationLine(text: string): boolean {
+    const normalized = text.trim().toLowerCase()
+    return (
+      normalized === 'abc safety solutions' ||
+      normalized === 'abc safety solutions, inc.' ||
+      normalized.length < 15
+    )
+  }
+
   /** Resolve live user, course, and category fields for certificate display. */
   private async enrichForDisplay(cert: CertificateEntity): Promise<CertificateEntity> {
     const user = await this.users.findOne({ where: { id: cert.userId } })
@@ -44,11 +53,16 @@ export class CertificatesService {
     if (cert.source === 'platform' && cert.courseId) {
       const course = await this.courses.findOne({ where: { id: cert.courseId } })
       if (course) {
-        cert.courseName = course.title
+        cert.courseName = course.title.trim() || cert.courseName
         cert.categoryId = course.categoryId
         const cat = await this.categories.findOne({ where: { id: course.categoryId } })
-        if (cat?.certificationText?.trim()) {
-          cert.certificationText = cat.certificationText.trim()
+        if (cat) {
+          const certText = cat.certificationText?.trim()
+          if (certText && !this.isInvalidCertificationLine(certText)) {
+            cert.certificationText = certText
+          } else {
+            cert.certificationText = cat.name?.trim() || null
+          }
         }
       }
     }

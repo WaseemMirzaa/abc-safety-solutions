@@ -9,7 +9,7 @@ import { t } from '@/i18n/t'
 import { ApiError } from '@/api/client'
 import { fetchCategories, fetchCertificateVerify, type CertificateVerifyResult } from '@/api/localData'
 import { qk } from '@/api/queryKeys'
-import { certificateDisplayId, formatCertDate } from '@/lib/certificateDisplay'
+import { certificateDisplayId, formatCertDate, formatCertExpiration } from '@/lib/certificateDisplay'
 import type { Certificate } from '@/types'
 
 function verifyResultToCertificate(r: CertificateVerifyResult): Certificate {
@@ -129,9 +129,8 @@ export function VerifyCertificatePage() {
               </span>
               <span className="text-sm text-slate-600">
                 {t('ui_verify_issued_at')}: {formatCertDate(verifiedCert.issuedAt)}
-                {verifiedCert.expiresAt
-                  ? ` · ${t('ui_verify_expires')}: ${formatCertDate(verifiedCert.expiresAt)}`
-                  : ''}
+                {' · '}
+                {t('ui_verify_expires')}: {formatCertExpiration(verifiedCert.expiresAt)}
               </span>
             </div>
             <div className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-4 shadow-lg sm:p-6">

@@ -8,7 +8,7 @@ import { Button } from '@/components/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { AdminModal } from '@/components/admin/AdminModal'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchCategories, fetchCourseById, fetchMyCertificates, updateManualCertificate } from '@/api/localData'
+import { fetchCategories, fetchMyCertificates, updateManualCertificate } from '@/api/localData'
 import { xhrUploadForm } from '@/api/client'
 import { qk } from '@/api/queryKeys'
 import { certificateCopyText, certificateDisplayId, findCertificateById, formatCertDate } from '@/lib/certificateDisplay'
@@ -58,12 +58,6 @@ export function CertificateViewPage() {
 
   const cert = findCertificateById(certs, certificateId)
   const isManual = cert?.source === 'manual'
-
-  const { data: linkedCourse } = useQuery({
-    queryKey: qk.courseById(cert?.courseId ?? ''),
-    queryFn: () => fetchCourseById(cert!.courseId!),
-    enabled: Boolean(user && cert?.courseId && !isManual),
-  })
 
   const [editOpen, setEditOpen] = useState(false)
   const [form, setForm] = useState({ title: '', issuedAt: TODAY, expiresAt: '', notes: '', fileUrl: '' })
@@ -223,16 +217,9 @@ export function CertificateViewPage() {
             )
           ) : (
             /* Platform-generated certificate — show our full template */
-            <CertificateVisual cert={cert} categories={categoryList} courseSlug={linkedCourse?.slug} />
+            <CertificateVisual cert={cert} categories={categoryList} />
           )}
         </div>
-
-        {/* Compact details strip — only for platform certs */}
-        {!isManual && (
-          <div className="mx-auto mt-4 max-w-4xl rounded-lg border border-slate-200 bg-slate-50/60 p-4 print:hidden">
-            <CertificateVisual cert={cert} categories={categoryList} courseSlug={linkedCourse?.slug} variant="compact" />
-          </div>
-        )}
       </Container>
 
       {/* Edit modal for manual certs */}
