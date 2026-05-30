@@ -61,16 +61,25 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
   const anyConverting = [...convJobs.values()].some((j) => j.status === 'converting')
   const busy = uploading || anyConverting
 
+  // Keep refs so the polling interval always reads the latest values without
+  // being in the effect dependency array (which would reset the timer on every render).
+  const convJobsRef = useRef(convJobs)
+  convJobsRef.current = convJobs
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
   useEffect(() => {
     onUploadingChange?.(busy)
   }, [busy, onUploadingChange])
 
-  // Poll active conversion jobs every 1.5 s
+  // Poll active conversion jobs on a stable 1.5 s interval.
+  // Only depends on anyConverting so the timer is never reset by parent re-renders.
   useEffect(() => {
     if (!anyConverting) return
-    const timer = window.setTimeout(async () => {
+    const interval = window.setInterval(async () => {
       const token = getToken()
-      const updates = new Map(convJobs)
+      const current = convJobsRef.current
+      const updates = new Map(current)
       let slidesChanged = false
       const nextSlides = [...slidesRef.current]
 
@@ -105,11 +114,12 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
         }
       }
 
-      setConvJobs(updates)
-      if (slidesChanged) onChange(nextSlides)
+      setConvJobs(new Map(updates))
+      if (slidesChanged) onChangeRef.current(nextSlides)
     }, 1500)
-    return () => window.clearTimeout(timer)
-  }, [anyConverting, convJobs, onChange])
+    return () => window.clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyConverting])
 
   const metrics = computeCourseContentMetrics(slides)
 
