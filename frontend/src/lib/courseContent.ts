@@ -40,6 +40,16 @@ export function getContentPlaylist(slides: CourseSlide[]): CourseSlide[] {
 
 export function computeCourseContentMetrics(slides: CourseSlide[]): CourseContentMetrics {
   const playlist = getContentPlaylist(slides)
+
+  // Count how many pages each PDF has replaced so we can subtract them
+  const replacedCountByPdf = new Map<string, number>()
+  for (const s of playlist) {
+    if (s.type === 'video' && s.pageReplace) {
+      const id = s.pageReplace.pdfSlideId
+      replacedCountByPdf.set(id, (replacedCountByPdf.get(id) ?? 0) + 1)
+    }
+  }
+
   let slideCount = 0
   let pdfFileCount = 0
   let videoCount = 0
@@ -48,13 +58,16 @@ export function computeCourseContentMetrics(slides: CourseSlide[]): CourseConten
   for (const slide of playlist) {
     if (slide.type === 'pdf') {
       const pages = pdfPages(slide)
-      slideCount += pages
+      const replaced = Math.min(replacedCountByPdf.get(slide.id) ?? 0, pages)
+      const effective = pages - replaced
+      slideCount += effective
       pdfFileCount += 1
-      durationSeconds += pages * LEARNER_SLIDE_DWELL_SEC
+      durationSeconds += effective * LEARNER_SLIDE_DWELL_SEC
     } else if (slide.type === 'video') {
       slideCount += 1
       videoCount += 1
       durationSeconds += videoSeconds(slide)
+      // replacement videos are already counted above (they take the place of a PDF page)
     }
   }
 
@@ -67,38 +80,57 @@ export function computeCourseContentMetrics(slides: CourseSlide[]): CourseConten
   }
 }
 
-/** Flatten playlist into learner steps in saved order. */
+/** Flatten playlist into learner steps in saved order.
+ *  Videos with `pageReplace` are injected at the specified PDF page position
+ *  and do NOT appear again as standalone slides. */
 export function buildLearnerUnits(slides: CourseSlide[]): LearnerUnit[] {
+  const playlist = getContentPlaylist(slides)
+
+  // pdfSlideId → Map<pageNumber(1-based), video slide>
+  const replacements = new Map<string, Map<number, CourseSlide>>()
+  for (const s of playlist) {
+    if (s.type === 'video' && s.pageReplace) {
+      const { pdfSlideId, pageNumber } = s.pageReplace
+      if (!replacements.has(pdfSlideId)) replacements.set(pdfSlideId, new Map())
+      replacements.get(pdfSlideId)!.set(pageNumber, s)
+    }
+  }
+
+  const emittedAsReplacement = new Set<string>()
   const units: LearnerUnit[] = []
-  for (const slide of getContentPlaylist(slides)) {
+
+  for (const slide of playlist) {
     if (slide.type === 'pdf') {
       const urls = slide.renderedSlideUrls?.filter(Boolean) ?? []
-      if (urls.length > 0) {
-        urls.forEach((url, i) => {
+      const n = urls.length > 0 ? urls.length : pdfPages(slide)
+      const pdfReps = replacements.get(slide.id)
+
+      for (let i = 0; i < n; i++) {
+        const pageNumber = i + 1
+        const repVideo = pdfReps?.get(pageNumber)
+        if (repVideo) {
+          emittedAsReplacement.add(repVideo.id)
           units.push({
-            unitId: `${slide.id}-p${i}`,
-            sourceSlideId: slide.id,
-            kind: 'image',
-            url,
-            title: slide.title ?? slide.fileName,
-            minDwellSec: LEARNER_SLIDE_DWELL_SEC,
+            unitId: `${repVideo.id}-v`,
+            sourceSlideId: repVideo.id,
+            kind: 'video',
+            url: repVideo.url,
+            title: repVideo.title ?? repVideo.fileName,
+            minDwellSec: 0,
+            durationSec: videoSeconds(repVideo),
           })
-        })
-      } else {
-        const n = pdfPages(slide)
-        for (let i = 0; i < n; i++) {
+        } else {
           units.push({
             unitId: `${slide.id}-p${i}`,
             sourceSlideId: slide.id,
             kind: 'image',
-            url: slide.url,
+            url: urls.length > 0 ? urls[i] : slide.url,
             title: slide.title ?? slide.fileName,
             minDwellSec: LEARNER_SLIDE_DWELL_SEC,
           })
         }
       }
-    } else if (slide.type === 'video') {
-      const dur = videoSeconds(slide)
+    } else if (slide.type === 'video' && !emittedAsReplacement.has(slide.id)) {
       units.push({
         unitId: `${slide.id}-v`,
         sourceSlideId: slide.id,
@@ -106,7 +138,7 @@ export function buildLearnerUnits(slides: CourseSlide[]): LearnerUnit[] {
         url: slide.url,
         title: slide.title ?? slide.fileName,
         minDwellSec: 0,
-        durationSec: dur,
+        durationSec: videoSeconds(slide),
       })
     }
   }

@@ -37,6 +37,14 @@ export type CourseSlide = {
    * no parsing wait, and accurate rendering for all PPTX/PDF content.
    */
   renderedSlideUrls?: string[]
+  /**
+   * Video-only: when set this video replaces the specified PDF page in the
+   * learner view instead of appearing as a standalone slide.
+   */
+  pageReplace?: {
+    pdfSlideId: string
+    pageNumber: number // 1-based
+  }
   /** Admin-only client preview (stripped before save). */
   previewDataUrl?: string
 }

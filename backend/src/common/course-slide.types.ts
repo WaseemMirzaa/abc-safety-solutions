@@ -23,4 +23,9 @@ export type CourseSlide = {
    * display slides as plain images instead of running pptx-preview in the browser.
    */
   renderedSlideUrls?: string[]
+  /** Video-only: replaces the given PDF page in the learner view. */
+  pageReplace?: {
+    pdfSlideId: string
+    pageNumber: number
+  }
 }

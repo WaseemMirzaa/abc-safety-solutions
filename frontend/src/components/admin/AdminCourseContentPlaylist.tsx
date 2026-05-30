@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FileText, Film, GripVertical, Loader2, Trash2 } from 'lucide-react'
+import { BookOpen, FileText, Film, GripVertical, Loader2, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/ui/Spinner'
 import { ApiError, getToken, xhrUploadForm } from '@/api/client'
@@ -57,6 +57,10 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
   const [uploadErr, setUploadErr] = useState('')
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [convJobs, setConvJobs] = useState<Map<string, ConvJob>>(new Map())
+  // slideId of the video currently showing the "replace a PDF page" inline form
+  const [editingReplace, setEditingReplace] = useState<string | null>(null)
+  const [replacePageNum, setReplacePageNum] = useState('')
+  const [replacePdfId, setReplacePdfId] = useState('')
 
   const anyConverting = [...convJobs.values()].some((j) => j.status === 'converting')
   const busy = uploading || anyConverting
@@ -216,6 +220,41 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
     return undefined
   }
 
+  const pdfSlides = slides.filter((s) => s.type === 'pdf')
+
+  const openReplaceEditor = (slideId: string, currentPdfId?: string) => {
+    setEditingReplace(slideId)
+    setReplacePageNum('')
+    setReplacePdfId(currentPdfId ?? pdfSlides[0]?.id ?? '')
+  }
+
+  const applyPageReplace = (videoSlideId: string) => {
+    const pageNumber = parseInt(replacePageNum, 10)
+    if (!replacePdfId || !Number.isFinite(pageNumber) || pageNumber < 1) return
+    const targetPdf = pdfSlides.find((p) => p.id === replacePdfId)
+    const maxPage = targetPdf?.renderedSlideUrls?.filter(Boolean).length
+      ?? targetPdf?.pdfPageCount
+      ?? targetPdf?.deckSlideCount
+      ?? 9999
+    if (pageNumber > maxPage) return
+    onChange(
+      slidesRef.current.map((s) =>
+        s.id === videoSlideId
+          ? { ...s, pageReplace: { pdfSlideId: replacePdfId, pageNumber } }
+          : s,
+      ),
+    )
+    setEditingReplace(null)
+  }
+
+  const removePageReplace = (videoSlideId: string) => {
+    onChange(
+      slidesRef.current.map((s) =>
+        s.id === videoSlideId ? { ...s, pageReplace: undefined } : s,
+      ),
+    )
+  }
+
   return (
     <div className="rounded-2xl border-2 border-dashed border-violet-200/90 bg-violet-50/40 p-4">
       <label className="text-xs font-semibold uppercase tracking-wider text-violet-900">
@@ -345,6 +384,78 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
                             ? 'PDF — converts on save'
                             : 'PDF'}
                     </p>
+                  )}
+
+                  {/* Page-replace controls — only for video slides when PDFs exist */}
+                  {slide.type === 'video' && !isConverting && pdfSlides.length > 0 && (
+                    <div className="mt-1.5">
+                      {slide.pageReplace ? (
+                        <span className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700">
+                          <BookOpen className="h-3 w-3 shrink-0" />
+                          Replaces p.{slide.pageReplace.pageNumber}
+                          {pdfSlides.length > 1
+                            ? ` of ${pdfSlides.find((p) => p.id === slide.pageReplace!.pdfSlideId)?.fileName ?? 'PDF'}`
+                            : ''}
+                          <button
+                            type="button"
+                            className="ml-0.5 rounded hover:text-violet-900"
+                            onClick={() => removePageReplace(slide.id)}
+                            aria-label="Remove page replacement"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ) : editingReplace === slide.id ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          {pdfSlides.length > 1 && (
+                            <select
+                              className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                              value={replacePdfId}
+                              onChange={(e) => setReplacePdfId(e.target.value)}
+                            >
+                              {pdfSlides.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.fileName ?? p.title ?? 'PDF'}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <input
+                            type="number"
+                            min={1}
+                            className="w-16 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                            placeholder="Page #"
+                            value={replacePageNum}
+                            onChange={(e) => setReplacePageNum(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') applyPageReplace(slide.id) }}
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            className="rounded bg-violet-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-violet-700"
+                            onClick={() => applyPageReplace(slide.id)}
+                          >
+                            Set
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-700"
+                            onClick={() => setEditingReplace(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-violet-600"
+                          onClick={() => openReplaceEditor(slide.id)}
+                        >
+                          <BookOpen className="h-3 w-3" />
+                          Replace a PDF page
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <Button
