@@ -22,6 +22,7 @@ import { SlideRenderService } from '../slide-render/slide-render.service'
 import { IsString, MinLength } from 'class-validator'
 import { existsSync } from 'fs'
 import { extname, join } from 'path'
+import { prepareBrowserVideo } from './video-process.util'
 
 class RenderSlidesDto {
   @IsString()
@@ -56,13 +57,30 @@ export class UploadController {
       fileFilter: multerFileFilter,
     }),
   )
-  uploadFile(@UploadedFile() file: Express.Multer.File) {
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file received — upload may have been interrupted.')
     const kind = assertAllowedUpload(file)
-    return {
-      url: uploadUrlForFile(file.filename),
-      fileName: file.originalname,
-      kind,
+
+    if (kind !== 'video') {
+      return {
+        url: uploadUrlForFile(file.filename),
+        fileName: file.originalname,
+        kind,
+      }
+    }
+
+    try {
+      const { filename, durationSec } = await prepareBrowserVideo(uploadDir(), file.filename)
+      return {
+        url: uploadUrlForFile(filename),
+        fileName: file.originalname,
+        kind,
+        ...(durationSec > 0 ? { durationSec: Math.round(durationSec) } : {}),
+      }
+    } catch {
+      throw new BadRequestException(
+        'Video upload failed during processing. WMV and similar formats are converted to MP4 — ensure ffmpeg is installed on the server.',
+      )
     }
   }
 

@@ -12,6 +12,7 @@ RUN apt-get update \
     libreoffice-impress \
     libreoffice-writer \
     poppler-utils \
+    ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 RUN npm ci --omit=dev

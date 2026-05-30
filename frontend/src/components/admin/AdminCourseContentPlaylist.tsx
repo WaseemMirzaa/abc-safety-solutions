@@ -75,23 +75,24 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
           setUploadErr('Only PDF and video files (MP4, MOV, WMV) are allowed.')
           continue
         }
-        const { url, fileName } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
+        const { url, fileName, durationSec: serverDurationSec } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
           const base = (i / files.length) * 100
           setUploadPct(Math.round(base + p.percent / files.length))
         })
         const slideId = randomId()
         const title = fileName || file.name
         if (type === 'video') {
+          const initialDuration = serverDurationSec && serverDurationSec > 0 ? serverDurationSec : 60
           next.push({
             id: slideId,
             type: 'video',
             url,
             fileName: title,
             title,
-            durationSec: 60,
+            durationSec: initialDuration,
           })
           onChange([...next])
-          if (file.size <= MAX_VIDEO_PROBE_BYTES) {
+          if (!serverDurationSec && file.size <= MAX_VIDEO_PROBE_BYTES) {
             void probeVideoDurationSec(file)
               .then((durationSec) => {
                 onChange(

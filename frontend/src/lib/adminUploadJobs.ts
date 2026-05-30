@@ -170,7 +170,7 @@ export function startCourseDeckUpload(
   const id = createJob(file.name)
   void (async () => {
     try {
-      const { url, fileName, kind } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
+      const { url, fileName, kind, durationSec } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
         patchJob(id, { percent: p.percent, phase: 'upload', status: 'uploading' })
       })
       const title = fileName || file.name
@@ -183,6 +183,7 @@ export function startCourseDeckUpload(
             type: 'video',
             url,
             title,
+            ...(durationSec && durationSec > 0 ? { durationSec } : {}),
           },
         ]
         savePendingCourseUpload({

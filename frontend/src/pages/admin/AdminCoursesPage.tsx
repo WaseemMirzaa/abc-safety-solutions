@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
 import { AdminCourseContentPlaylist } from '@/components/admin/AdminCourseContentPlaylist'
-import { computeCourseContentMetrics } from '@/lib/courseContent'
+import { computeCourseContentMetrics, formatCourseDuration, formatDurationBreakdown } from '@/lib/courseContent'
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
 import { ApiError } from '@/api/client'
@@ -608,7 +608,7 @@ export function AdminCoursesPage() {
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_347_duration_minutes_8e1195fdec')}</label>
               <p className="input-pro mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">
                 {playlistSlides.length > 0
-                  ? `${contentMetrics.durationMinutes} min (${Math.floor(contentMetrics.durationSeconds / 60)}h ${contentMetrics.durationSeconds % 60}m) — auto`
+                  ? `${formatCourseDuration(contentMetrics.durationMinutes)} (${formatDurationBreakdown(contentMetrics.durationSeconds)}) — auto`
                   : '—'}
               </p>
               <p className="mt-1 text-[11px] text-slate-500">30 sec per PDF page + video length. Not editable.</p>

@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { join } from 'path'
+import { join, basename } from 'path'
 import { existsSync } from 'fs'
 import type { CourseSlide } from '../common/course-slide.types'
 import { computeCourseContentMetrics } from '../common/course-content.util'
-import { uploadDir } from '../upload/upload-storage'
+import { uploadDir, uploadUrlForFile } from '../upload/upload-storage'
+import { needsBrowserTranscode, prepareBrowserVideo, probeVideoDurationSec } from '../upload/video-process.util'
 import { SlideRenderService } from '../slide-render/slide-render.service'
 import { CoursesService } from './courses.service'
 
@@ -41,6 +42,43 @@ export class CourseContentService {
     const prepared: CourseSlide[] = []
 
     for (const slide of slides) {
+      if (slide.type === 'video') {
+        let url = slide.url
+        let durationSec = slide.durationSec ?? 0
+        let filePath = this.filePathFromUploadUrl(slide.url)
+
+        // If the original file no longer exists (e.g. WMV was already transcoded
+        // and deleted on a prior load), check for an already-created MP4 version.
+        if (!filePath && needsBrowserTranscode(url)) {
+          const mp4Url = url.replace(/\.[^/.?]+(\?|$)/, '.mp4$1')
+          const mp4Path = this.filePathFromUploadUrl(mp4Url)
+          if (mp4Path) {
+            url = mp4Url
+            filePath = mp4Path
+          }
+        }
+
+        if (filePath) {
+          if (needsBrowserTranscode(filePath)) {
+            try {
+              const { filename, durationSec: probed } = await prepareBrowserVideo(
+                uploadDir(),
+                basename(filePath),
+              )
+              url = uploadUrlForFile(filename)
+              if (probed > 0) durationSec = Math.round(probed)
+            } catch (err) {
+              this.log.warn(`Video transcode failed for ${slide.url}: ${String(err)}`)
+            }
+          } else {
+            const probed = await probeVideoDurationSec(filePath)
+            if (probed > 0) durationSec = Math.round(probed)
+          }
+        }
+        prepared.push({ ...slide, url, ...(durationSec > 0 ? { durationSec } : {}) })
+        continue
+      }
+
       if (slide.type !== 'pdf') {
         prepared.push({ ...slide })
         continue

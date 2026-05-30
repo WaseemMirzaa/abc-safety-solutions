@@ -141,6 +141,17 @@ export function formatCourseDuration(minutes: number): string {
   return h === 1 ? `1 hr ${rem} min` : `${h} hr ${rem} min`
 }
 
+/** Human-readable breakdown from total seconds (e.g. 3900 → "1 hr 5 min"). */
+export function formatDurationBreakdown(totalSec: number): string {
+  const sec = Math.max(0, Math.round(totalSec))
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  if (h > 0 && m > 0) return h === 1 ? `1 hr ${m} min` : `${h} hr ${m} min`
+  if (h > 0) return h === 1 ? '1 hour' : `${h} hours`
+  if (m > 0) return `${m} min`
+  return `${sec} sec`
+}
+
 export function probeVideoDurationSec(file: File): Promise<number> {
   return new Promise((resolve) => {
     const blob = URL.createObjectURL(file)
