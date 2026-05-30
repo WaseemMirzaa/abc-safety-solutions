@@ -1,9 +1,13 @@
 import { Controller, Get, Param } from '@nestjs/common'
 import { CoursesService } from './courses.service'
+import { CourseContentService } from './course-content.service'
 
 @Controller('courses')
 export class CoursesController {
-  constructor(private readonly courses: CoursesService) {}
+  constructor(
+    private readonly courses: CoursesService,
+    private readonly courseContent: CourseContentService,
+  ) {}
 
   @Get()
   listPublished() {
@@ -11,12 +15,14 @@ export class CoursesController {
   }
 
   @Get('slug/:slug')
-  bySlug(@Param('slug') slug: string) {
-    return this.courses.findBySlug(slug)
+  async bySlug(@Param('slug') slug: string) {
+    const dto = await this.courses.findBySlug(slug)
+    return { ...dto, slides: this.courseContent.fixVideoUrls(dto.slides) }
   }
 
   @Get(':id')
-  byId(@Param('id') id: string) {
-    return this.courses.findPublishedById(id)
+  async byId(@Param('id') id: string) {
+    const dto = await this.courses.findPublishedById(id)
+    return { ...dto, slides: this.courseContent.fixVideoUrls(dto.slides) }
   }
 }

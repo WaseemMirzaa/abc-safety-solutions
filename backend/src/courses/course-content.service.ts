@@ -119,6 +119,20 @@ export class CourseContentService {
     return { slides: prepared, metrics: computeCourseContentMetrics(prepared) }
   }
 
+  /**
+   * Lightweight sync URL fix for learner-facing responses: swaps any stored
+   * .wmv (or other non-browser format) URL for the already-transcoded .mp4
+   * if it exists on disk. Does NOT run ffmpeg — transcoding is the admin path.
+   */
+  fixVideoUrls(slides: CourseSlide[] | undefined): CourseSlide[] | undefined {
+    if (!slides?.length) return slides
+    return slides.map((slide) => {
+      if (slide.type !== 'video' || !needsBrowserTranscode(slide.url)) return slide
+      const mp4Url = slide.url.replace(/\.[^/.?]+(\?|$)/, '.mp4$1')
+      return this.filePathFromUploadUrl(mp4Url) ? { ...slide, url: mp4Url } : slide
+    })
+  }
+
   needsPdfRender(slides: CourseSlide[] | undefined): boolean {
     return Boolean(slides?.some((s) => s.type === 'pdf' && (s.renderStatus === 'pending' || !s.renderedSlideUrls?.length)))
   }

@@ -40,6 +40,7 @@ export function VideoSlidePlayer({
   const completedRef = useRef(false)
   const [watchPct, setWatchPct] = useState(0)
   const [finished, setFinished] = useState(false)
+  const [mediaError, setMediaError] = useState(false)
 
   const tryComplete = useCallback(
     (video: HTMLVideoElement) => {
@@ -60,6 +61,7 @@ export function VideoSlidePlayer({
     completedRef.current = false
     setFinished(false)
     setWatchPct(0)
+    setMediaError(false)
   }, [src, initialMaxTimeSec])
 
   const syncMaxWatchedToDuration = (duration: number) => {
@@ -129,7 +131,20 @@ export function VideoSlidePlayer({
     tryComplete(video)
   }
 
+  const errorOverlay = (
+    <div className="flex h-full w-full items-center justify-center bg-slate-900 p-6 text-center">
+      <div>
+        <Film className="mx-auto mb-3 h-10 w-10 text-slate-500" aria-hidden />
+        <p className="text-sm font-semibold text-slate-200">This video cannot be played</p>
+        <p className="mt-1 text-xs text-slate-400">
+          The video format is not supported by your browser. Please contact your administrator.
+        </p>
+      </div>
+    </div>
+  )
+
   if (frameOnly) {
+    if (mediaError) return errorOverlay
     return (
       <video
         ref={videoRef}
@@ -143,10 +158,19 @@ export function VideoSlidePlayer({
         onSeeking={handleSeeking}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
+        onError={() => setMediaError(true)}
         className="h-full w-full min-h-0 object-contain bg-black"
       >
         <track kind="captions" />
       </video>
+    )
+  }
+
+  if (mediaError) {
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col items-center justify-center">
+        {errorOverlay}
+      </div>
     )
   }
 
@@ -164,6 +188,7 @@ export function VideoSlidePlayer({
         onSeeking={handleSeeking}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
+        onError={() => setMediaError(true)}
         className="max-h-full max-w-full rounded-lg object-contain shadow-sm ring-1 ring-slate-200/80"
       >
         <track kind="captions" />
