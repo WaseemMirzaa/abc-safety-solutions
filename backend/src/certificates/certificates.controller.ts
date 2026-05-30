@@ -1,13 +1,34 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import { IsOptional, IsString, MinLength } from 'class-validator'
 import { CurrentUser } from '../common/current-user.decorator'
+import { AdminGuard } from '../common/admin.guard'
 import { CertificatesService } from './certificates.service'
 
 class IssueDto {
   @IsString()
   @MinLength(1)
   courseId: string
+}
+
+class AdminPatchCertDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  userName?: string
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  courseName?: string
+
+  @IsOptional()
+  @IsString()
+  categoryId?: string
+
+  @IsOptional()
+  @IsString()
+  certificationText?: string | null
 }
 
 @Controller('certificates')
@@ -45,5 +66,12 @@ export class CertificatesController {
   @Delete('manual/:id')
   deleteManual(@CurrentUser() u: { id: string }, @Param('id') id: string) {
     return this.certs.deleteManual(u.id, id)
+  }
+
+  /** Admin: correct attendee name / course name / category on any certificate. */
+  @Patch('admin/:id')
+  @UseGuards(AdminGuard)
+  adminPatch(@Param('id') id: string, @Body() body: AdminPatchCertDto) {
+    return this.certs.adminPatch(id, body)
   }
 }

@@ -24,11 +24,15 @@ export function CertificateVisual({ cert, categories = [], variant = 'full', sam
   const { t } = useTranslation()
   const compact = variant === 'compact'
   const rawLine = resolveCertificateCategoryLine(cert, categories)
-  const cid = cert.categoryId ?? 'cat-ohs'
-  const regulationLine = rawLine ? localizedCategoryCertLine(cid, rawLine) : undefined
+  // Only apply i18n localisation when the category ID is known; never fall
+  // back to 'cat-ohs' or the wrong category's text will show on every cert.
+  const regulationLine = rawLine
+    ? (cert.categoryId ? localizedCategoryCertLine(cert.categoryId, rawLine) : rawLine)
+    : undefined
   const displayCourseName =
-    cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_course') : cert.courseName
-  const displayUserName = cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_user') : cert.userName
+    cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_course') : (cert.courseName || '—')
+  const displayUserName =
+    cert.id === 'SAMPLE-CERT-PREVIEW' ? t('ui_cert_sample_user') : (cert.userName || '—')
   const courseDate = formatCertDate(cert.issuedAt)
   const expirationDate = cert.expiresAt ? formatCertDate(cert.expiresAt) : null
   const dateIssued = courseDate

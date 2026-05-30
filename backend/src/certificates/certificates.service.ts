@@ -173,6 +173,25 @@ export class CertificatesService {
     return this.certs.save(row)
   }
 
+  /** Admin-only: correct stored certificate fields without changing the certificate number. */
+  async adminPatch(
+    certId: string,
+    patch: {
+      userName?: string
+      courseName?: string
+      categoryId?: string
+      certificationText?: string | null
+    },
+  ) {
+    const row = await this.certs.findOne({ where: { id: certId } })
+    if (!row) throw new NotFoundException('Certificate not found')
+    if (patch.userName !== undefined) row.userName = patch.userName.trim() || row.userName
+    if (patch.courseName !== undefined) row.courseName = patch.courseName.trim() || row.courseName
+    if (patch.categoryId !== undefined) row.categoryId = patch.categoryId.trim() || row.categoryId
+    if (patch.certificationText !== undefined) row.certificationText = patch.certificationText?.trim() || null
+    return this.certs.save(row)
+  }
+
   async deleteManual(userId: string, certId: string) {
     const row = await this.certs.findOne({ where: { id: certId, userId } })
     if (!row) throw new NotFoundException('Certificate not found')

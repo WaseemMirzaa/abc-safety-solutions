@@ -229,6 +229,9 @@ export type AdminUserDetail = {
     certificateNumber: number
     courseId: string | null
     courseName: string
+    userName: string
+    categoryId?: string
+    certificationText?: string | null
     source: string
     issuedAt: string
     expiresAt: string | null

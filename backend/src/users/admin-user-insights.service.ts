@@ -116,6 +116,9 @@ export class AdminUserInsightsService {
         certificateNumber: c.certificateNumber,
         courseId: c.courseId ?? null,
         courseName: c.courseName,
+        userName: c.userName,
+        categoryId: c.categoryId,
+        certificationText: c.certificationText,
         source: c.source ?? 'platform',
         issuedAt: c.issuedAt instanceof Date ? c.issuedAt.toISOString() : String(c.issuedAt),
         expiresAt: c.expiresAt
