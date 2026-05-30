@@ -72,7 +72,7 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
         const file = files[i]
         const type = slideTypeFromFile(file)
         if (type !== 'pdf' && type !== 'video') {
-          setUploadErr('Only PDF and video files (MP4, MOV) are allowed.')
+          setUploadErr('Only PDF and video files (MP4, MOV, WMV) are allowed.')
           continue
         }
         const { url, fileName } = await xhrUploadForm('/api/admin/upload/file', file, (p) => {
@@ -155,14 +155,14 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
         Course content <span className="text-red-600">*</span>
       </label>
       <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-slate-600">
-        Add multiple PDFs and videos (MP4, MOV). Drag to reorder. PDF pages are converted when you save.
+        Add multiple PDFs and videos (MP4, MOV, WMV). Drag to reorder. PDF pages are converted when you save.
       </p>
 
       <input
         ref={inputRef}
         type="file"
         multiple
-        accept=".pdf,application/pdf,video/mp4,video/quicktime,.mp4,.mov"
+        accept=".pdf,application/pdf,video/mp4,video/quicktime,video/x-ms-wmv,.mp4,.mov,.wmv"
         className="hidden"
         onChange={(e) => void onPickFiles(e)}
       />

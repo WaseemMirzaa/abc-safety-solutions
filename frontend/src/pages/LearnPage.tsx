@@ -915,7 +915,10 @@ export function LearnPage() {
                   aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
                 />
               </div>
-              <p className="mt-1 text-center text-xs text-amber-300/80">
+              <p
+                className="mt-1 text-center text-xs font-bold text-amber-300"
+                style={{ animation: 'blink-urgent 1s ease-in-out infinite' }}
+              >
                 {`${dwellSecsRemaining} second${dwellSecsRemaining !== 1 ? 's' : ''} remaining — hold on this slide to continue`}
               </p>
             </div>

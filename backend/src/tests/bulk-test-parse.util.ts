@@ -18,44 +18,6 @@ function makeQuestion(prompt: string, options: { label: string; isCorrect: boole
   }
 }
 
-export function parseBulkTestJson(raw: string): BulkParseResult {
-  const errors: BulkParseResult['errors'] = []
-  let data: unknown
-  try {
-    data = JSON.parse(raw)
-  } catch {
-    return { questions: [], errors: [{ row: 0, message: 'Invalid JSON' }] }
-  }
-  const arr = (data as { questions?: unknown }).questions
-  if (!Array.isArray(arr)) {
-    return { questions: [], errors: [{ row: 0, message: 'Expected { "questions": [...] }' }] }
-  }
-  const questions: TestQuestion[] = []
-  arr.forEach((item, i) => {
-    const row = i + 1
-    const prompt = (item as { prompt?: string }).prompt?.trim()
-    const options = (item as { options?: { text?: string; label?: string; isCorrect?: boolean }[] }).options
-    if (!prompt) {
-      errors.push({ row, message: 'Missing prompt' })
-      return
-    }
-    if (!Array.isArray(options) || options.length < 2) {
-      errors.push({ row, message: 'Need at least 2 options' })
-      return
-    }
-    const mapped = options.map((o) => ({
-      label: (o.text ?? o.label ?? '').trim(),
-      isCorrect: Boolean(o.isCorrect),
-    }))
-    if (!mapped.some((o) => o.isCorrect)) {
-      errors.push({ row, message: 'Mark one option correct' })
-      return
-    }
-    questions.push(makeQuestion(prompt, mapped))
-  })
-  return { questions, errors }
-}
-
 export function parseBulkTestCsv(raw: string): BulkParseResult {
   const errors: BulkParseResult['errors'] = []
   const lines = raw

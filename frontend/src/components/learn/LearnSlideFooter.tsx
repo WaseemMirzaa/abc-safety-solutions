@@ -134,8 +134,17 @@ export function LearnSlideFooter({
       </div>
 
       <div className="flex flex-col gap-3 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="text-center text-sm text-slate-600 sm:text-left">
-          {dwellHint && !canGoNext && !isLastSlide ? dwellHint : statusMessage}
+        <p className="text-center text-sm sm:text-left">
+          {dwellHint && !canGoNext && !isLastSlide ? (
+            <span
+              className="font-bold text-amber-600"
+              style={{ animation: 'blink-urgent 1s ease-in-out infinite' }}
+            >
+              {dwellHint}
+            </span>
+          ) : (
+            <span className="text-slate-600">{statusMessage}</span>
+          )}
         </p>
         {isLastSlide && customTestReady ? (
           <Button

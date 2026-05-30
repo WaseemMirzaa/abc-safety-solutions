@@ -82,7 +82,7 @@ export class NotificationsService {
   }
 
   async broadcast(title: string, body: string, type = 'announcement') {
-    const allUsers = await this.users.find()
+    const allUsers = await this.users.find({ where: { role: 'learner' } })
     for (const u of allUsers) {
       await this.notifyUser(u.id, title, body, type)
     }

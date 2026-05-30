@@ -104,7 +104,7 @@ export function getCourseSlideCount(course: Course): number {
   return getDeckLearnerSlideCount(course)
 }
 
-const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.ogg', '.m4v', '.avi', '.mkv'] as const
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.ogg', '.m4v', '.avi', '.mkv', '.wmv'] as const
 
 export function slideTypeFromFile(file: File): CourseSlideType | null {
   const name = file.name.toLowerCase()

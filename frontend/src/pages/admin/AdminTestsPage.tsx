@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X, Download } from 'lucide-react'
+import { ClipboardList, Plus, Pencil, Trash2, ListPlus, X, Download, Upload } from 'lucide-react'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
 import {
@@ -76,9 +76,7 @@ export function AdminTestsPage() {
   const [modal, setModal] = useState<'closed' | 'create' | 'edit'>('closed')
   const [draft, setDraft] = useState<AdminTest | null>(null)
   const [err, setErr] = useState('')
-  const [bulkFormat, setBulkFormat] = useState<'csv' | 'json'>('csv')
   const [bulkContent, setBulkContent] = useState('')
-  const [copiedSample, setCopiedSample] = useState<false | 'copied' | 'pasted'>(false)
   const [bulkPreview, setBulkPreview] = useState<{
     questions: TestQuestion[]
     errors: { row: number; message: string }[]
@@ -227,102 +225,64 @@ export function AdminTestsPage() {
       <div className="mt-8 rounded-2xl border border-violet-200/80 bg-violet-50/40 p-4">
         <h2 className="font-display text-lg font-semibold text-brand-900">Bulk import questions</h2>
         <p className="mt-1 text-xs text-slate-600">
-          CSV or JSON — questions only. Pick course and test title below, then preview and confirm.
+          CSV only — questions only. Pick course and test title below, then preview and confirm.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button
+          <Button
             type="button"
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${bulkFormat === 'csv' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}
-            onClick={() => setBulkFormat('csv')}
+            variant="secondary"
+            className="!text-xs gap-1.5"
+            onClick={() => {
+              const csv = [
+                'question,optionA,optionB,optionC,optionD,correctOption',
+                'What does PPE stand for?,Personal Protective Equipment,Protective Procedure Equipment,Personal Prevention Equipment,Public Protection Equipment,A',
+                'What should you do after a chemical spill?,Report it and follow spill response,Ignore it and continue working,B',
+                'Which extinguisher class is for electrical fires?,Class A,Class B,Class C,C',
+                'When must a near-miss be reported?,Only if injured,Within 24 hours,Immediately after it occurs,At week end,C',
+                'Correct lifting technique?,Bend at waist,Keep back straight and lift with legs,B',
+              ].join('\n')
+              const blob = new Blob([csv], { type: 'text/csv' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = 'sample-test-questions.csv'
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+              URL.revokeObjectURL(url)
+            }}
           >
-            CSV
-          </button>
-          <button
-            type="button"
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${bulkFormat === 'json' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}
-            onClick={() => setBulkFormat('json')}
-          >
-            JSON
-          </button>
-          {bulkFormat === 'csv' ? (
-            <Button
-              type="button"
-              variant="secondary"
-              className="!text-xs gap-1.5"
-              onClick={() => {
-                const csv = [
-                  'question,optionA,optionB,optionC,optionD,correctOption',
-                  'What does PPE stand for?,Personal Protective Equipment,Protective Procedure Equipment,Personal Prevention Equipment,Public Protection Equipment,A',
-                  'What should you do after a chemical spill?,Report it and follow spill response,Ignore it and continue working,B',
-                  'Which extinguisher class is for electrical fires?,Class A,Class B,Class C,C',
-                  'When must a near-miss be reported?,Only if injured,Within 24 hours,Immediately after it occurs,At week end,C',
-                  'Correct lifting technique?,Bend at waist,Keep back straight and lift with legs,B',
-                ].join('\n')
-                const blob = new Blob([csv], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'sample-test-questions.csv'
-                document.body.appendChild(a)
-                a.click()
-                document.body.removeChild(a)
-                URL.revokeObjectURL(url)
+            <Download className="h-3.5 w-3.5" />
+            Download sample CSV
+          </Button>
+          <label className="cursor-pointer">
+            <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+              <Upload className="h-3.5 w-3.5" />
+              Upload CSV file
+            </span>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const reader = new FileReader()
+                reader.onload = (ev) => {
+                  setBulkContent((ev.target?.result as string) ?? '')
+                  setBulkPreview(null)
+                }
+                reader.readAsText(file)
+                e.target.value = ''
               }}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download sample CSV
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              className="!text-xs"
-              onClick={() => {
-                const json = JSON.stringify(
-                  {
-                    questions: [
-                      {
-                        prompt: 'What does PPE stand for?',
-                        options: [
-                          { text: 'Personal Protective Equipment', isCorrect: true },
-                          { text: 'Protective Procedure Equipment', isCorrect: false },
-                          { text: 'Personal Prevention Equipment', isCorrect: false },
-                          { text: 'Public Protection Equipment', isCorrect: false },
-                        ],
-                      },
-                      {
-                        prompt: 'When must a near-miss incident be reported?',
-                        options: [
-                          { text: 'Only if someone was injured', isCorrect: false },
-                          { text: 'Within 24 hours at your convenience', isCorrect: false },
-                          { text: 'Immediately after it occurs', isCorrect: true },
-                          { text: 'At the end of the week', isCorrect: false },
-                        ],
-                      },
-                    ],
-                  },
-                  null,
-                  2,
-                )
-                navigator.clipboard.writeText(json).then(() => {
-                  setCopiedSample('copied')
-                  setTimeout(() => setCopiedSample(false), 2000)
-                }).catch(() => {
-                  setBulkContent(json)
-                  setCopiedSample('pasted')
-                  setTimeout(() => setCopiedSample(false), 2500)
-                })
-              }}
-            >
-              {copiedSample === 'copied' ? 'Copied!' : copiedSample === 'pasted' ? 'Pasted to textarea ↓' : 'Copy sample JSON'}
-            </Button>
-          )}
+            />
+          </label>
         </div>
         <textarea
           className="input-pro mt-3 min-h-[100px] w-full font-mono text-xs"
           value={bulkContent}
           onChange={(e) => setBulkContent(e.target.value)}
-          placeholder={bulkFormat === 'csv' ? 'Paste CSV…' : 'Paste JSON…'}
+          placeholder="Paste CSV or upload a file above…"
         />
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <select
@@ -357,7 +317,7 @@ export function AdminTestsPage() {
             variant="secondary"
             className="!text-xs"
             onClick={() => {
-              void previewBulkTest(bulkFormat, bulkContent).then(setBulkPreview)
+              void previewBulkTest(bulkContent).then(setBulkPreview)
             }}
           >
             Preview

@@ -34,6 +34,6 @@ export function resolveMediaUrl(url: string): string {
 export function slideTypeFromUrl(url: string): 'image' | 'pdf' | 'video' {
   const path = url.split('?')[0]?.toLowerCase() ?? ''
   if (path.endsWith('.pdf')) return 'pdf'
-  if (/\.(mp4|webm|ogg|mov|m4v)$/.test(path)) return 'video'
+  if (/\.(mp4|webm|ogg|mov|m4v|wmv)$/.test(path)) return 'video'
   return 'image'
 }

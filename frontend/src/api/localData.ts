@@ -610,10 +610,10 @@ export async function fetchAdminUserDetail(userId: string) {
   return apiJson<import('@/types').AdminUserDetail>(`/api/admin/users/${encodeURIComponent(userId)}`)
 }
 
-export async function previewBulkTest(format: 'csv' | 'json', content: string) {
+export async function previewBulkTest(content: string) {
   return apiJson<{ questions: AdminTest['questions']; errors: { row: number; message: string }[] }>(
     '/api/admin/tests/bulk/preview',
-    { method: 'POST', body: JSON.stringify({ format, content }) },
+    { method: 'POST', body: JSON.stringify({ format: 'csv', content }) },
   )
 }
 

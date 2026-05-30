@@ -25,6 +25,16 @@
   }
 }
 
+@keyframes blink-urgent {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
 @keyframes breathe {
   0%,
   100% {

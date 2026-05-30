@@ -32,7 +32,7 @@ export function mediaKindFromFilename(filename: string): UploadMediaKind | null 
   const ext = extname(filename).toLowerCase()
   if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'].includes(ext)) return 'image'
   if (ext === '.pdf') return 'pdf'
-  if (['.mp4', '.webm', '.mov', '.ogg', '.m4v'].includes(ext)) return 'video'
+  if (['.mp4', '.webm', '.mov', '.ogg', '.m4v', '.wmv'].includes(ext)) return 'video'
   if (ext === '.pptx') return 'pptx'
   if (ext === '.ppt') return 'ppt'
   return null
