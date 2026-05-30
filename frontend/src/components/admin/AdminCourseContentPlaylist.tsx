@@ -418,54 +418,83 @@ export function AdminCourseContentPlaylist({ slides, onChange, disabled, error, 
                           </span>
                         </button>
                       ) : editingReplace === slide.id ? (
-                        <div className="mt-1 space-y-1.5 rounded-lg border border-violet-200 bg-violet-50/60 p-2">
+                        <div className="mt-1 rounded-lg border border-violet-300 bg-violet-50 p-2.5 space-y-2">
+                          {/* Current value summary */}
+                          {slide.pageReplace && (
+                            <p className="text-[11px] text-violet-500">
+                              Currently:{' '}
+                              <span className="font-semibold text-violet-700">
+                                {(slide.pageReplace.mode ?? 'replace') === 'after'
+                                  ? `Insert after page ${slide.pageReplace.pageNumber}`
+                                  : `Replace page ${slide.pageReplace.pageNumber}`}
+                                {pdfSlides.length > 1
+                                  ? ` of ${pdfSlides.find((p) => p.id === slide.pageReplace!.pdfSlideId)?.fileName ?? 'PDF'}`
+                                  : ''}
+                              </span>
+                            </p>
+                          )}
+
                           {/* Mode toggle */}
-                          <div className="flex gap-1">
-                            {(['replace', 'after'] as const).map((m) => (
-                              <button
-                                key={m}
-                                type="button"
-                                className={`rounded px-2 py-0.5 text-[11px] font-semibold ${replaceMode === m ? 'bg-violet-600 text-white' : 'bg-white text-slate-600 border border-slate-300'}`}
-                                onClick={() => setReplaceMode(m)}
-                              >
-                                {m === 'replace' ? 'Replace page' : 'Insert after page'}
-                              </button>
-                            ))}
+                          <div>
+                            <p className="mb-1 text-[11px] font-medium text-slate-600">Mode</p>
+                            <div className="flex gap-1">
+                              {(['replace', 'after'] as const).map((m) => (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  className={`rounded px-2 py-1 text-[11px] font-semibold transition-colors ${replaceMode === m ? 'bg-violet-600 text-white' : 'border border-slate-300 bg-white text-slate-600 hover:border-violet-400'}`}
+                                  onClick={() => setReplaceMode(m)}
+                                >
+                                  {m === 'replace' ? 'Replace page' : 'Insert after page'}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5">
+
+                          {/* PDF selector + page number */}
+                          <div className="space-y-1">
                             {pdfSlides.length > 1 && (
-                              <select
-                                className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                value={replacePdfId}
-                                onChange={(e) => setReplacePdfId(e.target.value)}
-                              >
-                                {pdfSlides.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.fileName ?? p.title ?? 'PDF'}
-                                  </option>
-                                ))}
-                              </select>
+                              <div>
+                                <p className="mb-0.5 text-[11px] font-medium text-slate-600">PDF</p>
+                                <select
+                                  className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                  value={replacePdfId}
+                                  onChange={(e) => setReplacePdfId(e.target.value)}
+                                >
+                                  {pdfSlides.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.fileName ?? p.title ?? 'PDF'}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             )}
-                            <input
-                              type="number"
-                              min={1}
-                              className="w-20 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-400"
-                              placeholder="Page #"
-                              value={replacePageNum}
-                              onChange={(e) => setReplacePageNum(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') applyPageReplace(slide.id) }}
-                              autoFocus
-                            />
+                            <div>
+                              <p className="mb-0.5 text-[11px] font-medium text-slate-600">Page number</p>
+                              <input
+                                type="number"
+                                min={1}
+                                className="w-full rounded border border-violet-400 bg-white px-2 py-1 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                placeholder="e.g. 15"
+                                value={replacePageNum}
+                                onChange={(e) => setReplacePageNum(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') applyPageReplace(slide.id) }}
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex gap-1.5 pt-0.5">
                             <button
                               type="button"
-                              className="rounded bg-violet-600 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-violet-700"
+                              className="flex-1 rounded bg-violet-600 py-1 text-[11px] font-semibold text-white hover:bg-violet-700"
                               onClick={() => applyPageReplace(slide.id)}
                             >
-                              Set
+                              {slide.pageReplace ? 'Update' : 'Set'}
                             </button>
                             <button
                               type="button"
-                              className="rounded px-1.5 py-0.5 text-[11px] text-slate-500 hover:text-slate-700"
+                              className="flex-1 rounded border border-slate-300 bg-white py-1 text-[11px] text-slate-600 hover:bg-slate-50"
                               onClick={() => setEditingReplace(null)}
                             >
                               Cancel
