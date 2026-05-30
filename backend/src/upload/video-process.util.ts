@@ -51,8 +51,8 @@ export function transcodeVideoToMp4(
   return new Promise((resolve, reject) => {
     const args = [
       '-y', '-i', inputPath,
-      '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-      '-c:a', 'aac', '-movflags', '+faststart',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+      '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart',
       '-progress', 'pipe:1',
       outputPath,
     ]
