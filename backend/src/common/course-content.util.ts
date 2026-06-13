@@ -1,7 +1,7 @@
 import type { CourseSlide } from './course-slide.types'
 
 /** Minimum seconds a learner must view each PDF page / image slide. */
-export const LEARNER_SLIDE_DWELL_SEC = 30
+export const LEARNER_SLIDE_DWELL_SEC = 15
 
 export type CourseContentMetrics = {
   slideCount: number

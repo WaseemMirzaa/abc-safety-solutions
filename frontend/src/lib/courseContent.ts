@@ -1,7 +1,12 @@
 import type { CourseSlide } from '@/types'
 
 /** Minimum seconds a learner must view each PDF page / image step. */
-export const LEARNER_SLIDE_DWELL_SEC = 30
+export const LEARNER_SLIDE_DWELL_SEC = 15
+
+/** Hint for admin UI: how auto course duration is calculated. */
+export function learnerDurationRuleHint(): string {
+  return `${LEARNER_SLIDE_DWELL_SEC} sec per PDF page + video length`
+}
 
 export type CourseContentMetrics = {
   slideCount: number

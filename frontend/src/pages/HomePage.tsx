@@ -186,14 +186,14 @@ export function HomePage() {
               {t('ui_home_programs_outro')}
             </p>
           </div>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="mt-12 flex justify-center">
             {trainingProgramTiles.slice(0, 1).map((prog) => {
               const i = trainingProgramTiles.indexOf(prog)
               return (
                 <Link
                   key={prog.image}
                   to="/courses"
-                  className="group overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-200/50 transition hover:border-sky-200/80 hover:shadow-md hover:ring-sky-200/40"
+                  className="group w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-200/50 transition hover:border-sky-200/80 hover:shadow-md hover:ring-sky-200/40"
                 >
                   <div className="aspect-[5/3] overflow-hidden bg-slate-100">
                     <img

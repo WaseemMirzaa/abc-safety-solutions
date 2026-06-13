@@ -9,7 +9,7 @@ type Props = {
   pptxNavLocked: boolean
   isLastSlide: boolean
   canGoNext: boolean
-  dwellHint?: string
+  navWaitMessage?: string
   dwellPct?: number
   customTestReady: boolean
   canTakeKnowledgeCheck: boolean
@@ -27,7 +27,7 @@ export function LearnSlideFooter({
   pptxNavLocked,
   isLastSlide,
   canGoNext,
-  dwellHint,
+  navWaitMessage,
   dwellPct,
   customTestReady,
   canTakeKnowledgeCheck,
@@ -39,13 +39,17 @@ export function LearnSlideFooter({
 }: Props) {
   const slideNum = Math.min(slideIndex + 1, totalSlides)
 
-  let statusMessage = t('LearnPage_389_complete_all_slides_to_unlock_the_test_0825f886f3')
+  let statusMessage = t('ui_learn_nav_hint', {
+    defaultValue: 'Use Previous and Next to move through each slide.',
+  })
   if (pptxNavLocked) {
     statusMessage = t('ui_learn_slides_loading', { defaultValue: 'Loading presentation…' })
   } else if (showRetakeHint) {
     statusMessage = t('ui_learn_retake_slides_hint', {
       defaultValue: 'Review all slides again from the start to unlock the knowledge check.',
     })
+  } else if (!canGoNext && !isLastSlide && navWaitMessage) {
+    statusMessage = navWaitMessage
   } else if (isLastSlide && contentComplete && customTestReady) {
     statusMessage = t('ui_learn_ready_for_test', {
       defaultValue: 'You have reached the end. Take the knowledge check when you are ready.',
@@ -66,8 +70,8 @@ export function LearnSlideFooter({
           onClick={onPrev}
           aria-label={t('ui_learn_previous')}
         >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">{t('ui_learn_previous')}</span>
+          <ChevronLeft className="h-4 w-4 shrink-0" />
+          <span>{t('ui_learn_previous')}</span>
         </Button>
 
         <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
@@ -128,24 +132,13 @@ export function LearnSlideFooter({
           onClick={onNext}
           aria-label={t('ui_learn_next')}
         >
-          <span className="hidden sm:inline">{t('ui_learn_next')}</span>
-          <ChevronRight className="h-4 w-4" />
+          <span>{t('ui_learn_next')}</span>
+          <ChevronRight className="h-4 w-4 shrink-0" />
         </Button>
       </div>
 
       <div className="flex flex-col gap-3 bg-slate-50/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="text-center text-sm sm:text-left">
-          {dwellHint && !canGoNext && !isLastSlide ? (
-            <span
-              className="font-bold text-amber-600"
-              style={{ animation: 'blink-urgent 1s ease-in-out infinite' }}
-            >
-              {dwellHint}
-            </span>
-          ) : (
-            <span className="text-slate-600">{statusMessage}</span>
-          )}
-        </p>
+        <p className="text-center text-sm text-slate-600 sm:text-left">{statusMessage}</p>
         {isLastSlide && customTestReady ? (
           <Button
             className="!rounded-xl sm:shrink-0"

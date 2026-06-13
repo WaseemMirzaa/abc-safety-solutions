@@ -147,6 +147,9 @@ export function LearnPage() {
   const currentSlide = currentUnit ? learnerUnitToSlide(currentUnit) : undefined
   const isVideoUnit = currentUnit?.kind === 'video'
   const isImageUnit = currentUnit?.kind === 'image'
+  const dwellSecRequired = isImageUnit
+    ? (currentUnit?.minDwellSec ?? LEARNER_SLIDE_DWELL_SEC)
+    : LEARNER_SLIDE_DWELL_SEC
   const savedVideoSec = progressRow?.audioTimeSec ?? 0
   const videoProgressValid =
     videoDurationSec > 0 && savedVideoSec >= videoDurationSec - 2
@@ -173,19 +176,19 @@ export function LearnPage() {
   useEffect(() => {
     if (!isImageUnit) {
       setDwellReady(true)
-      setDwellElapsedSec(LEARNER_SLIDE_DWELL_SEC)
+      setDwellElapsedSec(dwellSecRequired)
       return
     }
     setDwellReady(false)
     const tick = () => {
       const elapsed = (Date.now() - unitEnteredAt) / 1000
-      setDwellElapsedSec(Math.min(elapsed, LEARNER_SLIDE_DWELL_SEC))
-      if (elapsed >= LEARNER_SLIDE_DWELL_SEC) setDwellReady(true)
+      setDwellElapsedSec(Math.min(elapsed, dwellSecRequired))
+      if (elapsed >= dwellSecRequired) setDwellReady(true)
     }
     tick()
     const id = window.setInterval(tick, 500)
     return () => window.clearInterval(id)
-  }, [isImageUnit, unitEnteredAt, slideIndex])
+  }, [isImageUnit, unitEnteredAt, slideIndex, dwellSecRequired])
 
   const canGoNext = isVideoUnit
     ? videoDoneLocal || (currentUnit ? completedVideoUnits.has(currentUnit.unitId) : false)
@@ -573,18 +576,15 @@ export function LearnPage() {
   const pptxNavLocked = Boolean(isImageUnit && !pptxReady)
   const canTakeKnowledgeCheck =
     customTestReady && contentComplete && slidesLoaded && (videoOnlyCourse || (isLastSlide && canGoNext))
-  const dwellSecsRemaining = Math.max(0, Math.ceil(LEARNER_SLIDE_DWELL_SEC - dwellElapsedSec))
-  const dwellHint =
-    isImageUnit && !dwellReady
-      ? `${dwellSecsRemaining} second${dwellSecsRemaining !== 1 ? 's' : ''} remaining — hold on this slide to continue`
-      : isVideoUnit && !canGoNext
-        ? t('ui_learn_video_watch_full', {
-            defaultValue: 'Watch the full video to continue.',
-          })
-        : undefined
+  const navWaitMessage =
+    !canGoNext && !isLastSlide && !pptxNavLocked
+      ? isVideoUnit
+        ? t('ui_learn_video_use_next', { defaultValue: 'Tap Next after the video finishes.' })
+        : t('ui_learn_tap_next_when_ready', { defaultValue: 'Tap Next when you are ready to continue.' })
+      : undefined
 
   const dwellPct = isImageUnit && !dwellReady
-    ? Math.round((dwellElapsedSec / LEARNER_SLIDE_DWELL_SEC) * 100)
+    ? Math.round((dwellElapsedSec / dwellSecRequired) * 100)
     : undefined
 
   const optimisticMaxSlide = Math.max(
@@ -785,8 +785,8 @@ export function LearnPage() {
                   <div className="w-full space-y-1.5 sm:col-span-2">
                     <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
                       <span>
-                        {t('ui_learn_video_watch_full', {
-                          defaultValue: 'Watch the full video to unlock the knowledge check.',
+                        {t('ui_learn_video_use_next', {
+                          defaultValue: 'Tap Next after the video finishes.',
                         })}
                       </span>
                       <span className="tabular-nums text-sky-800">{videoWatchPct}%</span>
@@ -797,11 +797,6 @@ export function LearnPage() {
                         style={{ width: `${videoWatchPct}%` }}
                       />
                     </div>
-                    <p className="text-center text-[11px] text-slate-500 sm:text-left">
-                      {t('ui_learn_video_no_skip', {
-                        defaultValue: 'Skipping ahead is disabled until you have watched the full video.',
-                      })}
-                    </p>
                   </div>
                 ) : (
                   <span className="text-center text-sm text-slate-600 sm:text-left">
@@ -830,7 +825,7 @@ export function LearnPage() {
                 pptxNavLocked={pptxNavLocked}
                 isLastSlide={isLastSlide}
                 canGoNext={canGoNext}
-                dwellHint={dwellHint}
+                navWaitMessage={navWaitMessage}
                 dwellPct={dwellPct}
                 customTestReady={customTestReady}
                 canTakeKnowledgeCheck={canTakeKnowledgeCheck}
@@ -915,12 +910,9 @@ export function LearnPage() {
                   aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
                 />
               </div>
-              <p
-                className="mt-1 text-center text-xs font-bold text-amber-300"
-                style={{ animation: 'blink-urgent 1s ease-in-out infinite' }}
-              >
-                {`${dwellSecsRemaining} second${dwellSecsRemaining !== 1 ? 's' : ''} remaining — hold on this slide to continue`}
-              </p>
+              {navWaitMessage ? (
+                <p className="mt-1 text-center text-xs text-sky-100">{navWaitMessage}</p>
+              ) : null}
             </div>
           ) : null}
         </div>

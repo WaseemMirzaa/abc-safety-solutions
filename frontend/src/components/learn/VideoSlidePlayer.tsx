@@ -210,8 +210,8 @@ export function VideoSlidePlayer({
               ? t('ui_learn_video_complete', {
                   defaultValue: 'Video completed. You can take the knowledge check.',
                 })
-              : t('ui_learn_video_watch_full', {
-                  defaultValue: 'Watch the full video to unlock the knowledge check.',
+              : t('ui_learn_video_use_next', {
+                  defaultValue: 'Tap Next after the video finishes.',
                 })}
           </span>
           <span className="tabular-nums text-sky-800">{watchPct}%</span>
@@ -222,13 +222,6 @@ export function VideoSlidePlayer({
             style={{ width: `${watchPct}%` }}
           />
         </div>
-        {!finished ? (
-          <p className="mt-1.5 text-center text-[10px] text-slate-500">
-            {t('ui_learn_video_no_skip', {
-              defaultValue: 'Skipping ahead is disabled until you have watched the full video.',
-            })}
-          </p>
-        ) : null}
       </div>
     </div>
   )

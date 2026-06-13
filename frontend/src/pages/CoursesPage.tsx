@@ -76,7 +76,7 @@ export function CoursesPage() {
             <p className="mt-4 text-base leading-relaxed text-slate-600">
               {t('ui_catalog_intro', {
                 defaultValue:
-                  'Search and filter the catalog. After checkout, courses appear in My learning with progress saved on this device.',
+                  'Search and filter the catalog. After checkout, courses appear in My Learning with progress saved on this device.',
               })}
             </p>
           </div>

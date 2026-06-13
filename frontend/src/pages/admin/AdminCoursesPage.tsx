@@ -3,7 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
 import { AdminCourseContentPlaylist } from '@/components/admin/AdminCourseContentPlaylist'
-import { computeCourseContentMetrics, formatCourseDuration, formatDurationBreakdown } from '@/lib/courseContent'
+import {
+  computeCourseContentMetrics,
+  formatCourseDuration,
+  formatDurationBreakdown,
+  learnerDurationRuleHint,
+} from '@/lib/courseContent'
 import { TableSkeletonRows } from '@/components/ui/Skeleton'
 import { Spinner } from '@/components/ui/Spinner'
 import { ApiError } from '@/api/client'
@@ -611,7 +616,7 @@ export function AdminCoursesPage() {
                   ? `${formatCourseDuration(contentMetrics.durationMinutes)} (${formatDurationBreakdown(contentMetrics.durationSeconds)}) — auto`
                   : '—'}
               </p>
-              <p className="mt-1 text-[11px] text-slate-500">30 sec per PDF page + video length. Not editable.</p>
+              <p className="mt-1 text-[11px] text-slate-500">{learnerDurationRuleHint()}. Not editable.</p>
             </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('AdminCoursesPage_356_slide_count_491e07694f')}</label>

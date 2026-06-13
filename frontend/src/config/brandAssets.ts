@@ -29,8 +29,8 @@ export const brandImages = {
 export const homeHeroImage = brandImages.occupationalHealthSafety
 /** Construction / hard hats — Unsplash */
 export const loginPanelImage = unsplash('photo-1504307651254-35680f356dfd')
-/** Industrial work, PPE — Unsplash */
-export const registerPanelImage = unsplash('photo-1581578731548-c64695cc6952')
+/** OHS training — matches catalog / hero imagery (not generic stock photos). */
+export const registerPanelImage = brandImages.occupationalHealthSafety
 
 /** Program tiles — copy lives in locales (ui_brand_program_*); images match abcsafetysolutions.com/training-certification/ */
 export const trainingProgramTiles = [

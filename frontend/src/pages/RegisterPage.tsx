@@ -74,7 +74,11 @@ export function RegisterPage() {
   )
 
   return (
-    <AuthSplitLayout aside={aside} asideBackgroundImage={registerPanelImage} asideImageAlt="">
+    <AuthSplitLayout
+      aside={aside}
+      asideBackgroundImage={registerPanelImage}
+      asideImageAlt={t('ui_home_hero_image_alt')}
+    >
       <div className="lg:hidden">
         <AuthLogo variant="dark" className="mb-5" />
       </div>
