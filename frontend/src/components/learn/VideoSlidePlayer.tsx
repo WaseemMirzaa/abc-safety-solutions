@@ -131,27 +131,16 @@ export function VideoSlidePlayer({
     tryComplete(video)
   }
 
-  const errorOverlay = (
+  const slideNavHint = (
     <div className="flex h-full w-full items-center justify-center bg-slate-900 p-6 text-center">
-      <div>
-        <Film className="mx-auto mb-3 h-10 w-10 text-slate-500" aria-hidden />
-        <p className="text-sm font-semibold text-slate-200">Video is being processed</p>
-        <p className="mt-1 text-xs text-slate-400">
-          This video is being converted for browser playback. Please refresh the page in a moment.
-        </p>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="mt-3 rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-500"
-        >
-          Refresh now
-        </button>
-      </div>
+      <p className="text-base font-semibold text-slate-100">
+        {t('ui_learn_previous')} · {t('ui_learn_next')}
+      </p>
     </div>
   )
 
   if (frameOnly) {
-    if (mediaError) return errorOverlay
+    if (mediaError) return slideNavHint
     return (
       <div className="flex h-full w-full items-center justify-center bg-black">
         <video
@@ -178,7 +167,7 @@ export function VideoSlidePlayer({
   if (mediaError) {
     return (
       <div className="flex h-full min-h-0 w-full flex-col items-center justify-center">
-        {errorOverlay}
+        {slideNavHint}
       </div>
     )
   }
@@ -210,9 +199,7 @@ export function VideoSlidePlayer({
               ? t('ui_learn_video_complete', {
                   defaultValue: 'Video completed. You can take the knowledge check.',
                 })
-              : t('ui_learn_video_use_next', {
-                  defaultValue: 'Tap Next after the video finishes.',
-                })}
+              : `${t('ui_learn_previous')} · ${t('ui_learn_next')}`}
           </span>
           <span className="tabular-nums text-sky-800">{watchPct}%</span>
         </div>

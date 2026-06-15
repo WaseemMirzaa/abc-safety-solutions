@@ -26,9 +26,11 @@ export function SiteFooter() {
             <p className="mt-6 max-w-md font-display text-lg font-medium leading-snug text-brand-900">
               {t('ui_site_footer_tagline')}
             </p>
-            <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-600">
-              {t('ui_site_footer_blurb')}
-            </p>
+            {t('ui_site_footer_blurb') ? (
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-slate-600">
+                {t('ui_site_footer_blurb')}
+              </p>
+            ) : null}
             <a
               href="https://abcsafetysolutions.com/"
               target="_blank"

@@ -21,6 +21,8 @@ type Props = {
   onSlideCount?: (count: number) => void
   /** 16/9 or 4/3 after the current slide renders. */
   onSlideAspect?: (aspect: number) => void
+  /** Learn page: show slide navigation hint instead of technical errors. */
+  learnMode?: boolean
 }
 
 type Phase = 'downloading' | 'processing' | 'ready' | 'error'
@@ -49,6 +51,7 @@ export function PptxSlideViewer({
   onReadyChange,
   onSlideCount,
   onSlideAspect,
+  learnMode = false,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -229,19 +232,27 @@ export function PptxSlideViewer({
         />
       ) : null}
       {phase === 'error' ? (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg border border-red-100 bg-red-50/80 px-4 text-center">
-          <p className="text-sm text-red-600">{err}</p>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-brand-900 shadow-sm hover:bg-slate-50"
-            onClick={retry}
-          >
-            {t('ui_learn_pptx_retry', { defaultValue: 'Retry' })}
-          </button>
-          <a href={resolved} target="_blank" rel="noreferrer" className="text-xs font-medium text-sky-800 hover:underline">
-            {t('ui_learn_pptx_open_file', { defaultValue: 'Open file in new tab' })}
-          </a>
-        </div>
+        learnMode ? (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-slate-50 px-4 text-center">
+            <p className="text-base font-semibold text-brand-900">
+              {t('ui_learn_previous')} · {t('ui_learn_next')}
+            </p>
+          </div>
+        ) : (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 rounded-lg border border-red-100 bg-red-50/80 px-4 text-center">
+            <p className="text-sm text-red-600">{err}</p>
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-brand-900 shadow-sm hover:bg-slate-50"
+              onClick={retry}
+            >
+              {t('ui_learn_pptx_retry', { defaultValue: 'Retry' })}
+            </button>
+            <a href={resolved} target="_blank" rel="noreferrer" className="text-xs font-medium text-sky-800 hover:underline">
+              {t('ui_learn_pptx_open_file', { defaultValue: 'Open file in new tab' })}
+            </a>
+          </div>
+        )
       ) : null}
       <div
         ref={containerRef}

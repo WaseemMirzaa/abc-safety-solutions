@@ -1,5 +1,7 @@
 /** Browser notifications when the tab is in the background (WebSocket still delivers). */
 
+import { brandLogoUrl } from '@/config/brandAssets'
+
 export async function registerNotificationServiceWorker(): Promise<void> {
   if (!('serviceWorker' in navigator)) return
   try {
@@ -31,7 +33,7 @@ export async function showBackgroundNotification(title: string, body: string): P
     const n = new Notification(title, {
       body,
       tag: 'abc-notification',
-      icon: '/favicon.ico',
+      icon: brandLogoUrl,
     })
     n.onclick = () => {
       window.focus()

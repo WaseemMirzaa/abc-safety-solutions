@@ -1,9 +1,12 @@
-/** Official wordmark from abcsafetysolutions.com (light variant for public portal). */
-export const brandLogoCustomer =
+/** Official wordmark from [ABC Safety Solutions](https://abcsafetysolutions.com). */
+export const brandLogoUrl =
   'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
 
-/** Local copy for favicon and admin shell (same asset as brandLogoCustomer). */
-export const brandLogoLight = '/brand/logo-light.png'
+/** Customer portal header, footer, auth, and certificates. */
+export const brandLogoCustomer = brandLogoUrl
+
+/** Admin shell, favicon, and notifications (same asset). */
+export const brandLogoLight = brandLogoUrl
 
 /** Legal / certificate display name (exact casing). */
 export const certificateBrandName = 'ABC Safety Solutions'

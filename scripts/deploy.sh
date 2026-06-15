@@ -37,6 +37,13 @@ if [ -f scripts/run-db-migrations.sh ]; then
   bash scripts/run-db-migrations.sh
 fi
 
+echo "==> Recalculating course durations (15s per slide/page)..."
+if docker compose exec -T api node dist/scripts/recalculate-course-durations.js; then
+  echo "   Course durationMinutes updated where needed"
+else
+  echo "WARN: duration recalc failed — API may still recalc on next startup"
+fi
+
 echo "==> Verifying PDF tools in API container..."
 if docker compose exec -T api sh -c 'command -v pdftoppm >/dev/null && command -v soffice >/dev/null'; then
   echo "   poppler-utils + LibreOffice OK"
@@ -75,7 +82,7 @@ echo ""
 echo "Post-deploy:"
 echo "  • Re-save each course in Admin → Courses so PDF playlists convert to slides."
 echo "  • Learners: 3 knowledge-check attempts per purchase (not 3 full course views)."
-echo "  • Course player: PDFs enforce a 30-second dwell per page (amber timer bar shown)."
+echo "  • Course player: PDFs enforce a 15-second dwell per page (amber timer bar shown)."
 echo "  • Admin → Users: user detail panel now groups history by course with purchase"
 echo "    cycles, nested test attempts, and certificate status per course."
 echo "  • Migration 012 adds enrollmentId safety column + indexes on test_attempts and"

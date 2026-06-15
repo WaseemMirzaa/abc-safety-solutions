@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { DataSource } from 'typeorm'
+import { recalculateAllCourseDurations } from '../common/recalculate-course-durations'
 
 /** Idempotent schema fixes for production (synchronize is off). */
 @Injectable()
@@ -20,6 +21,17 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.ensureAdminUserInsights()
     await this.ensureCertificateFileUrl()
     await this.ensureNotificationsTypeWide()
+    await this.recalculateCourseDurations()
+  }
+
+  /** Recompute stored duration/slide count using current 15s-per-page rule. */
+  private async recalculateCourseDurations() {
+    const result = await recalculateAllCourseDurations(this.dataSource)
+    if (result.updated > 0) {
+      this.log.log(
+        `Recalculated duration for ${result.updated} course(s) (${result.dwellSecPerPage}s dwell per page/image)`,
+      )
+    }
   }
 
   private async ensureCourseLanguages() {

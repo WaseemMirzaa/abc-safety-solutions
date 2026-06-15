@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Award, ChevronRight, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
-import { CertificateVisual, SAMPLE_CERTIFICATE } from '@/components/CertificateVisual'
 import { Container } from '@/components/Container'
 import { Button } from '@/components/Button'
 import { Spinner } from '@/components/ui/Spinner'
@@ -11,7 +10,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   createManualCertificate,
   deleteManualCertificate,
-  fetchCategories,
   fetchMyCertificates,
   updateManualCertificate,
 } from '@/api/localData'
@@ -76,11 +74,6 @@ export function CertificatesPage() {
   const { data: certs = [] } = useQuery({
     queryKey: qk.certificates,
     queryFn: fetchMyCertificates,
-    enabled: Boolean(user),
-  })
-  const { data: categoryList = [] } = useQuery({
-    queryKey: qk.categories,
-    queryFn: fetchCategories,
     enabled: Boolean(user),
   })
 
@@ -191,26 +184,11 @@ export function CertificatesPage() {
         </div>
 
         {certs.length === 0 ? (
-          <div className="mt-14 space-y-10">
-            <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-8 py-12 text-center text-slate-600">
-              <p className="font-medium text-brand-900">{t('CertificatesPage_59_no_certificates_on_this_device_yet_15d006e7f7')}</p>
-              <Link to="/my-courses" className="mt-6 inline-block">
-                <Button>{t('CertificatesPage_61_go_to_my_learning_4701894b0e')}</Button>
-              </Link>
-            </div>
-            <div className="min-w-0 rounded-3xl border border-slate-200/90 bg-white/80 p-4 shadow-sm sm:p-8">
-              <p className="text-center font-display text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-800 sm:text-xs">
-                {t('ui_certificates_design_preview')}
-              </p>
-              <CertificateVisual
-                cert={SAMPLE_CERTIFICATE}
-                categories={categoryList}
-                variant="compact"
-                sampleWatermark
-                className="mx-auto mt-4 max-w-md"
-              />
-              <p className="mt-4 text-center text-sm text-slate-500">{t('ui_certificates_sample_hint')}</p>
-            </div>
+          <div className="mt-14 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-8 py-12 text-center text-slate-600">
+            <p className="font-medium text-brand-900">{t('CertificatesPage_59_no_certificates_on_this_device_yet_15d006e7f7')}</p>
+            <Link to="/my-courses" className="mt-6 inline-block">
+              <Button>{t('CertificatesPage_61_go_to_my_learning_4701894b0e')}</Button>
+            </Link>
           </div>
         ) : (
           <motion.div className="mt-10" variants={listContainer} initial="hidden" animate="show">

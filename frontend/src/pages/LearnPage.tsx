@@ -576,12 +576,7 @@ export function LearnPage() {
   const pptxNavLocked = Boolean(isImageUnit && !pptxReady)
   const canTakeKnowledgeCheck =
     customTestReady && contentComplete && slidesLoaded && (videoOnlyCourse || (isLastSlide && canGoNext))
-  const navWaitMessage =
-    !canGoNext && !isLastSlide && !pptxNavLocked
-      ? isVideoUnit
-        ? t('ui_learn_video_use_next', { defaultValue: 'Tap Next after the video finishes.' })
-        : t('ui_learn_tap_next_when_ready', { defaultValue: 'Tap Next when you are ready to continue.' })
-      : undefined
+  const slideNavHint = `${t('ui_learn_previous')} · ${t('ui_learn_next')}`
 
   const dwellPct = isImageUnit && !dwellReady
     ? Math.round((dwellElapsedSec / dwellSecRequired) * 100)
@@ -784,11 +779,7 @@ export function LearnPage() {
                 {!contentComplete ? (
                   <div className="w-full space-y-1.5 sm:col-span-2">
                     <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
-                      <span>
-                        {t('ui_learn_video_use_next', {
-                          defaultValue: 'Tap Next after the video finishes.',
-                        })}
-                      </span>
+                      <span>{slideNavHint}</span>
                       <span className="tabular-nums text-sky-800">{videoWatchPct}%</span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
@@ -825,7 +816,6 @@ export function LearnPage() {
                 pptxNavLocked={pptxNavLocked}
                 isLastSlide={isLastSlide}
                 canGoNext={canGoNext}
-                navWaitMessage={navWaitMessage}
                 dwellPct={dwellPct}
                 customTestReady={customTestReady}
                 canTakeKnowledgeCheck={canTakeKnowledgeCheck}
@@ -910,8 +900,8 @@ export function LearnPage() {
                   aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
                 />
               </div>
-              {navWaitMessage ? (
-                <p className="mt-1 text-center text-xs text-sky-100">{navWaitMessage}</p>
+              {!canGoNext && !isLastSlide ? (
+                <p className="mt-1 text-center text-xs font-semibold text-sky-100">{slideNavHint}</p>
               ) : null}
             </div>
           ) : null}
