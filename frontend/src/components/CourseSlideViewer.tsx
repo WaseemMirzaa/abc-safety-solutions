@@ -146,6 +146,7 @@ export function CourseSlideViewer({
             url={slide.url}
             slideIndex={pptxSlideIndex}
             className="h-full w-full min-h-0"
+            learnMode={learnMode || learnDeck}
             onReadyChange={onPptxReadyChange}
             onSlideCount={onPptxSlideCount}
             onSlideAspect={onPptxSlideAspect}

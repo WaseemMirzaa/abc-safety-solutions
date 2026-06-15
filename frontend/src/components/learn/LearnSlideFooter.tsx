@@ -9,7 +9,6 @@ type Props = {
   pptxNavLocked: boolean
   isLastSlide: boolean
   canGoNext: boolean
-  navWaitMessage?: string
   dwellPct?: number
   customTestReady: boolean
   canTakeKnowledgeCheck: boolean
@@ -27,7 +26,6 @@ export function LearnSlideFooter({
   pptxNavLocked,
   isLastSlide,
   canGoNext,
-  navWaitMessage,
   dwellPct,
   customTestReady,
   canTakeKnowledgeCheck,
@@ -48,8 +46,8 @@ export function LearnSlideFooter({
     statusMessage = t('ui_learn_retake_slides_hint', {
       defaultValue: 'Review all slides again from the start to unlock the knowledge check.',
     })
-  } else if (!canGoNext && !isLastSlide && navWaitMessage) {
-    statusMessage = navWaitMessage
+  } else if (!canGoNext && !isLastSlide && !pptxNavLocked) {
+    statusMessage = `${t('ui_learn_previous')} · ${t('ui_learn_next')}`
   } else if (isLastSlide && contentComplete && customTestReady) {
     statusMessage = t('ui_learn_ready_for_test', {
       defaultValue: 'You have reached the end. Take the knowledge check when you are ready.',

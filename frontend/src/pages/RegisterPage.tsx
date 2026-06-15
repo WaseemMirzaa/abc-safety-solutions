@@ -61,7 +61,7 @@ export function RegisterPage() {
         {t('ui_register_aside_modules')}
       </p>
 
-      <div className="mt-auto flex shrink-0 items-start gap-2.5 rounded-xl border border-white/15 bg-slate-950/45 p-3 shadow-lg shadow-black/20 backdrop-blur-md ring-1 ring-white/10">
+      <div className="mt-auto flex shrink-0 items-center gap-2.5 rounded-xl border border-white/15 bg-slate-950/45 p-3 shadow-lg shadow-black/20 backdrop-blur-md ring-1 ring-white/10">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-sm shadow-amber-600/25 ring-1 ring-amber-300/40">
           <Award className="h-5 w-5" aria-hidden />
         </div>

@@ -5,7 +5,7 @@ import { CourseEntity } from '../entities/course.entity'
 import { CategoryEntity } from '../entities/category.entity'
 import { DEFAULT_LANGUAGE_ID, LanguagesService } from '../languages/languages.service'
 import type { CourseSlide } from '../common/course-slide.types'
-import { computeCourseContentMetrics } from '../common/course-content.util'
+import { computeCourseContentMetrics, normalizeSlidesForMetrics } from '../common/course-content.util'
 import { clampDiscountPercent, salePriceFromCourse } from '../common/pricing.util'
 
 export type CourseDto = {
@@ -40,14 +40,8 @@ export class CoursesService {
   ) {}
 
   private normalizeSlides(c: CourseEntity): CourseSlide[] | undefined {
-    if (c.slides?.length) return c.slides
-    const legacy = c.slideImageUrls?.filter(Boolean) ?? []
-    if (!legacy.length) return undefined
-    return legacy.map((url, i) => ({
-      id: `legacy-${i}`,
-      type: 'image' as const,
-      url,
-    }))
+    const slides = normalizeSlidesForMetrics(c.slides, c.slideImageUrls)
+    return slides.length ? slides : undefined
   }
 
   private map(c: CourseEntity): CourseDto {

@@ -5,6 +5,7 @@
   "scripts": {
     "build": "nest build",
     "admin:create": "npm run build && node dist/scripts/create-admin-user.js",
+    "durations:recalc": "npm run build && node dist/scripts/recalculate-course-durations.js",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main"
