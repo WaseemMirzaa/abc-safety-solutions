@@ -21,6 +21,7 @@ export class SchemaMigrationsService implements OnModuleInit {
     await this.ensureAdminUserInsights()
     await this.ensureCertificateFileUrl()
     await this.ensureNotificationsTypeWide()
+    await this.ensureCourseNarrationStatus()
     await this.recalculateCourseDurations()
   }
 
@@ -309,6 +310,25 @@ export class SchemaMigrationsService implements OnModuleInit {
       this.log.warn(`notifications.type is VARCHAR(${len}); widening to VARCHAR(100)`)
       await this.dataSource.query(
         `ALTER TABLE notifications MODIFY COLUMN type VARCHAR(100) NOT NULL DEFAULT 'announcement'`,
+      )
+    }
+  }
+
+  /**
+   * 015 — courses.narrationStatus: cheap scalar summary of per-page AI caption/audio
+   * generation ('none' | 'partial' | 'ready' | 'failed'), kept in sync by CourseNarrationService
+   * on every persist — mirrors how slideCount/durationMinutes are maintained as stored
+   * columns alongside the deep `slides` JSON rather than only computed on read.
+   */
+  private async ensureCourseNarrationStatus() {
+    const col = await this.dataSource.query<{ n: number }[]>(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'courses' AND COLUMN_NAME = 'narrationStatus'`,
+    )
+    if (Number(col[0]?.n ?? 0) === 0) {
+      this.log.log("Adding courses.narrationStatus (default 'none')")
+      await this.dataSource.query(
+        `ALTER TABLE courses ADD COLUMN narrationStatus VARCHAR(16) NOT NULL DEFAULT 'none'`,
       )
     }
   }
