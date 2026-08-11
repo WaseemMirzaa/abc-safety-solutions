@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/Button'
 import { AdminModal } from '@/components/admin/AdminModal'
 import { AdminCourseContentPlaylist } from '@/components/admin/AdminCourseContentPlaylist'
+import { AdminSlideNarrationPanel } from '@/components/admin/AdminSlideNarrationPanel'
 import {
   computeCourseContentMetrics,
   formatCourseDuration,
@@ -287,7 +288,11 @@ export function AdminCoursesPage() {
       discountPercent: Math.min(100, Math.max(0, Math.round(Number(draft.discountPercent)) || 0)),
       durationMinutes,
       slideCount,
-      slides: playlist.map(({ previewDataUrl: _preview, ...s }) => s),
+      // narration is server-authoritative (see AdminCoursesController.update()) — never
+      // round-tripped through the whole-course save, only via AdminSlideNarrationPanel's
+      // dedicated edit/retry endpoints. Stripping it here too avoids ever sending a stale
+      // snapshot even before the server's own defensive merge kicks in.
+      slides: playlist.map(({ previewDataUrl: _preview, narration: _narration, ...s }) => s),
       slideImageUrls: undefined,
       certificateValidityDays,
     }
@@ -578,6 +583,9 @@ export function AdminCoursesPage() {
                 error={fieldErrors.slides}
               />
               {slideUploadErr ? <p className="mt-2 text-xs font-medium text-amber-800">{slideUploadErr}</p> : null}
+            </div>
+            <div className="sm:col-span-2">
+              <AdminSlideNarrationPanel courseId={modal === 'edit' ? draft.id : null} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
