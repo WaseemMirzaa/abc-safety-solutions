@@ -19,6 +19,31 @@ export type CourseSlideType = 'image' | 'pdf' | 'video' | 'pptx' | 'ppt'
 
 export type CourseSlideRenderStatus = 'pending' | 'ready' | 'failed'
 
+/** Never persisted as 'generating' — a crash mid-call leaves this 'pending' (the
+ *  server's reconciliation sweep retries it), never stuck in a state nothing revisits. */
+export type NarrationStatus = 'pending' | 'ready' | 'failed'
+
+export type SlideNarrationLang = {
+  text?: string
+  audioUrl?: string
+  /** Seconds of the generated clip — used to stretch the learner's minimum dwell time
+   *  so "Next" can't unlock before narration for this page has finished playing. */
+  durationSec?: number
+  status: NarrationStatus
+  error?: string
+  updatedAt?: string
+}
+
+export type SlidePageNarration = {
+  /** True when the page is a divider/title-only page — narration is just the spoken title. */
+  titleOnly?: boolean
+  /** The renderedSlideUrls[i] (or image slide's own url) this entry was generated from.
+   *  Mismatch against the live source means the page was replaced and this is stale. */
+  sourceUrl: string
+  /** Keyed by language code — matches i18n/config.ts supportedLngs (see NARRATION_LANGUAGES). */
+  lang: Record<string, SlideNarrationLang>
+}
+
 export type CourseSlide = {
   id: string
   type: CourseSlideType
@@ -48,6 +73,14 @@ export type CourseSlide = {
   }
   /** Admin-only client preview (stripped before save). */
   previewDataUrl?: string
+  /**
+   * AI-generated caption + narration per rendered page, index-aligned to
+   * renderedSlideUrls (pdf/pptx), or a single entry describing `url` itself
+   * (plain `image` slides). Never set for `video` slides. Read-only from the
+   * course-editor save path — edits go through the dedicated narration API,
+   * never through the whole-course PUT (see AdminCoursesPage.tsx save()).
+   */
+  narration?: SlidePageNarration[]
 }
 
 export type Course = {
@@ -76,6 +109,8 @@ export type Course = {
   published: boolean
   /** Homepage "Popular online courses" section. */
   popular: boolean
+  /** Summary of AI caption/audio generation across all pages — see slides[].narration for detail. */
+  narrationStatus?: 'none' | 'partial' | 'ready' | 'failed'
 }
 
 export type UserRole = 'learner' | 'admin'

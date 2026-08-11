@@ -1,4 +1,4 @@
-import type { CourseSlide } from '@/types'
+import type { CourseSlide, SlidePageNarration } from '@/types'
 
 /** Minimum seconds a learner must view each PDF page / image step. */
 export const LEARNER_SLIDE_DWELL_SEC = 15
@@ -24,6 +24,11 @@ export type LearnerUnit = {
   title?: string
   minDwellSec: number
   durationSec?: number
+  /** AI caption + narration audio for this page (image units only), once generation
+   *  has reached it. Undefined while pending, or if the source page changed since
+   *  the last generation (same staleness check the backend uses to decide whether
+   *  to regenerate — see CourseNarrationService). */
+  narration?: SlidePageNarration
 }
 
 function pdfPages(slide: CourseSlide): number {
@@ -134,13 +139,26 @@ export function buildLearnerUnits(slides: CourseSlide[]): LearnerUnit[] {
           units.push(makeVideoUnit(repVideo))
         } else {
           // Normal page
+          const pageUrl = urls.length > 0 ? urls[i] : slide.url
+          const narrationEntry = slide.narration?.[i]
+          // Stale narration (source page image changed since generation) isn't shown —
+          // same sourceUrl fingerprint check CourseNarrationService uses server-side.
+          const freshNarration = narrationEntry?.sourceUrl === pageUrl ? narrationEntry : undefined
+          const narrationDurations = freshNarration
+            ? Object.values(freshNarration.lang).map((l) => l.durationSec ?? 0)
+            : []
+          const maxNarrationDurationSec = narrationDurations.length ? Math.max(...narrationDurations) : 0
           units.push({
             unitId: `${slide.id}-p${i}`,
             sourceSlideId: slide.id,
             kind: 'image',
-            url: urls.length > 0 ? urls[i] : slide.url,
+            url: pageUrl,
             title: slide.title ?? slide.fileName,
-            minDwellSec: LEARNER_SLIDE_DWELL_SEC,
+            // Data-driven extension of the per-unit dwell override: ready narration audio
+            // can't be cut off by "Next" unlocking before it finishes playing. The dwell
+            // GATING mechanism itself is unchanged — only its per-unit input value.
+            minDwellSec: Math.max(LEARNER_SLIDE_DWELL_SEC, maxNarrationDurationSec),
+            narration: freshNarration,
           })
           // Insert-after video immediately following this page
           const afterVideo = pdfAfter?.get(pageNumber)
@@ -174,6 +192,29 @@ export function learnerUnitToSlide(unit: LearnerUnit): CourseSlide {
     title: unit.title,
     renderedSlideUrls: [unit.url],
   }
+}
+
+export type ActiveNarration = { lang: string; text?: string; audioUrl?: string }
+
+/** Prefers the current UI language's ready narration; falls back to English if that
+ *  language isn't ready yet, so learners see/hear something instead of nothing while a
+ *  newer language is still generating. Never surfaces audio that isn't actually ready
+ *  to play, even when a not-yet-final caption text is shown. */
+export function pickNarrationLang(
+  narration: SlidePageNarration | undefined,
+  preferredLang: string,
+): ActiveNarration | undefined {
+  if (!narration) return undefined
+  const preferred = narration.lang[preferredLang]
+  if (preferred?.status === 'ready') {
+    return { lang: preferredLang, text: preferred.text, audioUrl: preferred.audioUrl }
+  }
+  const fallback = narration.lang.en
+  if (preferredLang !== 'en' && fallback?.status === 'ready') {
+    return { lang: 'en', text: fallback.text, audioUrl: fallback.audioUrl }
+  }
+  const anyText = preferred?.text ?? fallback?.text
+  return anyText ? { lang: preferredLang, text: anyText, audioUrl: undefined } : undefined
 }
 
 export function formatCourseDuration(minutes: number): string {
