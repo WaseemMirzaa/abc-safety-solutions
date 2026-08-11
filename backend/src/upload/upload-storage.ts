@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common'
 import { diskStorage } from 'multer'
+import { existsSync } from 'fs'
 import { extname, join } from 'path'
 import { randomUUID } from 'node:crypto'
 
@@ -85,6 +86,23 @@ export function uploadUrlForFile(filename: string): string {
   const path = `/uploads/${filename}`
   const base = publicBaseUrl()
   return base ? `${base}${path}` : path
+}
+
+/**
+ * Resolves a stored /uploads/... URL (absolute or relative, with or without
+ * PUBLIC_BASE_URL) back to an on-disk path, or null if it's missing/outside uploadDir.
+ * Shared by CourseContentService (video/PDF pipelines) and the narration pipeline —
+ * every rendered slide page (SlideRenderService) and uploaded source file resolves
+ * through this same convention.
+ */
+export function filePathFromUploadUrl(fileUrl: string): string | null {
+  const uploadsPrefix = '/uploads/'
+  const idx = fileUrl.indexOf(uploadsPrefix)
+  if (idx === -1) return null
+  const rel = fileUrl.slice(idx + uploadsPrefix.length).split('?')[0]
+  if (!rel || rel.includes('..')) return null
+  const filePath = join(uploadDir(), rel)
+  return existsSync(filePath) ? filePath : null
 }
 
 export function assertAllowedUpload(file: Express.Multer.File) {

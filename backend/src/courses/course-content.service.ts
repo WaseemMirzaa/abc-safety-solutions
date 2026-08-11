@@ -1,12 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common'
-import { join, basename } from 'path'
-import { existsSync } from 'fs'
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
+import { basename } from 'path'
 import type { CourseSlide } from '../common/course-slide.types'
 import { computeCourseContentMetrics } from '../common/course-content.util'
-import { uploadDir, uploadUrlForFile } from '../upload/upload-storage'
+import { uploadDir, uploadUrlForFile, filePathFromUploadUrl } from '../upload/upload-storage'
 import { needsBrowserTranscode, prepareBrowserVideo, probeVideoDurationSec } from '../upload/video-process.util'
 import { SlideRenderService } from '../slide-render/slide-render.service'
-import { CoursesService } from './courses.service'
+import { CourseNarrationService } from '../narration/course-narration.service'
 
 @Injectable()
 export class CourseContentService {
@@ -14,17 +13,14 @@ export class CourseContentService {
 
   constructor(
     private readonly slideRender: SlideRenderService,
-    private readonly courses: CoursesService,
+    // forwardRef: CourseNarrationService lives in NarrationModule, which this module
+    // (CoursesModule) is imported back by — see narration/narration.module.ts. Also now
+    // the sole writer of courses.slides from this service — see mergeContentUpdate().
+    @Inject(forwardRef(() => CourseNarrationService)) private readonly narration: CourseNarrationService,
   ) {}
 
   private filePathFromUploadUrl(fileUrl: string): string | null {
-    const uploadsPrefix = '/uploads/'
-    const idx = fileUrl.indexOf(uploadsPrefix)
-    if (idx === -1) return null
-    const rel = fileUrl.slice(idx + uploadsPrefix.length).split('?')[0]
-    if (!rel || rel.includes('..')) return null
-    const filePath = join(uploadDir(), rel)
-    return existsSync(filePath) ? filePath : null
+    return filePathFromUploadUrl(fileUrl)
   }
 
   private fileIdFromUrl(fileUrl: string): string {
@@ -178,8 +174,12 @@ export class CourseContentService {
       }
       if (!changed) return
       const metrics = computeCourseContentMetrics(prepared)
-      await this.courses.update(courseId, {
-        slides: prepared,
+      // Routed through CourseNarrationService (not a plain courses.update()): `prepared`
+      // was snapshotted before this transcode loop's file I/O, which can take a while —
+      // writing it back verbatim would clobber any narration generated/edited in the
+      // meantime. mergeContentUpdate re-reads the current row and merges under the same
+      // per-course lock narration generation itself uses.
+      await this.narration.mergeContentUpdate(courseId, prepared, {
         durationMinutes: metrics.durationMinutes,
         slideCount: metrics.slideCount,
       })
@@ -240,12 +240,18 @@ export class CourseContentService {
         }
       }
       const metrics = computeCourseContentMetrics(prepared)
-      await this.courses.update(courseId, {
-        slides: prepared,
+      // Same reasoning as transcodeVideosAndUpdateCourse above: `prepared` predates this
+      // (potentially slow) render loop, so merge against the current row under the shared
+      // per-course lock rather than overwriting it blind.
+      await this.narration.mergeContentUpdate(courseId, prepared, {
         durationMinutes: metrics.durationMinutes,
         slideCount: metrics.slideCount,
       })
       this.log.log(`PDF render finished for course ${courseId}`)
+      // Pages now have images to look at — hand off to AI captioning/narration.
+      // (This is also called directly from AdminCoursesController for the case where
+      // pages were already rendered in a prior save and this PDF-render path never runs.)
+      this.narration.scheduleForCourse(courseId)
     } catch (err) {
       this.log.error(`PDF render failed for course ${courseId}: ${String(err)}`)
     }

@@ -27,6 +27,7 @@ export type CourseDto = {
   published: boolean
   popular: boolean
   certificateValidityDays?: number | null
+  narrationStatus: 'none' | 'partial' | 'ready' | 'failed'
 }
 
 @Injectable()
@@ -70,6 +71,7 @@ export class CoursesService {
       published: c.published,
       popular: Boolean(c.popular),
       certificateValidityDays: c.certificateValidityDays,
+      narrationStatus: c.narrationStatus ?? 'none',
     }
   }
 
@@ -126,6 +128,7 @@ export class CoursesService {
       published: data.published ?? false,
       popular: data.popular ?? false,
       discountPercent: clampDiscountPercent(data.discountPercent ?? 0),
+      narrationStatus: data.narrationStatus ?? 'none',
     })
     return this.courses.save(row)
   }
