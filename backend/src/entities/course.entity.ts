@@ -58,4 +58,13 @@ export class CourseEntity {
   /** Shown in homepage "Popular online courses" when true (and published). */
   @Column({ default: false })
   popular: boolean
+
+  /**
+   * Cheap summary of AI-generated per-page caption/audio narration, kept in sync by
+   * CourseNarrationService on every persist. The per-page detail (text, audio URLs,
+   * status) lives inside `slides` JSON — this column exists only so admin list views
+   * don't need to deserialize every course's slides to know narration state.
+   */
+  @Column({ type: 'varchar', length: 16, default: 'none' })
+  narrationStatus: 'none' | 'partial' | 'ready' | 'failed'
 }

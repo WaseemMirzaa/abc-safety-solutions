@@ -119,6 +119,17 @@ migrate_courses_popular() {
   fi
 }
 
+migrate_courses_narration_status() {
+  local exists
+  exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='courses' AND COLUMN_NAME='narrationStatus';")"
+  if [ "${exists:-0}" = "0" ]; then
+    echo "   015_add_courses_narration_status.sql — adding column narrationStatus"
+    mysql_scalar "ALTER TABLE courses ADD COLUMN narrationStatus VARCHAR(16) NOT NULL DEFAULT 'none';" >/dev/null
+  else
+    echo "   015_add_courses_narration_status.sql — narrationStatus column already exists (skip)"
+  fi
+}
+
 migrate_progress_max_slide() {
   local exists
   exists="$(mysql_scalar "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='progress' AND COLUMN_NAME='maxSlideIndex';")"
@@ -396,6 +407,7 @@ for f in "${files[@]}"; do
     012_admin_user_insights.sql) migrate_admin_user_insights ;;
     013_certificate_file_url.sql) migrate_certificate_file_url ;;
     014_widen_notifications_type.sql) migrate_widen_notifications_type ;;
+    015_add_courses_narration_status.sql) migrate_courses_narration_status ;;
     *)
       echo "   $base"
       mysql_file "$f"

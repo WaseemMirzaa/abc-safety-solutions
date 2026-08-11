@@ -436,6 +436,56 @@ export async function adminDeleteCourse(id: string): Promise<void> {
   await apiJson(`/api/admin/courses/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }
 
+export type NarrationPerLangStatus = {
+  text?: string
+  audioUrl?: string
+  durationSec?: number
+  status: 'pending' | 'ready' | 'failed'
+  error?: string
+}
+
+export type NarrationPageStatus = {
+  slideId: string
+  pageIndex: number
+  thumbnailUrl: string
+  titleOnly?: boolean
+  lang: Record<string, NarrationPerLangStatus>
+}
+
+export type NarrationStatusSummary = {
+  narrationStatus: 'none' | 'partial' | 'ready' | 'failed'
+  /** False when the server has no OPENAI_API_KEY configured — narration is disabled
+   *  platform-wide. Distinguish this from "still generating" in the UI. */
+  narrationEnabled: boolean
+  languages: string[]
+  pages: NarrationPageStatus[]
+}
+
+/** Narrow polling target for the admin narration panel — deliberately never the full
+ *  course payload, so polling can't race with an in-progress course-editor draft. */
+export async function fetchNarrationStatus(courseId: string): Promise<NarrationStatusSummary> {
+  return apiJson<NarrationStatusSummary>(`/api/admin/courses/${encodeURIComponent(courseId)}/narration-status`)
+}
+
+/** Admin hand-edit of one page's caption — persists immediately and regenerates just
+ *  that page+language's audio. Independent of the whole-course Save button. */
+export async function editNarrationText(
+  courseId: string,
+  body: { slideId: string; pageIndex: number; lang: string; text: string },
+): Promise<NarrationStatusSummary> {
+  return apiJson<NarrationStatusSummary>(`/api/admin/courses/${encodeURIComponent(courseId)}/narration`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/** Manual retry for pages stuck in 'failed' — automatic generation never retries those on its own. */
+export async function retryNarration(courseId: string): Promise<NarrationStatusSummary> {
+  return apiJson<NarrationStatusSummary>(`/api/admin/courses/${encodeURIComponent(courseId)}/narration/regenerate`, {
+    method: 'POST',
+  })
+}
+
 function trimTestUpdatedAt(iso: string): string {
   const s = iso.slice(0, 32)
   return s

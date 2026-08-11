@@ -1,0 +1,3 @@
+-- Adds courses.narrationStatus (cheap summary of AI caption/audio generation).
+-- Applied automatically on API boot by SchemaMigrationsService; this file + the
+-- run-db-migrations.sh case entry exist for manual/offline runs (see other 0xx files).
