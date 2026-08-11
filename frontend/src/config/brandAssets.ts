@@ -1,6 +1,8 @@
-/** Official wordmark from [ABC Safety Solutions](https://abcsafetysolutions.com). */
-export const brandLogoUrl =
-  'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
+/** Official ABC Safety Solutions logo (full lockup — mark + "SAFETY SOLUTIONS" wordmark).
+ *  Bundled locally (public/brand/abc-safety-logo.jpg) rather than hotlinked, so the app
+ *  doesn't depend on abcsafetysolutions.com staying up. Solid white background (JPG, no
+ *  alpha) — see AuthLogo's light variant for how it's kept legible over photo panels. */
+export const brandLogoUrl = '/brand/abc-safety-logo.jpg'
 
 /** Customer portal header, footer, auth, and certificates. */
 export const brandLogoCustomer = brandLogoUrl

@@ -3,19 +3,30 @@ import { t } from '@/i18n/t'
 import { brandLogoCustomer } from '@/config/brandAssets'
 
 export function AuthLogo({ variant = 'light', className }: { variant?: 'light' | 'dark'; className?: string }) {
-  return (
+  const img = (
     <img
       src={brandLogoCustomer}
       alt={t('ui_brand_logo_alt')}
-      className={clsx(
-        'block h-12 w-auto max-w-[13rem] object-contain object-left sm:h-14 sm:max-w-[15rem] md:h-[3.75rem] md:max-w-[17rem]',
-        variant === 'light' && 'opacity-95 drop-shadow-sm',
-        variant === 'dark' && 'opacity-100',
-        className,
-      )}
+      className="block h-12 w-auto max-w-[13rem] object-contain object-left sm:h-14 sm:max-w-[15rem] md:h-[3.75rem] md:max-w-[17rem]"
       width={220}
       height={56}
     />
+  )
+  if (variant === 'dark') {
+    // Already sits on the form column's light background — no wrapper needed.
+    return <div className={clsx('opacity-100', className)}>{img}</div>
+  }
+  // The logo asset has a solid white background (no alpha) — over the photo aside it
+  // needs an explicit white chip behind it, otherwise it reads as a stray white box.
+  return (
+    <div
+      className={clsx(
+        'inline-block w-fit rounded-xl bg-white/95 p-2.5 shadow-lg shadow-black/10 ring-1 ring-black/5 backdrop-blur-sm',
+        className,
+      )}
+    >
+      {img}
+    </div>
   )
 }
 

@@ -18,6 +18,13 @@ export function useNarrationAudioPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [muted, setMuted] = useState(true)
   const [playing, setPlaying] = useState(false)
+  // True once the currently-loaded clip has played to its natural end (native `ended`
+  // event) — the signal LearnPage gates "mandatory full listen" navigation on. Reset to
+  // false whenever a new clip is loaded (playUrl) or a clip is replayed from 0 (unmute).
+  const [ended, setEnded] = useState(false)
+  // 0-100 playback position of the currently-loaded clip, for the on-screen progress bar
+  // that replaces the old fixed-duration dwell timer.
+  const [progressPct, setProgressPct] = useState(0)
   const currentUrlRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -27,13 +34,24 @@ export function useNarrationAudioPlayer() {
     // <audio> element. A declarative prop would be re-asserted on every re-render and
     // fight the imperative `audio.muted = false` that unmute() performs afterward.
     audio.muted = true
-    const onEnded = () => setPlaying(false)
+    const onEnded = () => {
+      setPlaying(false)
+      setEnded(true)
+      setProgressPct(100)
+    }
     const onPause = () => setPlaying(false)
+    const onTimeUpdate = () => {
+      if (audio.duration > 0 && Number.isFinite(audio.duration)) {
+        setProgressPct(Math.min(100, Math.round((audio.currentTime / audio.duration) * 100)))
+      }
+    }
     audio.addEventListener('ended', onEnded)
     audio.addEventListener('pause', onPause)
+    audio.addEventListener('timeupdate', onTimeUpdate)
     return () => {
       audio.removeEventListener('ended', onEnded)
       audio.removeEventListener('pause', onPause)
+      audio.removeEventListener('timeupdate', onTimeUpdate)
     }
   }, [])
 
@@ -46,6 +64,8 @@ export function useNarrationAudioPlayer() {
     audio.pause()
     audio.currentTime = 0
     setPlaying(false)
+    setEnded(false)
+    setProgressPct(0)
     currentUrlRef.current = url
     if (!url) {
       audio.removeAttribute('src')
@@ -68,6 +88,8 @@ export function useNarrationAudioPlayer() {
     audio.muted = false
     if (currentUrlRef.current) {
       audio.currentTime = 0
+      setEnded(false)
+      setProgressPct(0)
       audio
         .play()
         .then(() => setPlaying(true))
@@ -80,5 +102,5 @@ export function useNarrationAudioPlayer() {
     if (audioRef.current) audioRef.current.muted = true
   }, [])
 
-  return { audioRef, muted, playing, playUrl, unmute, mute }
+  return { audioRef, muted, playing, ended, progressPct, playUrl, unmute, mute }
 }
