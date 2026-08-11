@@ -23,6 +23,7 @@ import { UsersModule } from './users/users.module'
 import { CategoriesModule } from './categories/categories.module'
 import { LanguagesModule } from './languages/languages.module'
 import { CoursesModule } from './courses/courses.module'
+import { NarrationModule } from './narration/narration.module'
 import { EnrollmentsModule } from './enrollments/enrollments.module'
 import { ProgressModule } from './progress/progress.module'
 import { CertificatesModule } from './certificates/certificates.module'
@@ -79,6 +80,7 @@ import { SchemaMigrationsService } from './database/schema-migrations.service'
     CategoriesModule,
     LanguagesModule,
     CoursesModule,
+    NarrationModule,
     EnrollmentsModule,
     ProgressModule,
     CertificatesModule,
