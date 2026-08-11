@@ -58,7 +58,7 @@ export class CourseNarrationService {
     return langs.length ? langs : ['en', 'es']
   }
 
-  // ── Scheduling ────────────────────────────────────────────────
+  // ── Scheduling ────────────────────────────────────────────────────────────────
 
   /** Fire-and-forget entry point. Safe to call repeatedly (e.g. on every course save) —
    *  a run already in flight just gets a rerun queued behind it instead of overlapping. */
@@ -89,7 +89,24 @@ export class CourseNarrationService {
     )
     if (!todo.length) return
     this.log.log(`Narration: ${todo.length} page(s) need work for course ${courseId} (${languages.join(',')})`)
-    await mapWithConcurrency(todo, (page) => this.processPage(courseId, page, languages), 8)
+    await mapWithConcurrency(todo, (page) => this.processPage(courseId, page, languages), this.coursePoolSize())
+  }
+
+  /**
+   * Local dispatch pool for ONE course's pages. Deliberately generous (a multiple of
+   * NARRATION_CONCURRENCY, not a fixed small number) — this pool costs almost nothing
+   * (idle promises awaiting network calls), so it must never itself be the throughput
+   * ceiling. The real, single point of control over actual OpenAI request volume is
+   * NarrationRateLimiterService (NARRATION_CONCURRENCY). A single course dominates the
+   * common case (one course's PDF just got uploaded and needs 150 pages narrated) — if
+   * this pool were capped at, say, 8, raising NARRATION_CONCURRENCY to 20 would have NO
+   * effect on that course's speed, since only 8 of its pages could ever be in flight at
+   * once regardless of how many global slots are available.
+   */
+  private coursePoolSize(): number {
+    const globalLimit = Number(process.env.NARRATION_CONCURRENCY ?? 4)
+    const base = Number.isFinite(globalLimit) && globalLimit > 0 ? globalLimit : 4
+    return Math.max(16, base * 3)
   }
 
   /** Every 10 min: courses left 'partial' (real pending work, not a permanent failure)
@@ -111,7 +128,7 @@ export class CourseNarrationService {
     }
   }
 
-  // ── Page enumeration ──────────────────────────────────────────
+  // ── Page enumeration ─────────────────────────────────────────────────────────
 
   /** pdfSlideId:pageIndex(0-based) pairs a pageReplace(mode:'replace') video has swapped
    *  out — narrating them would caption a page the learner never actually sees. */
@@ -177,7 +194,7 @@ export class CourseNarrationService {
     return 'partial'
   }
 
-  // ── Per-page pipeline ──────────────────────────────────────────
+  // ── Per-page pipeline ────────────────────────────────────────────────────────
 
   private async processPage(courseId: string, page: NarratablePage, languages: string[]): Promise<void> {
     const { slide, pageIndex, sourceUrl } = page
@@ -240,7 +257,7 @@ export class CourseNarrationService {
     )
   }
 
-  // ── Admin-facing actions ─────────────────────────────────────────
+  // ── Admin-facing actions ─────────────────────────────────────────────────────
 
   /** Resets terminal failures back to 'pending' (clearing their error) and re-schedules —
    *  the manual "Retry" action. Automatic scheduling deliberately never retries 'failed'
@@ -420,7 +437,7 @@ export class CourseNarrationService {
     })
   }
 
-  // ── Persistence (serialized per course) ───────────────────────────────────
+  // ── Persistence (serialized per course) ─────────────────────────────────────
 
   /** Chains onto the previous op for this course so concurrent page workers (and admin
    *  edits) never read-modify-write the same row at once and clobber each other. */
