@@ -47,7 +47,9 @@ export function LearnSlideFooter({
       defaultValue: 'Review all slides again from the start to unlock the knowledge check.',
     })
   } else if (!canGoNext && !isLastSlide && !pptxNavLocked) {
-    statusMessage = `${t('ui_learn_previous')} · ${t('ui_learn_next')}`
+    statusMessage = t('ui_learn_listen_to_continue', {
+      defaultValue: 'Listen to the full narration to continue',
+    })
   } else if (isLastSlide && contentComplete && customTestReady) {
     statusMessage = t('ui_learn_ready_for_test', {
       defaultValue: 'You have reached the end. Take the knowledge check when you are ready.',
@@ -117,7 +119,7 @@ export function LearnSlideFooter({
                 aria-valuenow={dwellPct}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
+                aria-label={t('ui_learn_narration_progress', { defaultValue: 'Narration audio progress' })}
               />
             </div>
           ) : null}

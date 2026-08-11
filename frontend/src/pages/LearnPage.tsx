@@ -11,6 +11,7 @@ import { LearnSlideFooter } from '@/components/learn/LearnSlideFooter'
 import { LearnSlideDeckControls } from '@/components/learn/LearnSlideDeckControls'
 import { LearnSlideChrome } from '@/components/learn/LearnSlideChrome'
 import { NarrationCaptionBar } from '@/components/learn/NarrationCaptionBar'
+import { LanguageToggle } from '@/components/learn/LanguageToggle'
 import { useNarrationAudioPlayer } from '@/hooks/useNarrationAudioPlayer'
 import {
   fetchCategories,
@@ -27,7 +28,6 @@ import { qk } from '@/api/queryKeys'
 import { CourseSlideViewer } from '@/components/CourseSlideViewer'
 import {
   buildLearnerUnits,
-  LEARNER_SLIDE_DWELL_SEC,
   learnerUnitToSlide,
   pickNarrationLang,
   type LearnerUnit,
@@ -136,9 +136,10 @@ export function LearnPage() {
   const [deckAspect, setDeckAspect] = useState(16 / 9)
   const [contentReviewRequired, setContentReviewRequired] = useState(false)
   const [slideFullscreen, setSlideFullscreen] = useState(false)
-  const [unitEnteredAt, setUnitEnteredAt] = useState(() => Date.now())
-  const [dwellReady, setDwellReady] = useState(false)
-  const [dwellElapsedSec, setDwellElapsedSec] = useState(0)
+  // Slide (image/PDF-page) units whose narration audio has played to completion — the
+  // learner is free to advance past them. Mirrors completedVideoUnits below: once a unit
+  // is in this set, revisiting it via Previous never re-gates Next on a full re-listen.
+  const [audioCompletedUnits, setAudioCompletedUnits] = useState<Set<string>>(() => new Set())
   const [completedVideoUnits, setCompletedVideoUnits] = useState<Set<string>>(() => new Set())
   const videoSecRef = useRef(0)
 
@@ -153,10 +154,15 @@ export function LearnPage() {
   const currentSlide = currentUnit ? learnerUnitToSlide(currentUnit) : undefined
   const isVideoUnit = currentUnit?.kind === 'video'
   const isImageUnit = currentUnit?.kind === 'image'
-  const dwellSecRequired = isImageUnit
-    ? (currentUnit?.minDwellSec ?? LEARNER_SLIDE_DWELL_SEC)
-    : LEARNER_SLIDE_DWELL_SEC
   const activeNarration = isImageUnit ? pickNarrationLang(currentUnit?.narration, i18n.language) : undefined
+  // Gate for image/PDF-page slides: if there's no narration audio for this slide (still
+  // generating, or narration disabled server-side), don't block on it at all — otherwise
+  // the learner must let the audio play to completion at least once (audioCompletedUnits
+  // is seeded from progress on hydration, so revisiting an already-completed slide never
+  // re-gates Next on a second full listen).
+  const slideAudioReady = isImageUnit
+    ? !activeNarration?.audioUrl || (currentUnit ? audioCompletedUnits.has(currentUnit.unitId) : true)
+    : true
 
   // Plays the current page's narration the moment it becomes the active slide (or the
   // instant its audio finishes generating while already on that slide) — single shared
@@ -171,43 +177,69 @@ export function LearnPage() {
   const contentComplete = videoOnlyCourse
     ? videoDoneLocal || (Boolean(progressRow?.completedSlides) && videoProgressValid)
     : Boolean(progressRow?.completedSlides) ||
-      (slideIndex >= totalSlides - 1 && (isVideoUnit ? videoDoneLocal : dwellReady))
+      (slideIndex >= totalSlides - 1 && (isVideoUnit ? videoDoneLocal : slideAudioReady))
 
   useEffect(() => {
     if (contentComplete) setContentReviewRequired(false)
   }, [contentComplete])
 
   useEffect(() => {
-    setUnitEnteredAt(Date.now())
-    setDwellReady(false)
-    setDwellElapsedSec(0)
     if (currentUnit && completedVideoUnits.has(currentUnit.unitId)) {
       setVideoDoneLocal(true)
     } else {
       setVideoDoneLocal(false)
     }
-  }, [slideIndex, courseId, currentUnit?.unitId])
-
-  useEffect(() => {
-    if (!isImageUnit) {
-      setDwellReady(true)
-      setDwellElapsedSec(dwellSecRequired)
-      return
-    }
-    setDwellReady(false)
-    const tick = () => {
-      const elapsed = (Date.now() - unitEnteredAt) / 1000
-      setDwellElapsedSec(Math.min(elapsed, dwellSecRequired))
-      if (elapsed >= dwellSecRequired) setDwellReady(true)
-    }
-    tick()
-    const id = window.setInterval(tick, 500)
-    return () => window.clearInterval(id)
-  }, [isImageUnit, unitEnteredAt, slideIndex, dwellSecRequired])
+  }, [slideIndex, courseId, currentUnit?.unitId, completedVideoUnits])
 
   const canGoNext = isVideoUnit
     ? videoDoneLocal || (currentUnit ? completedVideoUnits.has(currentUnit.unitId) : false)
-    : dwellReady
+    : slideAudioReady
+
+  // Defined here (before the early-return blocks below) rather than further down, so the
+  // audio-completion auto-advance effect right after it — which must itself be an
+  // unconditional hook — can call it. `force` bypasses the canGoNext guard: it's needed
+  // because the auto-advance effect fires in the same render where audioCompletedUnits
+  // was just updated, so canGoNext in this closure is still stale (false).
+  const navigateSlide = (next: number, opts?: { force?: boolean }) => {
+    const clamped = Math.max(0, Math.min(totalSlides - 1, next))
+    if (clamped > slideIndex && !canGoNext && !opts?.force) return
+    setSlideIndex(clamped)
+    if (!courseId || videoOnlyCourse) return
+    const atLast = clamped >= totalSlides - 1
+    const arrivedVideo = learnerUnits[clamped]?.kind === 'video'
+    const resumeSec =
+      arrivedVideo && progressRow?.slideIndex === clamped ? (progressRow?.audioTimeSec ?? 0) : 0
+    qc.setQueryData<typeof progressRow>(qk.progress(courseId), (old) =>
+      old
+        ? {
+            ...old,
+            slideIndex: clamped,
+            maxSlideIndex: Math.max(old.maxSlideIndex ?? 0, clamped),
+            audioTimeSec: resumeSec,
+          }
+        : old,
+    )
+    saveProgress.mutate({
+      slideIndex: clamped,
+      audioTimeSec: resumeSec,
+      completedSlides: Boolean(progressRow?.completedSlides) || (atLast && !arrivedVideo),
+    })
+  }
+
+  // Mandatory-listen auto-advance: once the current slide's narration audio plays to
+  // completion, mark it done and move to the next slide automatically — no button press
+  // required. No-ops for slides with no narration audio (nothing to gate on) and for
+  // slides already marked complete (prevents re-firing every render once `ended` is true).
+  useEffect(() => {
+    if (!isImageUnit || !currentUnit || !activeNarration?.audioUrl) return
+    if (!narrationPlayer.ended) return
+    if (audioCompletedUnits.has(currentUnit.unitId)) return
+    setAudioCompletedUnits((prev) => new Set(prev).add(currentUnit.unitId))
+    if (slideIndex < totalSlides - 1) {
+      navigateSlide(slideIndex + 1, { force: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrationPlayer.ended, isImageUnit, currentUnit?.unitId, activeNarration?.audioUrl, audioCompletedUnits, slideIndex, totalSlides])
 
   useEffect(() => {
     if (totalSlides < 1) return
@@ -226,7 +258,7 @@ export function LearnPage() {
     hydratedForCourse.current = null
     setSlideIndex(0)
     setCompletedVideoUnits(new Set())
-    setDwellReady(false)
+    setAudioCompletedUnits(new Set())
   }, [courseId])
 
   useEffect(() => {
@@ -240,14 +272,20 @@ export function LearnPage() {
     const idx = Math.min(Math.max(0, progressRow.slideIndex ?? 0), max)
     const furthest = Math.min(max, Math.max(idx, progressRow.maxSlideIndex ?? 0))
     const doneVideos = new Set<string>()
+    const doneAudio = new Set<string>()
     for (let i = 0; i < idx; i++) {
       const u = learnerUnits[i]
       if (u?.kind === 'video') doneVideos.add(u.unitId)
+      if (u?.kind === 'image') doneAudio.add(u.unitId)
     }
     setCompletedVideoUnits(doneVideos)
     setSlideIndex(idx)
     const unit = learnerUnits[idx]
-    if (unit?.kind === 'image' && idx < furthest) setDwellReady(true)
+    // The slide the learner resumes on (idx) also counts as already-listened-to if they'd
+    // previously progressed past it (idx < furthest) — e.g. they went Next past it, then
+    // came back via Previous before closing the app. Mirrors the video-unit precedent below.
+    if (unit?.kind === 'image' && idx < furthest) doneAudio.add(unit.unitId)
+    setAudioCompletedUnits(doneAudio)
     if (unit?.kind === 'video') {
       videoSecRef.current = progressRow.audioTimeSec ?? 0
       if (idx < furthest) setVideoDoneLocal(true)
@@ -593,9 +631,12 @@ export function LearnPage() {
     customTestReady && contentComplete && slidesLoaded && (videoOnlyCourse || (isLastSlide && canGoNext))
   const slideNavHint = `${t('ui_learn_previous')} · ${t('ui_learn_next')}`
 
-  const dwellPct = isImageUnit && !dwellReady
-    ? Math.round((dwellElapsedSec / dwellSecRequired) * 100)
-    : undefined
+  // Narration playback progress (0-100), shown in place of the old fixed-duration dwell
+  // timer while the slide's mandatory audio is still playing.
+  const dwellPct =
+    isImageUnit && activeNarration?.audioUrl && !(currentUnit && audioCompletedUnits.has(currentUnit.unitId))
+      ? narrationPlayer.progressPct
+      : undefined
 
   const optimisticMaxSlide = Math.max(
     slideIndex,
@@ -610,32 +651,6 @@ export function LearnPage() {
     videoCourse: videoOnlyCourse,
     videoWatchPct,
   })
-
-  const navigateSlide = (next: number) => {
-    const clamped = Math.max(0, Math.min(totalSlides - 1, next))
-    if (clamped > slideIndex && !canGoNext) return
-    setSlideIndex(clamped)
-    if (!courseId || videoOnlyCourse) return
-    const atLast = clamped >= totalSlides - 1
-    const arrivedVideo = learnerUnits[clamped]?.kind === 'video'
-    const resumeSec =
-      arrivedVideo && progressRow?.slideIndex === clamped ? (progressRow?.audioTimeSec ?? 0) : 0
-    qc.setQueryData<typeof progressRow>(qk.progress(courseId), (old) =>
-      old
-        ? {
-            ...old,
-            slideIndex: clamped,
-            maxSlideIndex: Math.max(old.maxSlideIndex ?? 0, clamped),
-            audioTimeSec: resumeSec,
-          }
-        : old,
-    )
-    saveProgress.mutate({
-      slideIndex: clamped,
-      audioTimeSec: resumeSec,
-      completedSlides: Boolean(progressRow?.completedSlides) || (atLast && !arrivedVideo),
-    })
-  }
 
   const passCert =
     freshCert && freshCert.courseId === course.id
@@ -707,12 +722,15 @@ export function LearnPage() {
               </p>
             ) : null}
           </div>
-          <Link
-            to="/my-courses"
-            className="shrink-0 text-sm font-medium text-sky-800 transition hover:text-sky-900 sm:pt-1"
-          >
-            {t('ui_learn_back_my_courses')}
-          </Link>
+          <div className="flex shrink-0 items-center gap-3 sm:pt-1">
+            <LanguageToggle />
+            <Link
+              to="/my-courses"
+              className="text-sm font-medium text-sky-800 transition hover:text-sky-900"
+            >
+              {t('ui_learn_back_my_courses')}
+            </Link>
+          </div>
         </div>
 
         <div className="h-1.5 shrink-0 overflow-hidden rounded-full bg-slate-200/90">
@@ -939,11 +957,15 @@ export function LearnPage() {
                   aria-valuenow={dwellPct}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label={t('ui_learn_dwell_timer', { defaultValue: 'Reading timer' })}
+                  aria-label={t('ui_learn_narration_progress', { defaultValue: 'Narration audio progress' })}
                 />
               </div>
               {!canGoNext && !isLastSlide ? (
-                <p className="mt-1 text-center text-xs font-semibold text-sky-100">{slideNavHint}</p>
+                <p className="mt-1 text-center text-xs font-semibold text-sky-100">
+                  {t('ui_learn_listen_to_continue', {
+                    defaultValue: 'Listen to the full narration to continue',
+                  })}
+                </p>
               ) : null}
             </div>
           ) : null}
