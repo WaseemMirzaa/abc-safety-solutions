@@ -2,6 +2,32 @@ export type CourseSlideType = 'image' | 'pdf' | 'video' | 'pptx' | 'ppt'
 
 export type CourseSlideRenderStatus = 'pending' | 'ready' | 'failed'
 
+/** Never persist 'generating' — a crash mid-call must leave this as 'pending' (retryable
+ *  by the reconciliation sweep), not stuck in a state nothing will ever revisit. */
+export type NarrationStatus = 'pending' | 'ready' | 'failed'
+
+export type SlideNarrationLang = {
+  text?: string
+  audioUrl?: string
+  /** Seconds of the generated clip. Feeds LearnerUnit.minDwellSec so "Next" can't
+   *  unlock before the narration for this page has finished playing. */
+  durationSec?: number
+  status: NarrationStatus
+  error?: string
+  updatedAt?: string
+}
+
+export type SlidePageNarration = {
+  /** True when the page is a divider/title-only page — narration is just the spoken title. */
+  titleOnly?: boolean
+  /** The renderedSlideUrls[i] (or image slide's own url) this entry was generated from.
+   *  A mismatch against the current source means the page was re-rendered/replaced and
+   *  this entry is stale — regenerate instead of trusting index position alone. */
+  sourceUrl: string
+  /** Keyed by language code (matches frontend i18n supportedLngs, e.g. 'en' | 'es'). */
+  lang: Record<string, SlideNarrationLang>
+}
+
 export type CourseSlide = {
   id: string
   type: CourseSlideType
@@ -29,4 +55,10 @@ export type CourseSlide = {
     pageNumber: number
     mode?: 'replace' | 'after'
   }
+  /**
+   * AI-generated caption + narration per rendered page, index-aligned to
+   * renderedSlideUrls (pdf/pptx), or a single entry describing `url` itself
+   * (plain `image` slides). Never set for `video` slides.
+   */
+  narration?: SlidePageNarration[]
 }
