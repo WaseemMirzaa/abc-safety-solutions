@@ -1,6 +1,6 @@
-/** Official wordmark from [ABC Safety Solutions](https://abcsafetysolutions.com). */
-export const brandLogoUrl =
-  'https://abcsafetysolutions.com/wp-content/uploads/2021/10/logo-light.png'
+/** Official ABC Safety Solutions mark — bundled locally (public/brand/logo-light.png)
+ *  rather than hotlinked, so the app doesn't depend on abcsafetysolutions.com staying up. */
+export const brandLogoUrl = '/brand/logo-light.png'
 
 /** Customer portal header, footer, auth, and certificates. */
 export const brandLogoCustomer = brandLogoUrl
