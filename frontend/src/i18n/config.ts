@@ -5,6 +5,8 @@ import esOverrides from '@/locales/es.json'
 
 const es = { ...en, ...esOverrides } as Record<string, string>
 
+const SUPPORTED_LNGS = ['en', 'es'] as const
+
 void i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en as Record<string, string> },
@@ -12,8 +14,12 @@ void i18n.use(initReactI18next).init({
   },
   lng: 'en',
   fallbackLng: 'en',
-  supportedLngs: ['en', 'es'],
+  supportedLngs: [...SUPPORTED_LNGS],
   interpolation: { escapeValue: false },
 })
+
+/** AI slide-narration languages — always matches supportedLngs above (single source of truth). */
+export const NARRATION_LANGUAGES = SUPPORTED_LNGS
+export type NarrationLanguageCode = (typeof SUPPORTED_LNGS)[number]
 
 export default i18n
