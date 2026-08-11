@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Container } from '@/components/Container'
@@ -9,6 +10,8 @@ import { KnowledgeCheckView } from '@/components/learn/KnowledgeCheckView'
 import { LearnSlideFooter } from '@/components/learn/LearnSlideFooter'
 import { LearnSlideDeckControls } from '@/components/learn/LearnSlideDeckControls'
 import { LearnSlideChrome } from '@/components/learn/LearnSlideChrome'
+import { NarrationCaptionBar } from '@/components/learn/NarrationCaptionBar'
+import { useNarrationAudioPlayer } from '@/hooks/useNarrationAudioPlayer'
 import {
   fetchCategories,
   fetchCourseById,
@@ -26,6 +29,7 @@ import {
   buildLearnerUnits,
   LEARNER_SLIDE_DWELL_SEC,
   learnerUnitToSlide,
+  pickNarrationLang,
   type LearnerUnit,
 } from '@/lib/courseContent'
 import { getCourseSlides } from '@/lib/courseSlides'
@@ -43,6 +47,8 @@ export function LearnPage() {
   const { courseId = '' } = useParams()
   const { user } = useAuth()
   const qc = useQueryClient()
+  const { i18n } = useTranslation()
+  const narrationPlayer = useNarrationAudioPlayer()
 
   const { data: course, isLoading: courseLoading } = useQuery({
     queryKey: qk.courseById(courseId),
@@ -150,6 +156,15 @@ export function LearnPage() {
   const dwellSecRequired = isImageUnit
     ? (currentUnit?.minDwellSec ?? LEARNER_SLIDE_DWELL_SEC)
     : LEARNER_SLIDE_DWELL_SEC
+  const activeNarration = isImageUnit ? pickNarrationLang(currentUnit?.narration, i18n.language) : undefined
+
+  // Plays the current page's narration the moment it becomes the active slide (or the
+  // instant its audio finishes generating while already on that slide) — single shared
+  // <audio> element, see useNarrationAudioPlayer for the autoplay-policy handling.
+  useEffect(() => {
+    narrationPlayer.playUrl(activeNarration?.audioUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUnit?.unitId, activeNarration?.audioUrl])
   const savedVideoSec = progressRow?.audioTimeSec ?? 0
   const videoProgressValid =
     videoDurationSec > 0 && savedVideoSec >= videoDurationSec - 2
@@ -654,6 +669,11 @@ export function LearnPage() {
 
   return (
     <div className="bg-slate-50 py-4 sm:py-6">
+      {/* Single persistent element for narration playback — never remounted per slide
+          (see useNarrationAudioPlayer for why that matters on Safari/iOS). Visually
+          hidden; the caption bars below own the visible mute/play affordance. Mute
+          state is set imperatively by the hook, not a React prop — see there for why. */}
+      <audio ref={narrationPlayer.audioRef} className="hidden" />
       <Container className="flex h-[calc(100svh-10rem)] max-h-[calc(100svh-10rem)] min-h-[20rem] flex-col gap-4 sm:h-[calc(100svh-9rem)] sm:max-h-[calc(100svh-9rem)]">
         <div className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -756,14 +776,26 @@ export function LearnPage() {
                 className="h-full w-full min-h-0"
               />
               {isImageUnit ? (
-                <LearnSlideDeckControls
-                  canPrev={slideIndex > 0}
-                  canNext={slideIndex < totalSlides - 1 && canGoNext}
-                  disabled={pptxNavLocked}
-                  onPrev={() => navigateSlide(slideIndex - 1)}
-                  onNext={() => navigateSlide(slideIndex + 1)}
-                  onFullscreen={() => setSlideFullscreen(true)}
-                />
+                <>
+                  {activeNarration?.text ? (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-14 z-20 px-3 sm:bottom-16">
+                      <NarrationCaptionBar
+                        text={activeNarration.text}
+                        muted={narrationPlayer.muted}
+                        playing={narrationPlayer.playing}
+                        onToggleMute={() => (narrationPlayer.muted ? narrationPlayer.unmute() : narrationPlayer.mute())}
+                      />
+                    </div>
+                  ) : null}
+                  <LearnSlideDeckControls
+                    canPrev={slideIndex > 0}
+                    canNext={slideIndex < totalSlides - 1 && canGoNext}
+                    disabled={pptxNavLocked}
+                    onPrev={() => navigateSlide(slideIndex - 1)}
+                    onNext={() => navigateSlide(slideIndex + 1)}
+                    onFullscreen={() => setSlideFullscreen(true)}
+                  />
+                </>
               ) : null}
             </motion.div>
           </div>
@@ -865,6 +897,16 @@ export function LearnPage() {
                 onPptxSlideAspect={setDeckAspect}
                 className="h-full w-full min-h-0"
               />
+              {activeNarration?.text ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-14 z-20 px-3 sm:bottom-16">
+                  <NarrationCaptionBar
+                    text={activeNarration.text}
+                    muted={narrationPlayer.muted}
+                    playing={narrationPlayer.playing}
+                    onToggleMute={() => (narrationPlayer.muted ? narrationPlayer.unmute() : narrationPlayer.mute())}
+                  />
+                </div>
+              ) : null}
               <LearnSlideDeckControls
                 canPrev={slideIndex > 0}
                 canNext={slideIndex < totalSlides - 1 && canGoNext}
