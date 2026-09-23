@@ -144,20 +144,17 @@ export function buildLearnerUnits(slides: CourseSlide[]): LearnerUnit[] {
           // Stale narration (source page image changed since generation) isn't shown —
           // same sourceUrl fingerprint check CourseNarrationService uses server-side.
           const freshNarration = narrationEntry?.sourceUrl === pageUrl ? narrationEntry : undefined
-          const narrationDurations = freshNarration
-            ? Object.values(freshNarration.lang).map((l) => l.durationSec ?? 0)
-            : []
-          const maxNarrationDurationSec = narrationDurations.length ? Math.max(...narrationDurations) : 0
           units.push({
             unitId: `${slide.id}-p${i}`,
             sourceSlideId: slide.id,
             kind: 'image',
             url: pageUrl,
             title: slide.title ?? slide.fileName,
-            // Data-driven extension of the per-unit dwell override: ready narration audio
-            // can't be cut off by "Next" unlocking before it finishes playing. The dwell
-            // GATING mechanism itself is unchanged — only its per-unit input value.
-            minDwellSec: Math.max(LEARNER_SLIDE_DWELL_SEC, maxNarrationDurationSec),
+            // Base dwell only. LearnPage unlocks Next when the active language's
+            // narration audio actually ends (or after this floor when there is no audio).
+            // Do not stretch with max(duration across languages) — that left Next stuck
+            // after the playing clip finished when another language was longer.
+            minDwellSec: LEARNER_SLIDE_DWELL_SEC,
             narration: freshNarration,
           })
           // Insert-after video immediately following this page
@@ -194,7 +191,13 @@ export function learnerUnitToSlide(unit: LearnerUnit): CourseSlide {
   }
 }
 
-export type ActiveNarration = { lang: string; text?: string; audioUrl?: string }
+export type ActiveNarration = {
+  lang: string
+  text?: string
+  audioUrl?: string
+  /** Probed length of this language's clip — LearnPage fallback if `ended` never fires. */
+  durationSec?: number
+}
 
 /** Prefers the current UI language's ready narration; falls back to English if that
  *  language isn't ready yet, so learners see/hear something instead of nothing while a
@@ -207,11 +210,21 @@ export function pickNarrationLang(
   if (!narration) return undefined
   const preferred = narration.lang[preferredLang]
   if (preferred?.status === 'ready') {
-    return { lang: preferredLang, text: preferred.text, audioUrl: preferred.audioUrl }
+    return {
+      lang: preferredLang,
+      text: preferred.text,
+      audioUrl: preferred.audioUrl,
+      durationSec: preferred.durationSec,
+    }
   }
   const fallback = narration.lang.en
   if (preferredLang !== 'en' && fallback?.status === 'ready') {
-    return { lang: 'en', text: fallback.text, audioUrl: fallback.audioUrl }
+    return {
+      lang: 'en',
+      text: fallback.text,
+      audioUrl: fallback.audioUrl,
+      durationSec: fallback.durationSec,
+    }
   }
   const anyText = preferred?.text ?? fallback?.text
   return anyText ? { lang: preferredLang, text: anyText, audioUrl: undefined } : undefined

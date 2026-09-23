@@ -42,7 +42,15 @@ export function useNarrationAudioPlayer() {
     const onPause = () => setPlaying(false)
     const onTimeUpdate = () => {
       if (audio.duration > 0 && Number.isFinite(audio.duration)) {
-        setProgressPct(Math.min(100, Math.round((audio.currentTime / audio.duration) * 100)))
+        const pct = Math.min(100, Math.round((audio.currentTime / audio.duration) * 100))
+        setProgressPct(pct)
+        // Some browsers stall near EOF without firing `ended`, which left Next stuck
+        // after the learner had already heard the full clip.
+        if (audio.currentTime >= audio.duration - 0.35) {
+          setPlaying(false)
+          setEnded(true)
+          setProgressPct(100)
+        }
       }
     }
     audio.addEventListener('ended', onEnded)
@@ -69,6 +77,9 @@ export function useNarrationAudioPlayer() {
     currentUrlRef.current = url
     if (!url) {
       audio.removeAttribute('src')
+      // Nothing to wait for — treat as complete so LearnPage does not gate Next.
+      setEnded(true)
+      setProgressPct(100)
       return
     }
     audio.src = resolveMediaUrl(url)
