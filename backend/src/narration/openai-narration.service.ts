@@ -11,6 +11,8 @@ import { NarrationRateLimiterService } from './narration-rate-limiter.service'
 
 export type NarrationTextResult = {
   titleOnly: boolean
+  /** How dense the slide content is — drives caption length (and thus TTS length). */
+  detailLevel: NarrationDetailLevel
   texts: Record<string, string>
 }
 
@@ -19,16 +21,32 @@ export type NarrationAudioResult = {
   durationSec: number
 }
 
-/** ~15s of natural speech at ~2.5 words/sec — ties the cap to LEARNER_SLIDE_DWELL_SEC
- *  instead of an arbitrary "2-3 lines" nobody can verify against the actual data.
- *  OpenAI Structured Outputs (strict mode) does not support minLength/maxLength on
- *  string properties, so this is enforced in code, not the JSON schema. */
-const MAX_CAPTION_CHARS = 240
+export type NarrationDetailLevel = 'title' | 'brief' | 'standard' | 'detailed'
+
+/**
+ * Soft ceilings per content density (~2.5 words/sec spoken).
+ * OpenAI Structured Outputs (strict mode) does not support minLength/maxLength on
+ * string properties, so length is enforced in code after the model responds.
+ *
+ * - title: section divider / heading only (~few seconds)
+ * - brief: light slide, few bullets (~15s)
+ * - standard: normal instructional page (~30–40s)
+ * - detailed: dense text, multi-bullet, diagrams with callouts (~60–75s)
+ */
+const CAPTION_CHAR_LIMITS: Record<NarrationDetailLevel, number> = {
+  title: 60,
+  brief: 280,
+  standard: 560,
+  detailed: 1100,
+}
+
+/** Default when detailLevel is missing/unknown. */
+const DEFAULT_CAPTION_CHARS = CAPTION_CHAR_LIMITS.standard
 /** A titleOnly=true page's spoken text should be a short heading, never a full sentence —
  *  used as a code-level backstop against the model mis-flagging a real content page. */
-const TITLE_ONLY_MAX_CHARS = 60
+const TITLE_ONLY_MAX_CHARS = CAPTION_CHAR_LIMITS.title
 
-export function capNarrationText(raw: string, maxChars = MAX_CAPTION_CHARS): string {
+export function capNarrationText(raw: string, maxChars = DEFAULT_CAPTION_CHARS): string {
   const text = (raw ?? '').trim().replace(/\s+/g, ' ')
   if (text.length <= maxChars) return text
   const truncated = text.slice(0, maxChars)
@@ -39,6 +57,18 @@ export function capNarrationText(raw: string, maxChars = MAX_CAPTION_CHARS): str
   )
   const cut = lastBreak > maxChars * 0.4 ? truncated.slice(0, lastBreak + 1) : truncated
   return cut.trim()
+}
+
+function parseDetailLevel(raw: unknown, titleOnlyFlag: boolean, longestText: number): NarrationDetailLevel {
+  const allowed: NarrationDetailLevel[] = ['title', 'brief', 'standard', 'detailed']
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  let level = (allowed.includes(value as NarrationDetailLevel) ? value : 'standard') as NarrationDetailLevel
+  // Safety: don't trust titleOnly / title when the model actually wrote a long explanation.
+  if ((titleOnlyFlag || level === 'title') && longestText > TITLE_ONLY_MAX_CHARS) {
+    level = longestText > CAPTION_CHAR_LIMITS.standard ? 'detailed' : 'standard'
+  }
+  if (titleOnlyFlag && longestText <= TITLE_ONLY_MAX_CHARS) return 'title'
+  return level
 }
 
 @Injectable()
@@ -102,6 +132,15 @@ export class OpenAiNarrationService {
             'true ONLY if the page contains solely a heading/title/section-divider with no body ' +
             'paragraphs, bullet content, diagram callouts, or instructional text requiring explanation.',
         },
+        detailLevel: {
+          type: 'string',
+          enum: ['title', 'brief', 'standard', 'detailed'],
+          description:
+            'How much instructional content is on the slide. Use "detailed" when there are long ' +
+            'paragraphs, many bullets, tables, multi-step procedures, or dense diagrams that need ' +
+            'a thorough spoken explanation. Use "brief" for a light slide with little text. ' +
+            'Use "standard" for a typical training page. Use "title" only for section dividers.',
+        },
         texts: {
           type: 'object',
           additionalProperties: false,
@@ -109,7 +148,7 @@ export class OpenAiNarrationService {
           required: languages,
         },
       },
-      required: ['titleOnly', 'texts'],
+      required: ['titleOnly', 'detailLevel', 'texts'],
     }
 
     return withRetries(
@@ -125,19 +164,32 @@ export class OpenAiNarrationService {
               {
                 role: 'system',
                 content:
-                  'You caption training-course slide images for a workplace safety e-learning platform. ' +
-                  'For each requested language, write 2-3 short, natural sentences describing what the ' +
-                  'learner should take away from this slide — write each language independently as if ' +
-                  "composed natively in it; do NOT produce a literal translation of another language's text. " +
-                  'If, and only if, the slide is a section-divider containing nothing but a title/heading ' +
-                  "with no body content, set titleOnly=true and make each language's text just that title " +
-                  'spoken naturally (a few words) — do not pad it into full sentences. Every language must ' +
-                  'get real, non-empty text — never leave a language blank.',
+                  'You write spoken narration scripts for workplace safety e-learning slides. ' +
+                  'Look carefully at how much text and instructional content is on the image, then ' +
+                  'set detailLevel and write matching-length narration for EVERY target language.\n\n' +
+                  'Length rules (apply the SAME depth in each language — do not shorten one language):\n' +
+                  '- title: section divider / heading only → a few spoken words (the title).\n' +
+                  '- brief: little text (1–3 short bullets or a simple graphic) → 2 short sentences.\n' +
+                  '- standard: normal training page → 3–5 clear sentences covering the main points.\n' +
+                  '- detailed: long paragraphs, many bullets, tables, multi-step procedures, or dense ' +
+                  'diagrams → a thorough explanation (about 8–14 sentences). Walk through the key ' +
+                  'points in order, explain what learners must remember, and do NOT compress away ' +
+                  'important requirements, warnings, or steps that appear on the slide.\n\n' +
+                  'Write each language independently as if composed natively in it; do NOT produce a ' +
+                  "literal translation of another language's text. Prefer clarity for audio narration " +
+                  '(complete sentences, natural spoken flow). Every language must get real, non-empty ' +
+                  'text — never leave a language blank. If titleOnly=true, detailLevel must be "title" ' +
+                  'and each language is just the spoken title (a few words), not padded sentences.',
               },
               {
                 role: 'user',
                 content: [
-                  { type: 'text', text: `Caption this slide. Target languages: ${languages.join(', ')}.` },
+                  {
+                    type: 'text',
+                    text:
+                      `Write narration for this slide. Target languages: ${languages.join(', ')}. ` +
+                      'Match explanation length to how detailed the slide content is.',
+                  },
                   { type: 'image_url', image_url: { url: dataUrl } },
                 ],
               },
@@ -146,22 +198,34 @@ export class OpenAiNarrationService {
               type: 'json_schema',
               json_schema: { name: 'slide_caption', strict: true, schema },
             },
-            max_tokens: 900,
+            // Bilingual detailed captions need more headroom than short 2–3 sentence ones.
+            max_tokens: 2800,
           })
 
           const raw = completion.choices[0]?.message?.content
           if (!raw) throw new Error('OpenAI returned an empty caption response')
 
-          let parsed: { titleOnly?: boolean; texts?: Record<string, string> }
+          let parsed: {
+            titleOnly?: boolean
+            detailLevel?: string
+            texts?: Record<string, string>
+          }
           try {
             parsed = JSON.parse(raw) as typeof parsed
           } catch {
             throw new Error('OpenAI returned malformed JSON for slide caption')
           }
 
+          const longestRaw = Math.max(
+            0,
+            ...languages.map((lang) => String(parsed.texts?.[lang] ?? '').trim().length),
+          )
+          const detailLevel = parseDetailLevel(parsed.detailLevel, Boolean(parsed.titleOnly), longestRaw)
+          const maxChars = CAPTION_CHAR_LIMITS[detailLevel]
+
           const texts: Record<string, string> = {}
           for (const lang of languages) {
-            texts[lang] = capNarrationText(String(parsed.texts?.[lang] ?? ''))
+            texts[lang] = capNarrationText(String(parsed.texts?.[lang] ?? ''), maxChars)
           }
 
           // Strict-mode schema can't enforce minLength, so an empty string per language is
@@ -180,9 +244,9 @@ export class OpenAiNarrationService {
           // as a full content page. The reverse (long text on a real title page) just reads a
           // few extra words aloud — safe direction to err in.
           const longestText = Math.max(0, ...Object.values(texts).map((t) => t.length))
-          const titleOnly = Boolean(parsed.titleOnly) && longestText <= TITLE_ONLY_MAX_CHARS
+          const titleOnly = detailLevel === 'title' && longestText <= TITLE_ONLY_MAX_CHARS
 
-          return { titleOnly, texts }
+          return { titleOnly, detailLevel, texts }
         }),
       {
         attempts: 4,

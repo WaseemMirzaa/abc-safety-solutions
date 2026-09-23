@@ -42,7 +42,7 @@ With no `OPENAI_API_KEY` set, narration silently no-ops — courses still work, 
 ## 4. Flow
 
 1. Admin uploads a PDF/PPTX and saves the course.
-2. The server renders it to page images, then — in the background, independent of the admin's browser — calls OpenAI's Vision API for a 2-3 sentence caption per page in each language configured in `NARRATION_LANGUAGES`, then TTS for the matching audio.
+2. The server renders it to page images, then — in the background, independent of the admin's browser — calls OpenAI's Vision API for a narration script per page in each language configured in `NARRATION_LANGUAGES` (length scales with how detailed the slide is: brief ≈ 2 sentences, standard ≈ 3–5, dense slides ≈ 8–14), then TTS for the matching audio.
 3. Progress is visible live under Admin → Courses → edit → the narration panel; it keeps running even if the admin closes the dialog, and resumes automatically after a server restart.
 4. Admin can hand-edit any page's caption — saving regenerates just that page+language's audio.
 5. Learners see the caption and hear the matching-language audio as each slide opens, in whichever language the site UI is currently set to.
