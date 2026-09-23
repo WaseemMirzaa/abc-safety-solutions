@@ -349,6 +349,8 @@
   "ui_learn_narration_progress": "Progreso del audio de narración",
   "ui_learn_listen_to_continue": "Escuche la narración completa para continuar",
   "ui_learn_language": "Idioma",
+  "ui_learn_auto_advance": "Avance automático",
+  "ui_learn_auto_advance_hint": "Si está activado, la siguiente diapositiva se abre al terminar la narración",
   "catalog_cat_ohs_name": "Salud y seguridad ocupacional",
   "catalog_cat_ohs_cert": "Programa de salud y seguridad ocupacional completado conforme a las normas de seguridad laboral aplicables.",
   "catalog_cat_dot_name": "Departamento de Transporte (DOT)",

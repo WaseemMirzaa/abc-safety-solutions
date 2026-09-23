@@ -12,6 +12,11 @@ import { LearnSlideDeckControls } from '@/components/learn/LearnSlideDeckControl
 import { LearnSlideChrome } from '@/components/learn/LearnSlideChrome'
 import { NarrationCaptionBar } from '@/components/learn/NarrationCaptionBar'
 import { LanguageToggle } from '@/components/learn/LanguageToggle'
+import {
+  AutoAdvanceToggle,
+  readAutoAdvancePref,
+  writeAutoAdvancePref,
+} from '@/components/learn/AutoAdvanceToggle'
 import { useNarrationAudioPlayer } from '@/hooks/useNarrationAudioPlayer'
 import {
   fetchCategories,
@@ -141,6 +146,8 @@ export function LearnPage() {
   // is in this set, revisiting it via Previous never re-gates Next on a full re-listen.
   const [audioCompletedUnits, setAudioCompletedUnits] = useState<Set<string>>(() => new Set())
   const [completedVideoUnits, setCompletedVideoUnits] = useState<Set<string>>(() => new Set())
+  /** Off by default — unlock Next when audio ends; only auto-move if the learner turns this on. */
+  const [autoAdvance, setAutoAdvance] = useState(() => readAutoAdvancePref())
   const videoSecRef = useRef(0)
 
   const learnerUnits: LearnerUnit[] = useMemo(
@@ -226,20 +233,27 @@ export function LearnPage() {
     })
   }
 
-  // Mandatory-listen auto-advance: once the current slide's narration audio plays to
-  // completion, mark it done and move to the next slide automatically — no button press
-  // required. No-ops for slides with no narration audio (nothing to gate on) and for
-  // slides already marked complete (prevents re-firing every render once `ended` is true).
+  // When narration finishes: unlock Next (mark unit complete). Optionally auto-advance
+  // if the learner turned that toggle on — default is manual Next only.
   useEffect(() => {
     if (!isImageUnit || !currentUnit || !activeNarration?.audioUrl) return
     if (!narrationPlayer.ended) return
     if (audioCompletedUnits.has(currentUnit.unitId)) return
     setAudioCompletedUnits((prev) => new Set(prev).add(currentUnit.unitId))
-    if (slideIndex < totalSlides - 1) {
+    if (autoAdvance && slideIndex < totalSlides - 1) {
       navigateSlide(slideIndex + 1, { force: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [narrationPlayer.ended, isImageUnit, currentUnit?.unitId, activeNarration?.audioUrl, audioCompletedUnits, slideIndex, totalSlides])
+  }, [
+    narrationPlayer.ended,
+    isImageUnit,
+    currentUnit?.unitId,
+    activeNarration?.audioUrl,
+    audioCompletedUnits,
+    slideIndex,
+    totalSlides,
+    autoAdvance,
+  ])
 
   useEffect(() => {
     if (totalSlides < 1) return
@@ -722,7 +736,14 @@ export function LearnPage() {
               </p>
             ) : null}
           </div>
-          <div className="flex shrink-0 items-center gap-3 sm:pt-1">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 sm:pt-1">
+            <AutoAdvanceToggle
+              enabled={autoAdvance}
+              onChange={(next) => {
+                setAutoAdvance(next)
+                writeAutoAdvancePref(next)
+              }}
+            />
             <LanguageToggle />
             <Link
               to="/my-courses"
