@@ -13,9 +13,16 @@ import { resolveMediaUrl } from '@/lib/mediaUrl'
  * Starts muted (universally permitted autoplay everywhere) with a visible unmute
  * affordance; the first unmute click is a real gesture, synchronously unmuting +
  * playing on the already-loaded element, which is what "spends" the unlock.
+ *
+ * IMPORTANT: listeners are bound via a callback ref when `<audio>` actually mounts.
+ * LearnPage often early-returns (loading / knowledge check) before the element exists —
+ * a mount-only `useEffect([])` would see `audioRef.current === null` and never attach
+ * `ended`/`timeupdate`, leaving Next stuck until a refresh hydrates progress.
  */
 export function useNarrationAudioPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  /** Bumps when the <audio> node mounts/unmounts so we (re)bind listeners. */
+  const [audioEpoch, setAudioEpoch] = useState(0)
   const [muted, setMuted] = useState(true)
   const [playing, setPlaying] = useState(false)
   // True once the currently-loaded clip has played to its natural end (native `ended`
@@ -26,31 +33,65 @@ export function useNarrationAudioPlayer() {
   // that replaces the old fixed-duration dwell timer.
   const [progressPct, setProgressPct] = useState(0)
   const currentUrlRef = useRef<string | undefined>(undefined)
+  const mutedRef = useRef(true)
+
+  const startClip = useCallback((audio: HTMLAudioElement, url: string | undefined) => {
+    audio.pause()
+    audio.currentTime = 0
+    setPlaying(false)
+    setEnded(false)
+    setProgressPct(0)
+    currentUrlRef.current = url
+    if (!url) {
+      audio.removeAttribute('src')
+      setEnded(true)
+      setProgressPct(100)
+      return
+    }
+    audio.src = resolveMediaUrl(url)
+    audio.load()
+    audio
+      .play()
+      .then(() => setPlaying(true))
+      .catch(() => setPlaying(false))
+  }, [])
+
+  const setAudioNode = useCallback(
+    (el: HTMLAudioElement | null) => {
+      audioRef.current = el
+      setAudioEpoch((n) => n + 1)
+      // If LearnPage asked to play before <audio> existed, start now.
+      if (el && currentUrlRef.current) {
+        startClip(el, currentUrlRef.current)
+      }
+    },
+    [startClip],
+  )
+
+  useEffect(() => {
+    mutedRef.current = muted
+  }, [muted])
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-    // Set once, imperatively, on mount — deliberately NOT a React `muted` prop on the
-    // <audio> element. A declarative prop would be re-asserted on every re-render and
-    // fight the imperative `audio.muted = false` that unmute() performs afterward.
-    audio.muted = true
-    const onEnded = () => {
+
+    // Imperative mute — do not use a React `muted` prop (re-renders would fight unmute()).
+    audio.muted = mutedRef.current
+
+    const markComplete = () => {
       setPlaying(false)
       setEnded(true)
       setProgressPct(100)
     }
+    const onEnded = () => markComplete()
     const onPause = () => setPlaying(false)
     const onTimeUpdate = () => {
       if (audio.duration > 0 && Number.isFinite(audio.duration)) {
         const pct = Math.min(100, Math.round((audio.currentTime / audio.duration) * 100))
         setProgressPct(pct)
-        // Some browsers stall near EOF without firing `ended`, which left Next stuck
-        // after the learner had already heard the full clip.
-        if (audio.currentTime >= audio.duration - 0.35) {
-          setPlaying(false)
-          setEnded(true)
-          setProgressPct(100)
-        }
+        // Some browsers stall near EOF without firing `ended`.
+        if (audio.currentTime >= audio.duration - 0.35) markComplete()
       }
     }
     audio.addEventListener('ended', onEnded)
@@ -61,57 +102,48 @@ export function useNarrationAudioPlayer() {
       audio.removeEventListener('pause', onPause)
       audio.removeEventListener('timeupdate', onTimeUpdate)
     }
-  }, [])
+  }, [audioEpoch])
 
   /** Call when the active slide/language changes. Stops any current clip first (before
    *  swapping src, so a stale clip never audibly overlaps the new one), then loads and
    *  attempts to play the new one at the current mute state. */
-  const playUrl = useCallback((url: string | undefined) => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.pause()
-    audio.currentTime = 0
-    setPlaying(false)
-    setEnded(false)
-    setProgressPct(0)
-    currentUrlRef.current = url
-    if (!url) {
-      audio.removeAttribute('src')
-      // Nothing to wait for — treat as complete so LearnPage does not gate Next.
-      setEnded(true)
-      setProgressPct(100)
-      return
-    }
-    audio.src = resolveMediaUrl(url)
-    audio.load()
-    audio
-      .play()
-      .then(() => setPlaying(true))
-      .catch(() => setPlaying(false)) // autoplay blocked (still muted, or no prior gesture) — fine, unmute button covers it
-  }, [])
+  const playUrl = useCallback(
+    (url: string | undefined) => {
+      currentUrlRef.current = url
+      const audio = audioRef.current
+      if (!audio) {
+        // Element not mounted yet (loading shell / knowledge check). Remember the URL;
+        // setAudioNode will start it when <audio> appears. Without audio there is nothing
+        // to wait on — leave ended false until mount so we don't unlock Next early.
+        setPlaying(false)
+        setEnded(!url)
+        setProgressPct(url ? 0 : 100)
+        return
+      }
+      startClip(audio, url)
+    },
+    [startClip],
+  )
 
   /** The unmute button's click handler IS the user gesture that unlocks this element
    *  for every subsequent .src swap + .play() call, including on later slides. */
   const unmute = useCallback(() => {
     const audio = audioRef.current
     setMuted(false)
+    mutedRef.current = false
     if (!audio) return
     audio.muted = false
     if (currentUrlRef.current) {
-      audio.currentTime = 0
-      setEnded(false)
-      setProgressPct(0)
-      audio
-        .play()
-        .then(() => setPlaying(true))
-        .catch(() => setPlaying(false))
+      startClip(audio, currentUrlRef.current)
+      audio.muted = false
     }
-  }, [])
+  }, [startClip])
 
   const mute = useCallback(() => {
     setMuted(true)
+    mutedRef.current = true
     if (audioRef.current) audioRef.current.muted = true
   }, [])
 
-  return { audioRef, muted, playing, ended, progressPct, playUrl, unmute, mute }
+  return { audioRef: setAudioNode, muted, playing, ended, progressPct, playUrl, unmute, mute }
 }
