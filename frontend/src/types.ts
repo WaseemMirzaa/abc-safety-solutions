@@ -26,8 +26,8 @@ export type NarrationStatus = 'pending' | 'ready' | 'failed'
 export type SlideNarrationLang = {
   text?: string
   audioUrl?: string
-  /** Seconds of the generated clip — used to stretch the learner's minimum dwell time
-   *  so "Next" can't unlock before narration for this page has finished playing. */
+  /** Seconds of the generated clip — LearnPage unlocks Next when the clip ends;
+   *  this value is only a fallback if the browser never fires `ended`. */
   durationSec?: number
   status: NarrationStatus
   error?: string

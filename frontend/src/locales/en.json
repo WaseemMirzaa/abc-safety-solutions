@@ -351,6 +351,8 @@
   "ui_learn_language": "Language",
   "ui_learn_language_en": "English",
   "ui_learn_language_es": "Español",
+  "ui_learn_auto_advance": "Auto-advance",
+  "ui_learn_auto_advance_hint": "When on, the next slide opens automatically after narration ends",
   "catalog_cat_ohs_name": "Occupational Health & Safety",
   "catalog_cat_ohs_cert": "Occupational health & safety training program completed in accordance with applicable workplace safety standards.",
   "catalog_cat_dot_name": "Department of Transportation (DOT)",
