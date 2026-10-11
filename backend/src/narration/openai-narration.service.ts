@@ -19,14 +19,16 @@ export type NarrationAudioResult = {
   durationSec: number
 }
 
-/** ~15s of natural speech at ~2.5 words/sec — ties the cap to LEARNER_SLIDE_DWELL_SEC
- *  instead of an arbitrary "2-3 lines" nobody can verify against the actual data.
+/** Normal (non-title) slides: target 3-4 descriptive sentences — enough to actually
+ *  describe a diagram/bullet list/photo, not just a one-line takeaway. No longer tied to
+ *  the old 15s dwell timer (removed — Next is now gated on the audio finishing, not a
+ *  fixed window), so this is sized for content, not a clock.
  *  OpenAI Structured Outputs (strict mode) does not support minLength/maxLength on
  *  string properties, so this is enforced in code, not the JSON schema. */
-const MAX_CAPTION_CHARS = 240
-/** A titleOnly=true page's spoken text should be a short heading, never a full sentence —
+const MAX_CAPTION_CHARS = 550
+/** A titleOnly=true page's spoken text should be ONE short line, never a full sentence —
  *  used as a code-level backstop against the model mis-flagging a real content page. */
-const TITLE_ONLY_MAX_CHARS = 60
+const TITLE_ONLY_MAX_CHARS = 70
 
 export function capNarrationText(raw: string, maxChars = MAX_CAPTION_CHARS): string {
   const text = (raw ?? '').trim().replace(/\s+/g, ' ')
@@ -100,7 +102,8 @@ export class OpenAiNarrationService {
           type: 'boolean',
           description:
             'true ONLY if the page contains solely a heading/title/section-divider with no body ' +
-            'paragraphs, bullet content, diagram callouts, or instructional text requiring explanation.',
+            'paragraphs, bullet content, diagram callouts, or instructional text requiring explanation. ' +
+            'When true, each texts.<lang> must be ONE short spoken line, not a sentence.',
         },
         texts: {
           type: 'object',
@@ -126,13 +129,20 @@ export class OpenAiNarrationService {
                 role: 'system',
                 content:
                   'You caption training-course slide images for a workplace safety e-learning platform. ' +
-                  'For each requested language, write 2-3 short, natural sentences describing what the ' +
-                  'learner should take away from this slide — write each language independently as if ' +
-                  "composed natively in it; do NOT produce a literal translation of another language's text. " +
-                  'If, and only if, the slide is a section-divider containing nothing but a title/heading ' +
-                  "with no body content, set titleOnly=true and make each language's text just that title " +
-                  'spoken naturally (a few words) — do not pad it into full sentences. Every language must ' +
-                  'get real, non-empty text — never leave a language blank.',
+                  'There are two cases, and you must pick the right one:\n\n' +
+                  '1. TITLE/DIVIDER SLIDE — the slide contains ONLY a heading, section title, or divider, ' +
+                  'with no body text, bullets, diagram, photo, or instructional content. Set titleOnly=true ' +
+                  'and write, for each language, exactly ONE short spoken line — a natural reading of the ' +
+                  'title in a few words. Never a full sentence, never padded.\n\n' +
+                  '2. NORMAL CONTENT SLIDE — anything with body text, bullet points, a diagram, a photo, ' +
+                  'numbers/stats, or instructions. Set titleOnly=false and write, for each language, 3-4 ' +
+                  'descriptive sentences that explain what is actually ON the slide: describe the specific ' +
+                  'visual content — what a diagram or photo depicts, what the bullet points say, any ' +
+                  'numbers, warnings, or callouts — in enough detail that a learner who cannot see the slide ' +
+                  'still understands everything on it. Do not just restate a vague "key takeaway."\n\n' +
+                  'Write each language independently as if composed natively in it; do NOT produce a ' +
+                  "literal translation of another language's text. Every language must get real, " +
+                  'non-empty text — never leave a language blank.',
               },
               {
                 role: 'user',
@@ -146,7 +156,7 @@ export class OpenAiNarrationService {
               type: 'json_schema',
               json_schema: { name: 'slide_caption', strict: true, schema },
             },
-            max_tokens: 900,
+            max_tokens: 1300,
           })
 
           const raw = completion.choices[0]?.message?.content
